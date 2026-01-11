@@ -11,3 +11,5 @@ wheels/
 
 # Project specific
 .idea
+benign_sources/x64
+benign_sources/x86
