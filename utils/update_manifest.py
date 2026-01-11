@@ -4,9 +4,10 @@ import datetime
 import re
 from pathlib import Path
 
-MANIFEST_PATH = Path("../manifest/packer_corpus.yaml")
-PYPROJECT_PATH = Path("../pyproject.toml")
-
+SCRIPT_DIR = Path(__file__).resolve().parent
+PROJECT_ROOT = SCRIPT_DIR.parent
+MANIFEST_PATH = PROJECT_ROOT / "manifest" / "packer_corpus.yaml"
+PYPROJECT_PATH = PROJECT_ROOT / "pyproject.toml"
 
 def get_git_contributors():
     """Gets unique names of everyone who committed to the repository."""
