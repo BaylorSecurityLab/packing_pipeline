@@ -1,0 +1,56 @@
+version: "0.1.0"
+maintainer: "Unknown (Git not found)"
+last_updated: "2026-01-11"
+
+# ==========================================
+# SECTION 1: PACKER DEFINITIONS (The Source of Truth)
+# Define packers here once. Use '&name' to create a reusable anchor.
+# ==========================================
+definitions:
+  - &upx_v396
+    packer_name: "UPX"
+    version: "3.96"
+    arch_origin: "x86"
+    binary_path: "./01_Packers/UPX/3.96/upx.exe"
+    binary_sha256: "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    source_url: "https://github.com/upx/upx/releases/tag/v3.96"
+    license: "GPL"
+
+  - &mpress_v219
+    packer_name: "MPRESS"
+    version: "2.19"
+    arch_origin: "x86"
+    binary_path: "./01_Packers/MPRESS/2.19/mpress.exe"
+    binary_sha256: "a1b2c3d4..."
+    source_url: "https://www.autohotkey.com/mpress"
+
+# ==========================================
+# SECTION 2: TEST CASES (The Execution Plan)
+# Reference the anchors above using '<<: *anchor_name'
+# ==========================================
+test_cases:
+  # --- UPX Test Group ---
+  - id: "UPX_001_FAST"
+    <<: *upx_v396                 # <--- INHERITS ALL UPX METADATA AUTOMATICALLY
+    command_label: "Fast Compression"
+    cli_template: "{bin} -1 -o {out} {in}"
+    expected_overhead_kb: -100
+    validation:
+      allow_x64_switch: false     # Fail if it switches to 64-bit
+      max_size_mb: 5.0            # Email constraint
+
+  - id: "UPX_002_BEST"
+    <<: *upx_v396                 # <--- INHERITS AGAIN (No Repetition!)
+    command_label: "Max Compression (LZMA)"
+    cli_template: "{bin} --best --lzma -o {out} {in}"
+    expected_overhead_kb: -400
+    validation:
+      allow_x64_switch: false
+      max_size_mb: 5.0
+
+  # --- MPRESS Test Group ---
+  - id: "MPRESS_001_STD"
+    <<: *mpress_v219
+    command_label: "Standard Packing"
+    cli_template: "{bin} -s {in}" # Note: MPRESS often overwrites input, script must handle copy
+    notes: "Warning: MPRESS overwrites file in place."
