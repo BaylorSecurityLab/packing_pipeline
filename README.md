@@ -1,0 +1,2 @@
+uv
+winget

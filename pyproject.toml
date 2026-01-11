@@ -6,6 +6,7 @@ readme = "README.md"
 requires-python = ">=3.13"
 dependencies = [
     "bump-my-version>=1.2.6",
+    "requests>=2.32.5",
 ]
 
 authors = [

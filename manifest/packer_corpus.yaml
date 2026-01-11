@@ -1,5 +1,5 @@
 version: "0.1.0"
-maintainer: "Unknown (Git not found)"
+maintainer: "Banny Orojo"
 last_updated: "2026-01-11"
 
 # ==========================================
@@ -11,15 +11,27 @@ definitions:
     packer_name: "UPX"
     version: "3.96"
     arch_origin: "x86"
+    supported_input_arch: "PE32"
+    supported_output_arch: "PE32"
+    dependencies: [ ]
+    tags: [ "Compression", "OpenSource" ]
     binary_path: "./01_Packers/UPX/3.96/upx.exe"
     binary_sha256: "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
-    source_url: "https://github.com/upx/upx/releases/tag/v3.96"
+    source_url: "https://github.com/upx/upx/releases/tag/v5.1.0"
     license: "GPL"
+    notes: ""
+    size_kb: ""
 
   - &mpress_v219
     packer_name: "MPRESS"
     version: "2.19"
     arch_origin: "x86"
+    supported_input_arch: "PE32"
+    supported_output_arch: "PE32"
+    dependencies: []
+    tags: ["Compression"]
+    notes: "Warning: MPRESS overwrites file in place."
+    size_kb: "120"
     binary_path: "./01_Packers/MPRESS/2.19/mpress.exe"
     binary_sha256: "a1b2c3d4..."
     source_url: "https://www.autohotkey.com/mpress"
@@ -31,26 +43,25 @@ definitions:
 test_cases:
   # --- UPX Test Group ---
   - id: "UPX_001_FAST"
-    <<: *upx_v396                 # <--- INHERITS ALL UPX METADATA AUTOMATICALLY
+    <<: *upx_v396
     command_label: "Fast Compression"
     cli_template: "{bin} -1 -o {out} {in}"
-    expected_overhead_kb: -100
-    validation:
-      allow_x64_switch: false     # Fail if it switches to 64-bit
-      max_size_mb: 5.0            # Email constraint
-
-  - id: "UPX_002_BEST"
-    <<: *upx_v396                 # <--- INHERITS AGAIN (No Repetition!)
-    command_label: "Max Compression (LZMA)"
-    cli_template: "{bin} --best --lzma -o {out} {in}"
-    expected_overhead_kb: -400
     validation:
       allow_x64_switch: false
-      max_size_mb: 5.0
+
+  - id: "UPX_002_BEST"
+    <<: *upx_v396
+    command_label: "Max Compression (LZMA)"
+    cli_template: "{bin} --best --lzma -o {out} {in}"
+    validation:
+      allow_x64_switch: false
+
 
   # --- MPRESS Test Group ---
   - id: "MPRESS_001_STD"
     <<: *mpress_v219
     command_label: "Standard Packing"
-    cli_template: "{bin} -s {in}" # Note: MPRESS often overwrites input, script must handle copy
+    cli_template: "{bin} -s {in}"
     notes: "Warning: MPRESS overwrites file in place."
+    validation:
+      allow_x64_switch: false
