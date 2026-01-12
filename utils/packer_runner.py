@@ -92,11 +92,12 @@ def run_packing(packer_name_input):
                 print(f"    [.] Skipping {filename} (already exists)")
                 pass
 
-            cmd_str = cmd_template.format(
-                bin=f'"{packer_bin}"',
-                in_=f'"{os.path.abspath(src_path)}"',
-                out=f'"{os.path.abspath(dst_path)}"'
-            )
+            cmd_args = {
+                "bin": f'"{packer_bin}"',
+                "in": f'"{os.path.abspath(src_path)}"',
+                "out": f'"{os.path.abspath(dst_path)}"'
+            }
+            cmd_str = cmd_template.format(**cmd_args)
 
 
             try:
