@@ -13,5 +13,8 @@
     "AdGuard.AdGuard",
     "AdGuard.AdGuardHome",
     "Adobe.Acrobat.Reader.32-bit",
-    "Adobe.AdobeConnect"
+    "Adobe.AdobeConnect",
+    "AdoptOpenJDK.OpenJDK.16",
+    "AdoptOpenJDK.OpenJDK.17",
+    "AdoptOpenJDK.OpenJDK.8"
 ]

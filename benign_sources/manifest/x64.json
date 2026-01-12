@@ -19,5 +19,15 @@
     "Admobilize.admprovider",
     "Adobe.Acrobat.Reader.64-bit",
     "Adobe.AdobeConnect",
-    "Adobe.Brackets"
+    "Adobe.Brackets",
+    "Adobe.Cryptr",
+    "Adobe.DNGConverter",
+    "AdoptOpenJDK.OpenJDK.11",
+    "AdoptOpenJDK.OpenJDK.14",
+    "AdoptOpenJDK.OpenJDK.15",
+    "AdoptOpenJDK.OpenJDK.16",
+    "AdoptOpenJDK.OpenJDK.17",
+    "AdoptOpenJDK.OpenJDK.8",
+    "AdrienAllard.FileConverter",
+    "Advice.myADVICE.Auftragsverwaltung"
 ]
