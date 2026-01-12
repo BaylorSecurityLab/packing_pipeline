@@ -4,9 +4,11 @@ import requests
 import time
 import json
 import glob
+import zipfile
+import shutil  # Added for file moving/deleting
 
 # --- CONFIGURATION ---
-LIMIT = 10
+LIMIT = 100
 BASE_DIR = "../benign_sources"
 MANIFEST_DIR = os.path.join(BASE_DIR, "manifest")
 
@@ -17,10 +19,9 @@ FILES = {
     "processed_ids": "processed_ids.json"
 }
 
+
 def load_manifest():
-    """
-    Loads the 3 separate JSON files.
-    """
+    """Loads the 3 separate JSON files."""
     data = {"x64": [], "x86": [], "processed_ids": []}
 
     for key, filename in FILES.items():
@@ -33,7 +34,6 @@ def load_manifest():
                 data[key] = []
         else:
             data[key] = []
-
     return data
 
 
@@ -74,7 +74,6 @@ def fetch_new_packages(manifest_data, target_limit):
                     new_targets_executables.append(p_id)
                     if (len(new_targets_executables) + current_count) >= target_limit:
                         break
-
             page += 1
             time.sleep(0.5)
         except Exception as e:
@@ -85,12 +84,57 @@ def fetch_new_packages(manifest_data, target_limit):
 
 
 def delete_yaml_files(folder):
+    """Removes leftover winget YAML files."""
     yaml_files = glob.glob(os.path.join(folder, "*.yaml"))
     for f in yaml_files:
         try:
             os.remove(f)
         except OSError:
             pass
+
+
+def handle_zips(folder):
+    """
+    Finds .zip files, extracts executables, moves them to the root of 'folder',
+    and deletes the zip and other artifacts.
+    """
+    zip_files = glob.glob(os.path.join(folder, "*.zip"))
+
+    for zip_path in zip_files:
+        try:
+            print(f"   -> Unzipping: {os.path.basename(zip_path)}")
+            # Create a temporary extraction folder
+            temp_extract_dir = os.path.join(folder, "temp_extract_zone")
+            os.makedirs(temp_extract_dir, exist_ok=True)
+
+            # Extract everything
+            with zipfile.ZipFile(zip_path, 'r') as zip_ref:
+                zip_ref.extractall(temp_extract_dir)
+
+            # Walk through the temp folder to find .exe or .msi
+            found_exe = False
+            for root, dirs, files in os.walk(temp_extract_dir):
+                for file in files:
+                    if file.lower().endswith(('.exe', '.msi')):
+                        source = os.path.join(root, file)
+                        # Construct a unique name if needed, or just move it
+                        dest = os.path.join(folder, file)
+
+                        # Move the executable out to the main folder
+                        if not os.path.exists(dest):
+                            shutil.move(source, dest)
+                            found_exe = True
+                            print(f"   -> Extracted: {file}")
+
+            # Cleanup: Delete the zip and the temp folder
+            os.remove(zip_path)
+            shutil.rmtree(temp_extract_dir)
+
+            if not found_exe:
+                print(f"   -> Warning: No .exe/.msi found in {os.path.basename(zip_path)}")
+
+        except Exception as e:
+            print(f"   -> Zip Error: {e}")
 
 
 def download_packages(targets, manifest_data):
@@ -102,6 +146,7 @@ def download_packages(targets, manifest_data):
     for index, app_id in enumerate(targets):
         print(f"[{index + 1}/{len(targets)}] Processing: {app_id}")
 
+        # --- PROCESS x64 ---
         try:
             subprocess.run([
                 "winget", "download", "--id", app_id,
@@ -113,11 +158,14 @@ def download_packages(targets, manifest_data):
 
             if app_id not in manifest_data["x64"]:
                 manifest_data["x64"].append(app_id)
+
             delete_yaml_files(os.path.join(BASE_DIR, "x64"))
+            handle_zips(os.path.join(BASE_DIR, "x64"))
             print(f"   -> [x64] Success")
         except subprocess.CalledProcessError:
             pass
 
+        # --- PROCESS x86 ---
         try:
             subprocess.run([
                 "winget", "download", "--id", app_id,
@@ -129,7 +177,9 @@ def download_packages(targets, manifest_data):
 
             if app_id not in manifest_data["x86"]:
                 manifest_data["x86"].append(app_id)
+
             delete_yaml_files(os.path.join(BASE_DIR, "x86"))
+            handle_zips(os.path.join(BASE_DIR, "x86"))
             print(f"   -> [x86] Success")
         except subprocess.CalledProcessError:
             pass
