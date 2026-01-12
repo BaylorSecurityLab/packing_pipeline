@@ -64,7 +64,24 @@ def run_packing(packer_name_input):
 
     for test_case in selected_tests:
         test_id = test_case['id']
-        packer_bin = os.path.abspath(test_case['binary_path'])
+        # 1. Determine the project root (one folder up from this script)
+        script_dir = os.path.dirname(os.path.abspath(__file__))
+        project_root = os.path.abspath(os.path.join(script_dir, ".."))
+
+        # 2. resolve the binary path relative to the project root
+        raw_bin_path = test_case['binary_path']
+
+        # Remove './' prefix if it exists so os.path.join works cleanly
+        if raw_bin_path.startswith("./"):
+            raw_bin_path = raw_bin_path[2:]
+
+        packer_bin = os.path.join(project_root, raw_bin_path)
+
+        # 3. Verify it actually exists before running
+        if not os.path.exists(packer_bin):
+            print(f"    [!] Error: Packer binary not found at: {packer_bin}")
+            continue
+
         cmd_template = test_case['cli_template']
         supp_arch = test_case.get('supported_input_arch', 'PE32')
         output_dir = os.path.join(PACKED_OUTPUT_DIR, packer_name_input, test_id)
