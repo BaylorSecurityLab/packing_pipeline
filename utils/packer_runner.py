@@ -47,7 +47,7 @@ def get_targets(supported_arch):
     return targets
 
 
-def run_packing(packer_name_input):
+def run_packing(packer_name_input, max_size_kb=0):  # <--- Updated signature
     config = load_yaml(YAML_CONFIG_FILE)
     selected_tests = []
 
@@ -64,23 +64,19 @@ def run_packing(packer_name_input):
 
     for test_case in selected_tests:
         test_id = test_case['id']
-        # 1. Determine the project root (one folder up from this script)
+
+        # --- PATH FIX START (From previous step) ---
         script_dir = os.path.dirname(os.path.abspath(__file__))
         project_root = os.path.abspath(os.path.join(script_dir, ".."))
-
-        # 2. resolve the binary path relative to the project root
         raw_bin_path = test_case['binary_path']
-
-        # Remove './' prefix if it exists so os.path.join works cleanly
         if raw_bin_path.startswith("./"):
             raw_bin_path = raw_bin_path[2:]
-
         packer_bin = os.path.join(project_root, raw_bin_path)
 
-        # 3. Verify it actually exists before running
         if not os.path.exists(packer_bin):
             print(f"    [!] Error: Packer binary not found at: {packer_bin}")
             continue
+        # --- PATH FIX END ---
 
         cmd_template = test_case['cli_template']
         supp_arch = test_case.get('supported_input_arch', 'PE32')
@@ -91,7 +87,7 @@ def run_packing(packer_name_input):
         targets = get_targets(supp_arch)
 
         if not targets:
-            print(f"    [!] No .exe files found in benign sources for {supp_arch}")
+            print(f"    [!] No targets found for {supp_arch}")
             continue
 
         success_count = 0
@@ -99,11 +95,19 @@ def run_packing(packer_name_input):
             filename = os.path.basename(src_path)
             dst_path = os.path.join(output_dir, filename)
 
+            # --- NEW SIZE CHECK ---
+            if max_size_kb > 0:
+                # getsize returns bytes, so divide by 1024
+                file_size_kb = os.path.getsize(src_path) / 1024
+                if file_size_kb > max_size_kb:
+                    print(f"    [.] Skipping {filename} (Too large: {file_size_kb:.1f} KB)")
+                    continue
+            # ----------------------
+
             if os.path.exists(dst_path):
                 print(f"    [.] Skipping {filename} (exists)")
                 continue
 
-            # FIX: Use dictionary unpacking for arguments
             cmd_args = {
                 "bin": f'"{packer_bin}"',
                 "in": f'"{os.path.abspath(src_path)}"',
@@ -112,8 +116,6 @@ def run_packing(packer_name_input):
             cmd_str = cmd_template.format(**cmd_args)
 
             try:
-                # FIX: Removed DEVNULL so we can capture output on error
-                # We use capture_output=True to handle it manually
                 result = subprocess.run(
                     cmd_str,
                     shell=True,
@@ -127,14 +129,10 @@ def run_packing(packer_name_input):
                     success_count += 1
                 else:
                     print(f"    [-] Failed (No Output File): {filename}")
-                    # Print stdout/stderr if file wasn't created, even if exit code was 0
                     if result.stdout: print(f"        Output: {result.stdout.strip()}")
-                    if result.stderr: print(f"        Error: {result.stderr.strip()}")
 
             except subprocess.CalledProcessError as e:
                 print(f"    [x] Error packing {filename}")
-                # FIX: Print the actual error from the packer
-                if e.stdout: print(f"        STDOUT: {e.stdout.strip()}")
                 if e.stderr: print(f"        STDERR: {e.stderr.strip()}")
 
         print(f"    Result: {success_count}/{len(targets)} packed.")
@@ -144,6 +142,9 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Pack benign sources using defined test cases.")
     parser.add_argument("packer_name", type=str, help="The name of the packer to run (e.g., exe32pack)")
 
+    parser.add_argument("--max-size-kb", type=int, default=0,
+                        help="Skip files larger than this size in KB (e.g., 80 for eval versions).")
+
     args = parser.parse_args()
 
-    run_packing(args.packer_name)
+    run_packing(args.packer_name, args.max_size_kb)

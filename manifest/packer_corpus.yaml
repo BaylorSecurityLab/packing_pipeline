@@ -19,7 +19,7 @@ definitions:
     binary_sha256: "e81d42faae9cd704f678d400d71caae0e252ea500c7daf5920ceeb66d039ddf5"
     source_url: "https://exe32pack.apponic.com/download/"
     license: "Shareware"
-    notes: "File command output: MS-DOS executable PE32 executable (console) Intel 80386"
+    notes: "File command output: MS-DOS executable PE32 executable (console) Intel 80386. EVALUATION VERSION LIMIT: Input files must be under 80KB."
     size_kb: "49 KB"
 
 # ==========================================
