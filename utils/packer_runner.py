@@ -27,8 +27,8 @@ def load_yaml(path):
 
 def get_targets(supported_arch):
     """
-    Scans the benign source directories based on the packer's supported architecture.
-    Returns a list of (full_path, filename) tuples.
+    Scans for executables based on arch.
+    Explicitly filters for .exe only to avoid .msi crashes.
     """
     target_folders = ARCH_MAP.get(supported_arch, [])
     if not target_folders:
@@ -41,7 +41,8 @@ def get_targets(supported_arch):
         if os.path.exists(search_path):
             for f in os.listdir(search_path):
                 full_path = os.path.join(search_path, f)
-                if os.path.isfile(full_path) and not f.endswith(".yaml") and not f.endswith(".json"):
+                # FIX: Added check for .exe extension
+                if os.path.isfile(full_path) and f.lower().endswith(".exe"):
                     targets.append(full_path)
     return targets
 
@@ -50,22 +51,17 @@ def run_packing(packer_name_input):
     config = load_yaml(YAML_CONFIG_FILE)
     selected_tests = []
 
-
-    definition_map = {d['packer_name']: d for d in config.get('definitions', [])}
-    print(definition_map)
-
+    # Filter for the requested packer
     for case in config.get('test_cases', []):
         if case.get('packer_name', '').lower() == packer_name_input.lower():
             selected_tests.append(case)
 
     if not selected_tests:
         print(f"[!] No test cases found for packer: '{packer_name_input}'")
-        print("    Available packers in YAML: ", set([tc.get('packer_name') for tc in config.get('test_cases', [])]))
         return
 
     print(f"[*] Found {len(selected_tests)} test cases for '{packer_name_input}'")
 
-    # 2. Iterate through each Test Case
     for test_case in selected_tests:
         test_id = test_case['id']
         packer_bin = os.path.abspath(test_case['binary_path'])
@@ -74,24 +70,23 @@ def run_packing(packer_name_input):
         output_dir = os.path.join(PACKED_OUTPUT_DIR, packer_name_input, test_id)
         os.makedirs(output_dir, exist_ok=True)
 
-        print(f"\n--- Running Case: {test_id} ({test_case['command_label']}) ---")
-        print(f"    Output Dir: {output_dir}")
-
+        print(f"\n--- Running Case: {test_id} ---")
         targets = get_targets(supp_arch)
+
         if not targets:
-            print(f"    [!] No source files found for architecture: {supp_arch}")
+            print(f"    [!] No .exe files found in benign sources for {supp_arch}")
             continue
 
-        # 4. Process each Target
         success_count = 0
         for src_path in targets:
             filename = os.path.basename(src_path)
             dst_path = os.path.join(output_dir, filename)
 
             if os.path.exists(dst_path):
-                print(f"    [.] Skipping {filename} (already exists)")
-                pass
+                print(f"    [.] Skipping {filename} (exists)")
+                continue
 
+            # FIX: Use dictionary unpacking for arguments
             cmd_args = {
                 "bin": f'"{packer_bin}"',
                 "in": f'"{os.path.abspath(src_path)}"',
@@ -99,20 +94,33 @@ def run_packing(packer_name_input):
             }
             cmd_str = cmd_template.format(**cmd_args)
 
-
             try:
-                subprocess.run(cmd_str, shell=True, check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+                # FIX: Removed DEVNULL so we can capture output on error
+                # We use capture_output=True to handle it manually
+                result = subprocess.run(
+                    cmd_str,
+                    shell=True,
+                    check=True,
+                    capture_output=True,
+                    text=True
+                )
 
                 if os.path.exists(dst_path):
                     print(f"    [+] Packed: {filename}")
                     success_count += 1
                 else:
-                    print(f"    [-] Failed (No Output): {filename}")
+                    print(f"    [-] Failed (No Output File): {filename}")
+                    # Print stdout/stderr if file wasn't created, even if exit code was 0
+                    if result.stdout: print(f"        Output: {result.stdout.strip()}")
+                    if result.stderr: print(f"        Error: {result.stderr.strip()}")
 
-            except subprocess.CalledProcessError:
+            except subprocess.CalledProcessError as e:
                 print(f"    [x] Error packing {filename}")
+                # FIX: Print the actual error from the packer
+                if e.stdout: print(f"        STDOUT: {e.stdout.strip()}")
+                if e.stderr: print(f"        STDERR: {e.stderr.strip()}")
 
-        print(f"    Result: {success_count}/{len(targets)} files packed successfully.")
+        print(f"    Result: {success_count}/{len(targets)} packed.")
 
 
 if __name__ == "__main__":
