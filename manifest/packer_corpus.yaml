@@ -7,61 +7,52 @@ last_updated: "2026-01-11"
 # Define packers here once. Use '&name' to create a reusable anchor.
 # ==========================================
 definitions:
-  - &upx_v396
-    packer_name: "UPX"
-    version: "3.96"
-    arch_origin: "x86"
+  - &exe32pack_v142
+    packer_name: "exe32pack"
+    version: "1.42"
+    arch_origin: "x32"
     supported_input_arch: "PE32"
     supported_output_arch: "PE32"
     dependencies: [ ]
-    tags: [ "Compression", "OpenSource" ]
-    binary_path: "./01_Packers/UPX/3.96/upx.exe"
-    binary_sha256: "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
-    source_url: "https://github.com/upx/upx/releases/tag/v5.1.0"
-    license: "GPL"
-    notes: ""
-    size_kb: ""
-
-  - &mpress_v219
-    packer_name: "MPRESS"
-    version: "2.19"
-    arch_origin: "x86"
-    supported_input_arch: "PE32"
-    supported_output_arch: "PE32"
-    dependencies: []
-    tags: ["Compression"]
-    notes: "Warning: MPRESS overwrites file in place."
-    size_kb: "120"
-    binary_path: "./01_Packers/MPRESS/2.19/mpress.exe"
-    binary_sha256: "a1b2c3d4..."
-    source_url: "https://www.autohotkey.com/mpress"
+    tags: [ "Compression", "CLI" ]
+    binary_path: "./packers/exe32pack/exe32pack.exe"
+    binary_sha256: "e81d42faae9cd704f678d400d71caae0e252ea500c7daf5920ceeb66d039ddf5"
+    source_url: "https://exe32pack.apponic.com/download/"
+    license: "Shareware"
+    notes: "File command output: MS-DOS executable PE32 executable (console) Intel 80386"
+    size_kb: "49 KB"
 
 # ==========================================
 # SECTION 2: TEST CASES (The Execution Plan)
 # Reference the anchors above using '<<: *anchor_name'
 # ==========================================
 test_cases:
-  # --- UPX Test Group ---
-  - id: "UPX_001_FAST"
-    <<: *upx_v396
-    command_label: "Fast Compression"
-    cli_template: "{bin} -1 -o {out} {in}"
+  # --- exe32pack Test Group ---
+  - id: "EXE32PACK_001_DEFAULT"
+    <<: *exe32pack_v142
+    command_label: "Default Auto-Compression"
+    # Syntax: exe32pack [opts] <filein> [fileout]
+    cli_template: "{bin} /M:0 {in} {out}"
     validation:
       allow_x64_switch: false
 
-  - id: "UPX_002_BEST"
-    <<: *upx_v396
-    command_label: "Max Compression (LZMA)"
-    cli_template: "{bin} --best --lzma -o {out} {in}"
+  - id: "EXE32PACK_002_MEDIUM"
+    <<: *exe32pack_v142
+    command_label: "Medium Compression (Tiny Overhead)"
+    cli_template: "{bin} /M:1 {in} {out}"
     validation:
       allow_x64_switch: false
 
+  - id: "EXE32PACK_003_TIGHT"
+    <<: *exe32pack_v142
+    command_label: "Tight Compression (Large Overhead)"
+    cli_template: "{bin} /M:2 {in} {out}"
+    validation:
+      allow_x64_switch: false
 
-  # --- MPRESS Test Group ---
-  - id: "MPRESS_001_STD"
-    <<: *mpress_v219
-    command_label: "Standard Packing"
-    cli_template: "{bin} -s {in}"
-    notes: "Warning: MPRESS overwrites file in place."
+  - id: "EXE32PACK_004_REALIGN"
+    <<: *exe32pack_v142
+    command_label: "Realign Only (No Compression)"
+    cli_template: "{bin} /R {in} {out}"
     validation:
       allow_x64_switch: false
