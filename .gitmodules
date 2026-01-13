@@ -1,0 +1,9 @@
+[submodule "benign_sources"]
+	path = benign_sources
+	url = ../inputs.git
+[submodule "packed_sources"]
+	path = packed_sources
+	url = ../outputs.git
+[submodule "packers"]
+	path = packers
+	url = ../tools.git
