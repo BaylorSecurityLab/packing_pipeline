@@ -14,7 +14,7 @@ definitions:
     supported_input_arch: "PE32"
     supported_output_arch: "PE32"
     dependencies: [ ]
-    tags: [ "Compression", "CLI" ]
+    tags: ["CLI" ]
     binary_path: "./packers/exe32pack/exe32pack.exe"
     binary_sha256: "e81d42faae9cd704f678d400d71caae0e252ea500c7daf5920ceeb66d039ddf5"
     source_url: "https://exe32pack.apponic.com/download/"
@@ -26,6 +26,24 @@ definitions:
       - "Large Files: Fails on files with large overlays (like installers/SFX) or files > 80KB due to trial limit."
       - "Automation: Trial version has a 'nag screen' popup that may freeze scripts if no timeout is set."
 
+  - &upx_v510
+    packer_name: "upx"
+    version: "5.1.0"
+    arch_origin: "x64"
+    supported_input_arch: ["PE32", "PE32+"]
+    supported_output_arch: ["PE32", "PE32+"]
+    dependencies: [ ]
+    tags: ["CLI", "Multi-Platform"]
+    binary_path: "./packers/upx/upx.exe"
+    binary_sha256: "41c7492edeed0f7e67d347ca9e8d2131e2af7ca7a7695f92283a8e655c251c13"
+    source_url: "https://github.com/upx/upx/releases/tag/v5.1.0"
+    license: "GPL"
+    notes: "The Ultimate Packer for eXecutables. Handles varied formats (PE, ELF, Mach-O). Supports in-place decompression."
+    size_kb: "652 KB"
+    known_issues:
+      - "Antivirus: Files packed with UPX are frequently flagged as false positives by AV engines."
+      - "Overlays: Default behavior copies overlays, but --overlay=strip might be needed for some specific targets."
+      -
 # ==========================================
 # SECTION 2: TEST CASES (The Execution Plan)
 # Reference the anchors above using '<<: *anchor_name'
@@ -39,6 +57,7 @@ test_cases:
     cli_template: "{bin} /M:0 {in} {out}"
     validation:
       allow_x64_switch: false
+      allow_x86_switch: false
 
   - id: "EXE32PACK_002_MEDIUM"
     <<: *exe32pack_v142
@@ -46,6 +65,7 @@ test_cases:
     cli_template: "{bin} /M:1 {in} {out}"
     validation:
       allow_x64_switch: false
+      allow_x86_switch: false
 
   - id: "EXE32PACK_003_TIGHT"
     <<: *exe32pack_v142
@@ -53,6 +73,7 @@ test_cases:
     cli_template: "{bin} /M:2 {in} {out}"
     validation:
       allow_x64_switch: false
+      allow_x86_switch: false
 
   - id: "EXE32PACK_004_REALIGN"
     <<: *exe32pack_v142
@@ -60,3 +81,132 @@ test_cases:
     cli_template: "{bin} /R {in} {out}"
     validation:
       allow_x64_switch: false
+      allow_x86_switch: false
+
+  # --- UPX Test Group ---
+
+  # 1. Basic Compression Levels
+  - id: "UPX_001_DEFAULT"
+    <<: *upx_v510
+    command_label: "Default Compression"
+    cli_template: "{bin} -o {out} {in}"
+    validation:
+      allow_x64_switch: false
+      allow_x86_switch: false
+
+  - id: "UPX_002_BEST"
+    <<: *upx_v510
+    command_label: "Best Compression (Level 9)"
+    cli_template: "{bin} --best -o {out} {in}"
+    validation:
+      allow_x64_switch: false
+      allow_x86_switch: false
+
+  - id: "UPX_003_FAST"
+    <<: *upx_v510
+    command_label: "Fastest Compression (Level 1)"
+    cli_template: "{bin} -1 -o {out} {in}"
+    validation:
+      allow_x64_switch: false
+      allow_x86_switch: false
+
+  # 2. Compression Algorithms & Tuning
+  - id: "UPX_004_LZMA"
+    <<: *upx_v510
+    command_label: "Force LZMA Algorithm"
+    cli_template: "{bin} --lzma -o {out} {in}"
+    validation:
+      allow_x64_switch: false
+      allow_x86_switch: false
+
+  - id: "UPX_005_BRUTE"
+    <<: *upx_v510
+    command_label: "Brute Force"
+    cli_template: "{bin} --brute -o {out} {in}"
+    validation:
+      allow_x64_switch: false
+      allow_x86_switch: false
+
+  - id: "UPX_006_ULTRA_BRUTE"
+    <<: *upx_v510
+    command_label: "Ultra Brute"
+    cli_template: "{bin} --ultra-brute -o {out} {in}"
+    validation:
+      allow_x64_switch: false
+      allow_x86_switch: false
+
+  # 3. PE Structure Options (Relocations)
+  - id: "UPX_007_PE_STRIP_RELOCS"
+    <<: *upx_v510
+    command_label: "Strip Relocations (Default)"
+    cli_template: "{bin} --strip-relocs=1 -o {out} {in}"
+    validation:
+      allow_x64_switch: false
+      allow_x86_switch: false
+
+  - id: "UPX_008_PE_NO_STRIP_RELOCS"
+    <<: *upx_v510
+    command_label: "Preserve Relocations"
+    cli_template: "{bin} --strip-relocs=0 -o {out} {in}"
+    validation:
+      allow_x64_switch: false
+      allow_x86_switch: false
+
+  # 4. PE Structure Options (Exports)
+  - id: "UPX_009_PE_COMPRESS_EXPORTS"
+    <<: *upx_v510
+    command_label: "Compress Exports (Default)"
+    cli_template: "{bin} --compress-exports=1 -o {out} {in}"
+    validation:
+      allow_x64_switch: false
+      allow_x86_switch: false
+
+  - id: "UPX_010_PE_NO_COMPRESS_EXPORTS"
+    <<: *upx_v510
+    command_label: "Do Not Compress Exports"
+    cli_template: "{bin} --compress-exports=0 -o {out} {in}"
+    validation:
+      allow_x64_switch: false
+      allow_x86_switch: false
+
+  # 5. PE Structure Options (Resources & Icons)
+  - id: "UPX_011_PE_NO_COMPRESS_RESOURCES"
+    <<: *upx_v510
+    command_label: "Do Not Compress Resources"
+    cli_template: "{bin} --compress-resources=0 -o {out} {in}"
+    validation:
+      allow_x64_switch: false
+      allow_x86_switch: false
+
+  - id: "UPX_012_PE_COMPRESS_ALL_ICONS"
+    <<: *upx_v510
+    command_label: "Compress All Icons"
+    cli_template: "{bin} --compress-icons=3 -o {out} {in}"
+    validation:
+      allow_x64_switch: false
+      allow_x86_switch: false
+
+  - id: "UPX_013_PE_NO_COMPRESS_ICONS"
+    <<: *upx_v510
+    command_label: "Do Not Compress Icons"
+    cli_template: "{bin} --compress-icons=0 -o {out} {in}"
+    validation:
+      allow_x64_switch: false
+      allow_x86_switch: false
+
+  # 6. Maximum Compression Combination
+  - id: "UPX_014_PE_MAX_COMPRESSION"
+    <<: *upx_v510
+    command_label: "Max Compression (Best+LZMA+AllIcons+Strip)"
+    cli_template: "{bin} --best --lzma --compress-icons=3 --strip-relocs=1 -o {out} {in}"
+    validation:
+      allow_x64_switch: false
+      allow_x86_switch: false
+
+  - id: "UPX_015_PE_FORCE"
+    <<: *upx_v510
+    command_label: "Force Compression (Dangerous)"
+    cli_template: "{bin} --force -o {out} {in}"
+    validation:
+      allow_x64_switch: false
+      allow_x86_switch: false
