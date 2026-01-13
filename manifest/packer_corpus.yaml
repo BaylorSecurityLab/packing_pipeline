@@ -21,6 +21,10 @@ definitions:
     license: "Shareware"
     notes: "File command output: MS-DOS executable PE32 executable (console) Intel 80386. EVALUATION VERSION LIMIT: Input files must be under 80KB."
     size_kb: "49 KB"
+    known_issues:
+      - "Unicode Support: Fails to open files with non-ASCII characters in the path (e.g., Chinese, Arabic)."
+      - "Large Files: Fails on files with large overlays (like installers/SFX) or files > 80KB due to trial limit."
+      - "Automation: Trial version has a 'nag screen' popup that may freeze scripts if no timeout is set."
 
 # ==========================================
 # SECTION 2: TEST CASES (The Execution Plan)
