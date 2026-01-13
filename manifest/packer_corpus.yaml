@@ -51,13 +51,13 @@ definitions:
     arch_origin: "x86"
     supported_input_arch: "PE32"
     supported_output_arch: "PE32"
-    dependencies: [ "python", "pyautogui" ]
-    tags: [ "GUI", "Wrapper" ]
-    binary_path: "./packers/yoda_protect/yoda_wrapper.py"
+    dependencies: [ ]
+    tags: [ "GUI" ]
+    binary_path: "./packers/yoda_protect/yp.exe"
     binary_sha256: ""
     source_url: "https://sourceforge.net/projects/yodap/"
     license: "Freeware"
-    notes: "Requires yoda.exe at ./packers/yoda_protect/yp.exe"
+    notes: ""
     size_kb: ""
     known_issues:
       - ""
@@ -225,15 +225,6 @@ test_cases:
     <<: *upx_v510
     command_label: "Force Compression (Dangerous)"
     cli_template: "{bin} --force -o {out} {in}"
-    validation:
-      allow_x64_switch: false
-      allow_x86_switch: false
-
-  # --- YODA Test Group ---
-  - id: "YODA_001_DEFAULT"
-    <<: *yoda_v103
-    command_label: "Default GUI Protection"
-    cli_template: "{python} {bin} --exe yp.exe --input {in} --output {out}"
     validation:
       allow_x64_switch: false
       allow_x86_switch: false
