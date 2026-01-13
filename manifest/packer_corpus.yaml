@@ -43,7 +43,25 @@ definitions:
     known_issues:
       - "Antivirus: Files packed with UPX are frequently flagged as false positives by AV engines."
       - "Overlays: Default behavior copies overlays, but --overlay=strip might be needed for some specific targets."
-      -
+
+
+  - &yoda_v103
+    packer_name: "yoda_protector"
+    version: "1.03.2"
+    arch_origin: "x86"
+    supported_input_arch: "PE32"
+    supported_output_arch: "PE32"
+    dependencies: [ "python", "pyautogui" ]
+    tags: [ "GUI", "Wrapper" ]
+    binary_path: "./packers/yoda_protect/yoda_wrapper.py"
+    binary_sha256: ""
+    source_url: "https://sourceforge.net/projects/yodap/"
+    license: "Freeware"
+    notes: "Requires yoda.exe at ./packers/yoda_protect/yp.exe"
+    size_kb: ""
+    known_issues:
+      - ""
+
 # ==========================================
 # SECTION 2: TEST CASES (The Execution Plan)
 # Reference the anchors above using '<<: *anchor_name'
@@ -207,6 +225,15 @@ test_cases:
     <<: *upx_v510
     command_label: "Force Compression (Dangerous)"
     cli_template: "{bin} --force -o {out} {in}"
+    validation:
+      allow_x64_switch: false
+      allow_x86_switch: false
+
+  # --- YODA Test Group ---
+  - id: "YODA_001_DEFAULT"
+    <<: *yoda_v103
+    command_label: "Default GUI Protection"
+    cli_template: "{python} {bin} --exe yp.exe --input {in} --output {out}"
     validation:
       allow_x64_switch: false
       allow_x86_switch: false

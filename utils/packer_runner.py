@@ -209,7 +209,9 @@ def pack_single_file(args):
     command_list = []
 
     for part in raw_parts:
-        if "{bin}" in part:
+        if "{python}" in part:  # <--- ADD THIS BLOCK
+            command_list.append(sys.executable)
+        elif "{bin}" in part:
             command_list.append(packer_bin)
         elif "{in}" in part:
             command_list.append(get_short_path(os.path.abspath(src_path)))
