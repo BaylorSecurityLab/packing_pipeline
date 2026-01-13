@@ -1,15 +1,14 @@
-# Python-generated files
+# --- Python Artifacts ---
 __pycache__/
-*.py[oc]
-build/
-dist/
-wheels/
-*.egg-info
+*.py[cod]
+*.venv
+.env
+.venv/
+env/
+venv/
 
-# Virtual environments
-.venv
-
-# Project specific
-.idea
-benign_sources/x64
-benign_sources/x86
+# --- OS / IDE Files ---
+.DS_Store
+.vscode/
+.idea/
+*.log
