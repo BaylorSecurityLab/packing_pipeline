@@ -220,6 +220,41 @@ definitions:
     known_issues:
       - ""
 
+  - &astral_pe_v16
+    packer_name: "astral_pe"
+    version: "1.6.0.0"
+    arch_origin: "x64"
+    supported_input_arch: [ "PE32", "PE32+" ]
+    supported_output_arch: [ "PE32", "PE32+" ]
+    dependencies: [ ]
+    tags: [ "CLI", "Mutator" ]
+    binary_path: "./packers/astral_pe/astral_pe.exe"
+    binary_sha256: "632246efaff5da152e10e5e1c0c3df4ba7091d19367099cdc426c3baeee73ba8"
+    source_url: "https://github.com/DosX-dev/Astral-PE/releases/tag/Stable"
+    license: "MIT"
+    notes: "Advanced utility for mutation (shallow obfuscation) of PE headers and Entry Points. Distinct from compression; focuses on signature evasion."
+    size_kb: "2193"
+    known_issues:
+      - ""
+
+  - &confuserex_v160
+    packer_name: "confuserex_cli"
+    version: "1.6.0"
+    arch_origin: "x86"
+    supported_input_arch: [ "PE32", ".NET" ]
+    supported_output_arch: [ "PE32", ".NET" ]
+    dependencies: [ ".NET Framework" ]
+    tags: [ "CLI", "Protector", "Obfuscator", ".NET" ]
+    binary_path: "./packers/confuserex-cli/Confuser.CLI.exe"
+    binary_sha256: "0790671f930bd1375fa06ece29a776404cee44695e083cace46c905433644130"
+    source_url: "https://github.com/mkaring/ConfuserEx/releases/tag/v1.6.0"
+    license: "Open Source (MIT)"
+    notes: "Advanced open-source protector for .NET applications. Supports anti-tamper, anti-debug, and resource encryption."
+    size_kb: "15"
+    known_issues:
+      - "Output Syntax: The '-o' flag requires a DIRECTORY, not a filename. The tool preserves the input filename."
+
+
 test_cases:
   # --- exe32pack Test Group ---
   - id: "EXE32PACK_001_DEFAULT"
@@ -470,6 +505,41 @@ test_cases:
     <<: *bero_v100
     command_label: "Maximum Stripping (Debug, Reloc, TLS, Export)"
     cli_template: "{bin} {in} {out} +SD +SRT +STLS +SET"
+    validation:
+      allow_x64_switch: false
+      allow_x86_switch: false
+
+  # --- Astral-PE Test Group ---
+  - id: "ASTRAL_001_DEFAULT_MUTATION"
+    <<: *astral_pe_v16
+    command_label: "Default Mutation"
+    cli_template: "{bin} {in} --output {out}"
+    validation:
+      allow_x64_switch: false
+      allow_x86_switch: false
+
+  - id: "ASTRAL_002_LEGACY_COMPAT"
+    <<: *astral_pe_v16
+    command_label: "Legacy Windows 7+ Compat Mode"
+    cli_template: "{bin} {in} --output {out} --legacy-win-compat-mode"
+    validation:
+      allow_x64_switch: false
+      allow_x86_switch: false
+
+  # --- ConfuserEx Test Group ---
+  - id: "CONFUSER_001_DEFAULT"
+    <<: *confuserex_v160
+    command_label: "Default Protection (No Pause)"
+    # Syntax: Confuser.CLI -n -o <out_dir> <input_file>
+    cli_template: "{bin} -n -o {out} {in}"
+    validation:
+      allow_x64_switch: false
+      allow_x86_switch: false
+
+  - id: "CONFUSER_002_DEBUG_SYMBOLS"
+    <<: *confuserex_v160
+    command_label: "Protection with Debug Symbols"
+    cli_template: "{bin} -n -debug -o {out} {in}"
     validation:
       allow_x64_switch: false
       allow_x86_switch: false
