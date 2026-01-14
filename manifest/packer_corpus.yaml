@@ -20,7 +20,7 @@ definitions:
     source_url: "https://exe32pack.apponic.com/download/"
     license: "Shareware"
     notes: "File command output: MS-DOS executable PE32 executable (console) Intel 80386. EVALUATION VERSION LIMIT: Input files must be under 80KB."
-    size_kb: "49 KB"
+    size_kb: "49"
     known_issues:
       - "Unicode Support: Fails to open files with non-ASCII characters in the path (e.g., Chinese, Arabic)."
       - "Large Files: Fails on files with large overlays (like installers/SFX) or files > 80KB due to trial limit."
@@ -39,11 +39,10 @@ definitions:
     source_url: "https://github.com/upx/upx/releases/tag/v5.1.0"
     license: "GPL"
     notes: "The Ultimate Packer for eXecutables. Handles varied formats (PE, ELF, Mach-O). Supports in-place decompression."
-    size_kb: "652 KB"
+    size_kb: "652"
     known_issues:
       - "Antivirus: Files packed with UPX are frequently flagged as false positives by AV engines."
       - "Overlays: Default behavior copies overlays, but --overlay=strip might be needed for some specific targets."
-
 
   - &yoda_v103
     packer_name: "yoda_protector"
@@ -54,14 +53,49 @@ definitions:
     dependencies: [ ]
     tags: [ "GUI" ]
     binary_path: "./packers/yoda_protect/yp.exe"
-    binary_sha256: ""
+    binary_sha256: "a48ae6f9abd8e767b5fa25727959b9fd7cf1ef601c520e0bf0e0e4544479cc89"
     source_url: "https://sourceforge.net/projects/yodap/"
     license: "Freeware"
     notes: ""
-    size_kb: ""
+    size_kb: "120"
     known_issues:
       - ""
 
+  - &amber_v31
+    packer_name: "amber"
+    version: "3.1"
+    arch_origin: "x64"
+    supported_input_arch: [ "PE32", "PE32+" ]
+    supported_output_arch: [ "PE32", "PE32+" ]
+    dependencies: [ ]
+    tags: [ "CLI", "Reflective", "Security" ]
+    binary_path: "./packers/amber/amber.exe"
+    binary_sha256: "e5509a144cb371b7afe6fb6a526fca317688da6b27bfcb7be1faf8fffd58a472"
+    source_url: "https://github.com/EgeBalci/amber/releases/tag/v3.1"
+    license: "MIT"
+    notes: "Reflective PE Packer. Generates reflective payloads and EXE stubs."
+    size_kb: "2590"
+    known_issues:
+      - "Heuristics: High detection rate by AV due to reflective loading techniques."
+      - "Stability: Custom stubs are marked as experimental."
+
+  - &bero_v100
+      packer_name: "beroexepacker"
+      version: "1.00.2017.01.27"
+      arch_origin: "x86"
+      supported_input_arch: "PE32"
+      supported_output_arch: "PE32"
+      dependencies: [ ]
+      tags: ["CLI", "Tiny-EXE", "Demoscene"]
+      binary_path: "./packers/beroexepacker/bep.exe"
+      binary_sha256: "3f81abdc1ec3971be78db8a8c38ced0970bc9eec3415046596e47a5ca85cd272"
+      source_url: "https://blog.rosseaux.net/page/875fbe6549aa072b5ee0ac9cefff4827/BeRoEXEPacker"
+      license: "Freeware"
+      notes: "(C) 2006-2017 Benjamin 'BeRo' Rosseaux. Excellent for very small executables and demoscene intros."
+      size_kb: "72 KB"
+      known_issues:
+        - "Compatibility: Focuses on extreme size reduction which can sometimes break standard PE headers unless +SPH is managed carefully."
+        -
 # ==========================================
 # SECTION 2: TEST CASES (The Execution Plan)
 # Reference the anchors above using '<<: *anchor_name'
@@ -225,6 +259,97 @@ test_cases:
     <<: *upx_v510
     command_label: "Force Compression (Dangerous)"
     cli_template: "{bin} --force -o {out} {in}"
+    validation:
+      allow_x64_switch: false
+      allow_x86_switch: false
+
+# --- Amber Test Group ---
+
+  - id: "AMBER_001_DEFAULT_BUILD"
+    <<: *amber_v31
+    command_label: "Default EXE Build"
+    cli_template: "{bin} -f {in} -b"
+    validation:
+      allow_x64_switch: false
+      allow_x86_switch: false
+
+  - id: "AMBER_002_IAT_RESOLVER"
+    <<: *amber_v31
+    command_label: "Build with IAT API Resolver"
+    cli_template: "{bin} -f {in} -b -iat"
+    validation:
+      allow_x64_switch: false
+      allow_x86_switch: false
+
+  - id: "AMBER_003_MULTI_ENCODE"
+    <<: *amber_v31
+    command_label: "Build with 5x Encoding"
+    cli_template: "{bin} -f {in} -b -e 5"
+    validation:
+      allow_x64_switch: false
+      allow_x86_switch: false
+
+  - id: "AMBER_004_MAX_OBFUSCATION"
+    <<: *amber_v31
+    command_label: "Max Obfuscation Bytes"
+    cli_template: "{bin} -f {in} -b -max 10"
+    validation:
+      allow_x64_switch: false
+      allow_x86_switch: false
+
+# --- BeRoEXEPacker Test Group ---
+  - id: "BEP_001_DEFAULT"
+    <<: *bero_v100
+    command_label: "Default Compression"
+    cli_template: "{bin} {in} {out}"
+    validation:
+      allow_x64_switch: false
+      allow_x86_switch: false
+
+  - id: "BEP_002_LZMA_ULTRA"
+    <<: *bero_v100
+    command_label: "LZMA Ultra Compression"
+    cli_template: "{bin} {in} {out} +CA=LZMAU"
+    validation:
+      allow_x64_switch: false
+      allow_x86_switch: false
+
+  - id: "BEP_003_BRUTEFORCE"
+    <<: *bero_v100
+    command_label: "Bruteforce Best Compression (Slow)"
+    cli_template: "{bin} {in} {out} +B"
+    validation:
+      allow_x64_switch: false
+      allow_x86_switch: false
+
+  - id: "BEP_004_KKRUNCHY_CTX1"
+    <<: *bero_v100
+    command_label: "kkrunchy-based Algorithm"
+    cli_template: "{bin} {in} {out} +CA=CTX1"
+    validation:
+      allow_x64_switch: false
+      allow_x86_switch: false
+
+  - id: "BEP_005_TINY_64K"
+    <<: *bero_v100
+    command_label: "Special 64kb Intro Mode"
+    cli_template: "{bin} {in} {out} +64K"
+    validation:
+      allow_x64_switch: false
+      allow_x86_switch: false
+
+  - id: "BEP_006_IMPORT_BY_HASH"
+    <<: *bero_v100
+    command_label: "Convert IAT to Import by Hash"
+    cli_template: "{bin} {in} {out} +IBH"
+    validation:
+      allow_x64_switch: false
+      allow_x86_switch: false
+
+  - id: "BEP_007_STRIP_ALL"
+    <<: *bero_v100
+    command_label: "Maximum Stripping (Debug, Reloc, TLS, Export)"
+    cli_template: "{bin} {in} {out} +SD +SRT +STLS +SET"
     validation:
       allow_x64_switch: false
       allow_x86_switch: false
