@@ -100,6 +100,58 @@ definitions:
 # SECTION 2: TEST CASES (The Execution Plan)
 # Reference the anchors above using '<<: *anchor_name'
 # ==========================================
+
+  - &alienyze_v14
+    packer_name: "alienyze_protector"
+    version: "1.4"
+    arch_origin: "x86"
+    supported_input_arch: "PE32"
+    supported_output_arch: "PE32"
+    dependencies: [ ]
+    tags: [ "GUI" ]
+    binary_path: "./packers/alienyze_protector/alienyze.exe"
+    binary_sha256: "86e46398131254fd0ce718344b06f45892d74ef3592e5adf9f800a646da6aae6"
+    source_url: "https://alienyze.com/"
+    license: "Commercial"
+    notes: "GUI-based protector with Anti-Debugger, Anti-VM, and Integrity Checks."
+    size_kb: "128"
+    known_issues:
+      - ""
+
+  - &exepacker_v2740
+    packer_name: "exepacker"
+    version: "2.740"
+    arch_origin: "x86"
+    supported_input_arch: "PE32"
+    supported_output_arch: "PE32"
+    dependencies: [ ]
+    tags: [ "GUI", "Freeware" ]
+    binary_path: "./packers/exepacker/exepacker.exe"
+    binary_sha256: "2abce6c52695d88620b177abf8211125c9c319e4bbc45e54c000c2c34c4a911a"
+    source_url: "https://www.alternate-tools.com/pages/c_exepacker.php"
+    license: "Freeware"
+    notes: "."
+    size_kb: "3287"
+    known_issues:
+      - ""
+
+  - &apkprotect_v12
+    packer_name: "apk_protect"
+    version: "1.2"
+    arch_origin: "x86"
+    supported_input_arch: "APK"
+    supported_output_arch: "APK"
+    dependencies: [ "Java" ]
+    tags: [ "GUI", "Mobile-Protector" ]
+    binary_path: "./packers/apkprotect/apkcrypt.exe"
+    binary_sha256: "ef7b044f2967f482b1d923cec3ca68ffd16ae6d54e86dc7680b2081f5f1d1229"
+    source_url: "https://sourceforge.net/projects/apkprotect/"
+    license: "Freeware"
+    notes: "A Windows-based GUI tool designed to encrypt and protect Android application packages (APKs). It is a PE executable that packs mobile apps, not other PEs."
+    size_kb: "964"
+    known_issues:
+      - ""
+
 test_cases:
   # --- exe32pack Test Group ---
   - id: "EXE32PACK_001_DEFAULT"
