@@ -152,6 +152,74 @@ definitions:
     known_issues:
       - ""
 
+  - &asm_guard_v294
+    packer_name: "asm_guard"
+    version: "2.9.4"
+    arch_origin: "x86"
+    supported_input_arch: "PE32"
+    supported_output_arch: "PE32"
+    dependencies: [ ".NET Framework" ]
+    tags: [ "GUI", "Obfuscator", "DRM", ".NET-Assembly" ]
+    binary_path: "./packers/asm_guard/asm_guard.exe"
+    binary_sha256: "4a41b9ae527604f56289c1d659b50aeed34e6b2378e2accdfdbfdc5db870676b"
+    source_url: "https://github.com/DosX-dev/ASM-Guard/releases"
+    license: "MIT"
+    notes: "Packer utility for compressing and complicating reversing compiled native code (native files). Features resource protection, DRM, and an optimized loader. The tool itself is a .NET assembly."
+    size_kb: "3953"
+    known_issues:
+      - ""
+
+  - &aspack
+    packer_name: "aspack"
+    version: "Legacy"
+    arch_origin: "x86"
+    supported_input_arch: "PE32"
+    supported_output_arch: "PE32"
+    dependencies: [ ]
+    tags: [ "GUI", "Commercial" ]
+    binary_path: "./packers/aspack/setup.exe"
+    binary_sha256: "bc0e7a1c3268b309517728544fe83071f500a03f2ddbd91929c3b6ccdc6da278"
+    source_url: "http://www.aspack.com/"
+    license: "Commercial"
+    notes: "Advanced solution created to provide Win32 EXE file packing and to protect them against non-professional reverse engineering."
+    size_kb: "5567"
+    known_issues:
+      - ""
+
+  - &asprotect_32
+    packer_name: "asprotect_32"
+    version: "Legacy"
+    arch_origin: "x86"
+    supported_input_arch: "PE32"
+    supported_output_arch: "PE32"
+    dependencies: [ ]
+    tags: [ "GUI", "Installer", "Copy-Protection" ]
+    binary_path: "./packers/asprotect32/setup.exe"
+    binary_sha256: "f58f90161fef031842771ecb9187fcab44f5b3672c851d96e3459e34d6076c05"
+    source_url: "http://www.aspack.com/"
+    license: "Commercial"
+    notes: "Multifunctional EXE packing tool designed for software developers to protect 32-bit applications with in-built application copy protection system."
+    size_kb: "9653"
+    known_issues:
+      - ""
+
+  - &asprotect_64
+    packer_name: "asprotect_64"
+    version: "Legacy"
+    arch_origin: "x64"
+    supported_input_arch: [ "PE32+", ".NET" ]
+    supported_output_arch: [ "PE32+", ".NET" ]
+    dependencies: [ ".NET Framework" ]
+    tags: [ "GUI" ]
+    binary_path: "./packers/asprotect64/pssetup.exe"
+    binary_sha256: "8e70205d5370bb377b510d74b87428f3fb2c606215b4495c4309e4f1fecee2d6"
+    source_url: "http://www.aspack.com/"
+    license: "Commercial"
+    notes: "Tool for protecting 64-bit applications and .NET applications for Windows against unauthorized use and analysis."
+    size_kb: "4900"
+    known_issues:
+      - ""
+
 test_cases:
   # --- exe32pack Test Group ---
   - id: "EXE32PACK_001_DEFAULT"
