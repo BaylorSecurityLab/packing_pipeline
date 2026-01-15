@@ -96,10 +96,6 @@ definitions:
       known_issues:
         - "Compatibility: Focuses on extreme size reduction which can sometimes break standard PE headers unless +SPH is managed carefully."
         -
-# ==========================================
-# SECTION 2: TEST CASES (The Execution Plan)
-# Reference the anchors above using '<<: *anchor_name'
-# ==========================================
 
   - &alienyze_v14
     packer_name: "alienyze_protector"
@@ -126,8 +122,8 @@ definitions:
     supported_output_arch: "PE32"
     dependencies: [ ]
     tags: [ "GUI", "Freeware" ]
-    binary_path: "./packers/exepacker/exepacker.exe"
-    binary_sha256: "2abce6c52695d88620b177abf8211125c9c319e4bbc45e54c000c2c34c4a911a"
+    binary_path: "./packers/exepacker/EXE Packer/ExePacker.exe"
+    binary_sha256: "2055DA20FC856A632A10B827D6B20E561784A5E90A26B2BC35FCC0AF2DB3653E"
     source_url: "https://www.alternate-tools.com/pages/c_exepacker.php"
     license: "Freeware"
     notes: "."
@@ -178,7 +174,7 @@ definitions:
     dependencies: [ ]
     tags: [ "GUI", "Commercial" ]
     binary_path: "./packers/aspack/setup.exe"
-    binary_sha256: "bc0e7a1c3268b309517728544fe83071f500a03f2ddbd91929c3b6ccdc6da278"
+    binary_sha256: "B1AAD17F65FBDB5FB75E13A00BD3B1DB6E5168F8E4419E57B13FB34DC48C4BA4"
     source_url: "http://www.aspack.com/"
     license: "Commercial"
     notes: "Advanced solution created to provide Win32 EXE file packing and to protect them against non-professional reverse engineering."
@@ -195,7 +191,7 @@ definitions:
     dependencies: [ ]
     tags: [ "GUI", "Installer", "Copy-Protection" ]
     binary_path: "./packers/asprotect32/setup.exe"
-    binary_sha256: "f58f90161fef031842771ecb9187fcab44f5b3672c851d96e3459e34d6076c05"
+    binary_sha256: "A73694CB69CCBCC2E14D85D08AA589D01E9A3F082CBE3A4E25A80C695C2885CA"
     source_url: "http://www.aspack.com/"
     license: "Commercial"
     notes: "Multifunctional EXE packing tool designed for software developers to protect 32-bit applications with in-built application copy protection system."
@@ -211,8 +207,8 @@ definitions:
     supported_output_arch: [ "PE32+", ".NET" ]
     dependencies: [ ".NET Framework" ]
     tags: [ "GUI" ]
-    binary_path: "./packers/asprotect64/pssetup.exe"
-    binary_sha256: "8e70205d5370bb377b510d74b87428f3fb2c606215b4495c4309e4f1fecee2d6"
+    binary_path: "./packers/asprotect64/Protection Studio ASProtect 64/ProtectionStudioASProtect64.exe"
+    binary_sha256: "842495C6B4DDC3E72971AEA35DE03D11AEE392B305AF29AC27C115A8A7A76E6B"
     source_url: "http://www.aspack.com/"
     license: "Commercial"
     notes: "Tool for protecting 64-bit applications and .NET applications for Windows against unauthorized use and analysis."
@@ -256,6 +252,11 @@ definitions:
 
 
 test_cases:
+  # ==========================================
+  # SECTION 2: TEST CASES (The Execution Plan)
+  # Reference the anchors above using '<<: *anchor_name'
+  # ==========================================
+
   # --- exe32pack Test Group ---
   - id: "EXE32PACK_001_DEFAULT"
     <<: *exe32pack_v142
