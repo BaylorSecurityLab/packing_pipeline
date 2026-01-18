@@ -3,7 +3,7 @@
 	url = ../inputs.git
 [submodule "packed_sources"]
 	path = packed_sources
-	url = ../outputs.git
+	url = ../packer-corpus-outputs.git
 [submodule "packers"]
 	path = packers
 	url = ../tools.git

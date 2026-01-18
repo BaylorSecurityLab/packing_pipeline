@@ -11,7 +11,6 @@ from tqdm import tqdm
 import hashlib
 import re
 
-
 # --- DIALOG KILLER (Windows only) ---
 if os.name == 'nt':
     import ctypes
@@ -45,8 +44,10 @@ PACKER_SETTINGS = {
     }
 }
 
+
 def get_packer_settings(packer_name):
     return PACKER_SETTINGS.get(packer_name.lower(), PACKER_SETTINGS['_default'])
+
 
 def sanitize_filename(filename):
     """
@@ -69,13 +70,12 @@ def sanitize_filename(filename):
     name_hash = hashlib.md5(name.encode('utf-8')).hexdigest()[:8]
 
     if ascii_portion:
-        # Keep ASCII part + hash: "AcFun_1.32.0.1772_Machine_X64_inno_en-US" -> "AcFun_1.32.0.1772_a1b2c3d4"
         safe_name = f"{ascii_portion}_{name_hash}"
     else:
-        # Pure non-ASCII: just use hash
         safe_name = f"packed_{name_hash}"
 
     return safe_name + ext
+
 
 def dialog_killer(stop_event, target_keywords=None):
     """Background thread that auto-closes error dialog boxes."""
@@ -88,7 +88,7 @@ def dialog_killer(stop_event, target_keywords=None):
         "limit", "warning", "notice"
     ]
 
-    closed_count = [0]  # Use list to allow modification in nested function
+    closed_count = [0]
 
     def enum_callback(hwnd, _):
         if not _IsWindowVisible(hwnd):
@@ -123,11 +123,12 @@ BENIGN_SOURCE_DIR = "../benign_sources"
 PACKED_OUTPUT_DIR = "../packed_sources"
 YAML_CONFIG_FILE = "../manifest/packer_corpus.yaml"
 
+# UPDATED: Enforce strict x86 mapping
 ARCH_MAP = {
     "PE32": ["x86"],
-    "PE32+": ["x64"],
-    "PE64": ["x64"],
-    "BOTH": ["x86", "x64"]
+    "PE32+": [],  # Disabled x64
+    "PE64": [],  # Disabled x64
+    "BOTH": ["x86"]  # Only take the x86 portion
 }
 
 
@@ -209,7 +210,7 @@ def pack_single_file(args):
     command_list = []
 
     for part in raw_parts:
-        if "{python}" in part:  # <--- ADD THIS BLOCK
+        if "{python}" in part:
             command_list.append(sys.executable)
         elif "{bin}" in part:
             command_list.append(packer_bin)
@@ -250,6 +251,21 @@ def pack_single_file(args):
 def run_packing(packer_name_input, max_size_kb=0, config=None, workers=1):
     if config is None:
         config = load_yaml(YAML_CONFIG_FILE)
+
+    # --- UPDATED: CHECK FOR CLI TAG ---
+    definitions = config.get('definitions', [])
+    packer_def = next((p for p in definitions if p['packer_name'].lower() == packer_name_input.lower()), None)
+
+    if not packer_def:
+        print(f"[!] Packer definition not found for: {packer_name_input}")
+        return
+
+    # Check if 'CLI' is in the tags
+    tags = packer_def.get('tags', [])
+    if "CLI" not in tags:
+        print(f"[*] Skipping '{packer_name_input}' - Not a CLI tool (Tags: {tags})")
+        return
+    # ----------------------------------
 
     selected_tests = []
     for case in config.get('test_cases', []):
@@ -297,7 +313,7 @@ def run_packing(packer_name_input, max_size_kb=0, config=None, workers=1):
 
             targets = get_targets(test_case.get('supported_input_arch', 'PE32'))
             if not targets:
-                print(f"    [!] No targets found for case {test_id}")
+                print(f"    [!] No targets found for case {test_id} (Checking x86 only)")
                 continue
 
             print(f"\n--- Case: {test_id} (Workers: {workers}) ---")
@@ -332,7 +348,6 @@ def run_packing(packer_name_input, max_size_kb=0, config=None, workers=1):
 
 
     finally:
-
         if stop_event:
             stop_event.set()
 
@@ -342,9 +357,9 @@ def run_packing(packer_name_input, max_size_kb=0, config=None, workers=1):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Multi-threaded packer runner.")
-    parser.add_argument("packer_name", type=str, help="Packer name (e.g., 'upx', 'exe32pack', or 'all')")
+    parser.add_argument("packer_name", type=str, help="Packer name (e.g., 'upx', 'exe32pack', or 'all')", default="all")
     parser.add_argument("--max-size-kb", type=int, default=0, help="Skip files larger than KB.")
-    default_workers = cpu_count()
+    default_workers = min(cpu_count(), 4)
     parser.add_argument("--workers", type=int, default=default_workers,
                         help=f"Number of parallel threads (default: {default_workers})")
 
@@ -352,6 +367,7 @@ if __name__ == "__main__":
     main_config = load_yaml(YAML_CONFIG_FILE)
 
     if args.packer_name.lower() == "all":
+        # Get all unique packer names from definitions
         packers = list(set([d['packer_name'] for d in main_config.get('definitions', [])]))
         print(f"=== RUNNING ALL PACKERS: {', '.join(packers)} ===")
         for p in packers:

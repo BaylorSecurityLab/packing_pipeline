@@ -97,6 +97,7 @@ definitions:
         - "Compatibility: Focuses on extreme size reduction which can sometimes break standard PE headers unless +SPH is managed carefully."
         -
 
+
   - &alienyze_v14
     packer_name: "alienyze_protector"
     version: "1.4"
@@ -128,23 +129,6 @@ definitions:
     license: "Freeware"
     notes: "."
     size_kb: "3287"
-    known_issues:
-      - ""
-
-  - &apkprotect_v12
-    packer_name: "apk_protect"
-    version: "1.2"
-    arch_origin: "x86"
-    supported_input_arch: "APK"
-    supported_output_arch: "APK"
-    dependencies: [ "Java" ]
-    tags: [ "GUI", "Mobile-Protector" ]
-    binary_path: "./packers/apkprotect/apkcrypt.exe"
-    binary_sha256: "ef7b044f2967f482b1d923cec3ca68ffd16ae6d54e86dc7680b2081f5f1d1229"
-    source_url: "https://sourceforge.net/projects/apkprotect/"
-    license: "Freeware"
-    notes: "A Windows-based GUI tool designed to encrypt and protect Android application packages (APKs). It is a PE executable that packs mobile apps, not other PEs."
-    size_kb: "964"
     known_issues:
       - ""
 
@@ -199,23 +183,6 @@ definitions:
     known_issues:
       - ""
 
-  - &asprotect_64
-    packer_name: "asprotect_64"
-    version: "Legacy"
-    arch_origin: "x64"
-    supported_input_arch: [ "PE32+", ".NET" ]
-    supported_output_arch: [ "PE32+", ".NET" ]
-    dependencies: [ ".NET Framework" ]
-    tags: [ "GUI" ]
-    binary_path: "./packers/asprotect64/Protection Studio ASProtect 64/ProtectionStudioASProtect64.exe"
-    binary_sha256: "842495C6B4DDC3E72971AEA35DE03D11AEE392B305AF29AC27C115A8A7A76E6B"
-    source_url: "http://www.aspack.com/"
-    license: "Commercial"
-    notes: "Tool for protecting 64-bit applications and .NET applications for Windows against unauthorized use and analysis."
-    size_kb: "4900"
-    known_issues:
-      - ""
-
   - &astral_pe_v16
     packer_name: "astral_pe"
     version: "1.6.0.0"
@@ -250,7 +217,6 @@ definitions:
     known_issues:
       - "Output Syntax: The '-o' flag requires a DIRECTORY, not a filename. The tool preserves the input filename."
 
-
 test_cases:
   # ==========================================
   # SECTION 2: TEST CASES (The Execution Plan)
@@ -265,7 +231,7 @@ test_cases:
     cli_template: "{bin} /M:0 {in} {out}"
     validation:
       allow_x64_switch: false
-      allow_x86_switch: false
+
 
   - id: "EXE32PACK_002_MEDIUM"
     <<: *exe32pack_v142
@@ -273,7 +239,7 @@ test_cases:
     cli_template: "{bin} /M:1 {in} {out}"
     validation:
       allow_x64_switch: false
-      allow_x86_switch: false
+
 
   - id: "EXE32PACK_003_TIGHT"
     <<: *exe32pack_v142
@@ -281,7 +247,7 @@ test_cases:
     cli_template: "{bin} /M:2 {in} {out}"
     validation:
       allow_x64_switch: false
-      allow_x86_switch: false
+
 
   - id: "EXE32PACK_004_REALIGN"
     <<: *exe32pack_v142
@@ -289,7 +255,7 @@ test_cases:
     cli_template: "{bin} /R {in} {out}"
     validation:
       allow_x64_switch: false
-      allow_x86_switch: false
+
 
   # --- UPX Test Group ---
 
@@ -300,7 +266,6 @@ test_cases:
     cli_template: "{bin} -o {out} {in}"
     validation:
       allow_x64_switch: false
-      allow_x86_switch: false
 
   - id: "UPX_002_BEST"
     <<: *upx_v510
@@ -308,7 +273,6 @@ test_cases:
     cli_template: "{bin} --best -o {out} {in}"
     validation:
       allow_x64_switch: false
-      allow_x86_switch: false
 
   - id: "UPX_003_FAST"
     <<: *upx_v510
@@ -316,7 +280,6 @@ test_cases:
     cli_template: "{bin} -1 -o {out} {in}"
     validation:
       allow_x64_switch: false
-      allow_x86_switch: false
 
   # 2. Compression Algorithms & Tuning
   - id: "UPX_004_LZMA"
@@ -325,7 +288,6 @@ test_cases:
     cli_template: "{bin} --lzma -o {out} {in}"
     validation:
       allow_x64_switch: false
-      allow_x86_switch: false
 
   - id: "UPX_005_BRUTE"
     <<: *upx_v510
@@ -333,7 +295,6 @@ test_cases:
     cli_template: "{bin} --brute -o {out} {in}"
     validation:
       allow_x64_switch: false
-      allow_x86_switch: false
 
   - id: "UPX_006_ULTRA_BRUTE"
     <<: *upx_v510
@@ -341,7 +302,6 @@ test_cases:
     cli_template: "{bin} --ultra-brute -o {out} {in}"
     validation:
       allow_x64_switch: false
-      allow_x86_switch: false
 
   # 3. PE Structure Options (Relocations)
   - id: "UPX_007_PE_STRIP_RELOCS"
@@ -350,7 +310,6 @@ test_cases:
     cli_template: "{bin} --strip-relocs=1 -o {out} {in}"
     validation:
       allow_x64_switch: false
-      allow_x86_switch: false
 
   - id: "UPX_008_PE_NO_STRIP_RELOCS"
     <<: *upx_v510
@@ -358,7 +317,6 @@ test_cases:
     cli_template: "{bin} --strip-relocs=0 -o {out} {in}"
     validation:
       allow_x64_switch: false
-      allow_x86_switch: false
 
   # 4. PE Structure Options (Exports)
   - id: "UPX_009_PE_COMPRESS_EXPORTS"
@@ -367,7 +325,6 @@ test_cases:
     cli_template: "{bin} --compress-exports=1 -o {out} {in}"
     validation:
       allow_x64_switch: false
-      allow_x86_switch: false
 
   - id: "UPX_010_PE_NO_COMPRESS_EXPORTS"
     <<: *upx_v510
@@ -375,7 +332,6 @@ test_cases:
     cli_template: "{bin} --compress-exports=0 -o {out} {in}"
     validation:
       allow_x64_switch: false
-      allow_x86_switch: false
 
   # 5. PE Structure Options (Resources & Icons)
   - id: "UPX_011_PE_NO_COMPRESS_RESOURCES"
@@ -384,7 +340,6 @@ test_cases:
     cli_template: "{bin} --compress-resources=0 -o {out} {in}"
     validation:
       allow_x64_switch: false
-      allow_x86_switch: false
 
   - id: "UPX_012_PE_COMPRESS_ALL_ICONS"
     <<: *upx_v510
@@ -392,7 +347,6 @@ test_cases:
     cli_template: "{bin} --compress-icons=3 -o {out} {in}"
     validation:
       allow_x64_switch: false
-      allow_x86_switch: false
 
   - id: "UPX_013_PE_NO_COMPRESS_ICONS"
     <<: *upx_v510
@@ -400,7 +354,6 @@ test_cases:
     cli_template: "{bin} --compress-icons=0 -o {out} {in}"
     validation:
       allow_x64_switch: false
-      allow_x86_switch: false
 
   # 6. Maximum Compression Combination
   - id: "UPX_014_PE_MAX_COMPRESSION"
@@ -409,7 +362,6 @@ test_cases:
     cli_template: "{bin} --best --lzma --compress-icons=3 --strip-relocs=1 -o {out} {in}"
     validation:
       allow_x64_switch: false
-      allow_x86_switch: false
 
   - id: "UPX_015_PE_FORCE"
     <<: *upx_v510
@@ -417,7 +369,6 @@ test_cases:
     cli_template: "{bin} --force -o {out} {in}"
     validation:
       allow_x64_switch: false
-      allow_x86_switch: false
 
 # --- Amber Test Group ---
 
@@ -427,7 +378,6 @@ test_cases:
     cli_template: "{bin} -f {in} -b"
     validation:
       allow_x64_switch: false
-      allow_x86_switch: false
 
   - id: "AMBER_002_IAT_RESOLVER"
     <<: *amber_v31
@@ -435,7 +385,6 @@ test_cases:
     cli_template: "{bin} -f {in} -b -iat"
     validation:
       allow_x64_switch: false
-      allow_x86_switch: false
 
   - id: "AMBER_003_MULTI_ENCODE"
     <<: *amber_v31
@@ -443,7 +392,6 @@ test_cases:
     cli_template: "{bin} -f {in} -b -e 5"
     validation:
       allow_x64_switch: false
-      allow_x86_switch: false
 
   - id: "AMBER_004_MAX_OBFUSCATION"
     <<: *amber_v31
@@ -451,7 +399,6 @@ test_cases:
     cli_template: "{bin} -f {in} -b -max 10"
     validation:
       allow_x64_switch: false
-      allow_x86_switch: false
 
 # --- BeRoEXEPacker Test Group ---
   - id: "BEP_001_DEFAULT"
@@ -460,7 +407,6 @@ test_cases:
     cli_template: "{bin} {in} {out}"
     validation:
       allow_x64_switch: false
-      allow_x86_switch: false
 
   - id: "BEP_002_LZMA_ULTRA"
     <<: *bero_v100
@@ -468,7 +414,6 @@ test_cases:
     cli_template: "{bin} {in} {out} +CA=LZMAU"
     validation:
       allow_x64_switch: false
-      allow_x86_switch: false
 
   - id: "BEP_003_BRUTEFORCE"
     <<: *bero_v100
@@ -476,7 +421,6 @@ test_cases:
     cli_template: "{bin} {in} {out} +B"
     validation:
       allow_x64_switch: false
-      allow_x86_switch: false
 
   - id: "BEP_004_KKRUNCHY_CTX1"
     <<: *bero_v100
@@ -484,7 +428,6 @@ test_cases:
     cli_template: "{bin} {in} {out} +CA=CTX1"
     validation:
       allow_x64_switch: false
-      allow_x86_switch: false
 
   - id: "BEP_005_TINY_64K"
     <<: *bero_v100
@@ -492,7 +435,6 @@ test_cases:
     cli_template: "{bin} {in} {out} +64K"
     validation:
       allow_x64_switch: false
-      allow_x86_switch: false
 
   - id: "BEP_006_IMPORT_BY_HASH"
     <<: *bero_v100
@@ -500,7 +442,6 @@ test_cases:
     cli_template: "{bin} {in} {out} +IBH"
     validation:
       allow_x64_switch: false
-      allow_x86_switch: false
 
   - id: "BEP_007_STRIP_ALL"
     <<: *bero_v100
@@ -508,7 +449,6 @@ test_cases:
     cli_template: "{bin} {in} {out} +SD +SRT +STLS +SET"
     validation:
       allow_x64_switch: false
-      allow_x86_switch: false
 
   # --- Astral-PE Test Group ---
   - id: "ASTRAL_001_DEFAULT_MUTATION"
@@ -517,7 +457,6 @@ test_cases:
     cli_template: "{bin} {in} --output {out}"
     validation:
       allow_x64_switch: false
-      allow_x86_switch: false
 
   - id: "ASTRAL_002_LEGACY_COMPAT"
     <<: *astral_pe_v16
@@ -525,7 +464,6 @@ test_cases:
     cli_template: "{bin} {in} --output {out} --legacy-win-compat-mode"
     validation:
       allow_x64_switch: false
-      allow_x86_switch: false
 
   # --- ConfuserEx Test Group ---
   - id: "CONFUSER_001_DEFAULT"
@@ -535,7 +473,6 @@ test_cases:
     cli_template: "{bin} -n -o {out} {in}"
     validation:
       allow_x64_switch: false
-      allow_x86_switch: false
 
   - id: "CONFUSER_002_DEBUG_SYMBOLS"
     <<: *confuserex_v160
@@ -543,4 +480,3 @@ test_cases:
     cli_template: "{bin} -n -debug -o {out} {in}"
     validation:
       allow_x64_switch: false
-      allow_x86_switch: false

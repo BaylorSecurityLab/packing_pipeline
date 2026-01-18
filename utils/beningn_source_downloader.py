@@ -12,17 +12,16 @@ LIMIT = 100
 BASE_DIR = "../benign_sources"
 MANIFEST_DIR = os.path.join(BASE_DIR, "manifest")
 
-# File mappings
+# File mappings (Removed x64)
 FILES = {
-    "x64": "x64.json",
     "x86": "x86.json",
     "processed_ids": "processed_ids.json"
 }
 
 
 def load_manifest():
-    """Loads the 3 separate JSON files."""
-    data = {"x64": [], "x86": [], "processed_ids": []}
+    """Loads the x86 and processed_ids JSON files."""
+    data = {"x86": [], "processed_ids": []}
 
     for key, filename in FILES.items():
         filepath = os.path.join(MANIFEST_DIR, filename)
@@ -38,7 +37,7 @@ def load_manifest():
 
 
 def save_manifest(data):
-    """Saves the data into 3 separate JSON files inside MANIFEST_DIR."""
+    """Saves the data into separate JSON files inside MANIFEST_DIR."""
     if not os.path.exists(MANIFEST_DIR):
         os.makedirs(MANIFEST_DIR)
 
@@ -117,7 +116,6 @@ def handle_zips(folder):
                 for file in files:
                     if file.lower().endswith(('.exe', '.msi')):
                         source = os.path.join(root, file)
-                        # Construct a unique name if needed, or just move it
                         dest = os.path.join(folder, file)
 
                         # Move the executable out to the main folder
@@ -140,32 +138,13 @@ def handle_zips(folder):
 def download_packages(targets, manifest_data):
     print(f"\nProcessing {len(targets)} new targets into '{BASE_DIR}'...\n")
 
-    for arch in ["x64", "x86"]:
-        os.makedirs(os.path.join(BASE_DIR, arch), exist_ok=True)
+    # Only create x86 folder
+    os.makedirs(os.path.join(BASE_DIR, "x86"), exist_ok=True)
 
     for index, app_id in enumerate(targets):
         print(f"[{index + 1}/{len(targets)}] Processing: {app_id}")
 
-        # --- PROCESS x64 ---
-        try:
-            subprocess.run([
-                "winget", "download", "--id", app_id,
-                "-d", os.path.join(BASE_DIR, "x64"),
-                "-a", "x64",
-                "--accept-package-agreements", "--accept-source-agreements",
-                "--disable-interactivity", "--skip-dependencies"
-            ], capture_output=True, check=True)
-
-            if app_id not in manifest_data["x64"]:
-                manifest_data["x64"].append(app_id)
-
-            delete_yaml_files(os.path.join(BASE_DIR, "x64"))
-            handle_zips(os.path.join(BASE_DIR, "x64"))
-            print(f"   -> [x64] Success")
-        except subprocess.CalledProcessError:
-            pass
-
-        # --- PROCESS x86 ---
+        # --- PROCESS x86 ONLY ---
         try:
             subprocess.run([
                 "winget", "download", "--id", app_id,
@@ -181,9 +160,12 @@ def download_packages(targets, manifest_data):
             delete_yaml_files(os.path.join(BASE_DIR, "x86"))
             handle_zips(os.path.join(BASE_DIR, "x86"))
             print(f"   -> [x86] Success")
-        except subprocess.CalledProcessError:
-            pass
 
+        except subprocess.CalledProcessError:
+            # If x86 is not available for this package, we skip it silently
+            print(f"   -> [x86] Skipped/Failed (Not available or Error)")
+
+        # Always mark as processed so we don't try this ID again
         if app_id not in manifest_data["processed_ids"]:
             manifest_data["processed_ids"].append(app_id)
 
