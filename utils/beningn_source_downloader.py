@@ -13,10 +13,7 @@ BASE_DIR = "../benign_sources"
 MANIFEST_DIR = os.path.join(BASE_DIR, "manifest")
 
 # File mappings (Removed x64)
-FILES = {
-    "x86": "x86.json",
-    "processed_ids": "processed_ids.json"
-}
+FILES = {"x86": "x86.json", "processed_ids": "processed_ids.json"}
 
 
 def load_manifest():
@@ -55,21 +52,29 @@ def fetch_new_packages(manifest_data, target_limit):
         return []
 
     new_targets_executables = []
-    print(f"Sourcing new packages... (Current: {current_count} | Target: {target_limit})")
+    print(
+        f"Sourcing new packages... (Current: {current_count} | Target: {target_limit})"
+    )
 
     page = 1
     while (len(new_targets_executables) + current_count) < target_limit:
         try:
             url = f"https://api.winget.run/v2/packages?page={page}&take=50"
             res = requests.get(url, timeout=10)
-            if res.status_code != 200: break
+            if res.status_code != 200:
+                break
 
             data = res.json()
-            if not data.get("Packages"): break
+            if not data.get("Packages"):
+                break
 
             for pkg in data["Packages"]:
                 p_id = pkg.get("Id")
-                if p_id and (p_id not in processed) and (p_id not in new_targets_executables):
+                if (
+                    p_id
+                    and (p_id not in processed)
+                    and (p_id not in new_targets_executables)
+                ):
                     new_targets_executables.append(p_id)
                     if (len(new_targets_executables) + current_count) >= target_limit:
                         break
@@ -107,14 +112,14 @@ def handle_zips(folder):
             os.makedirs(temp_extract_dir, exist_ok=True)
 
             # Extract everything
-            with zipfile.ZipFile(zip_path, 'r') as zip_ref:
+            with zipfile.ZipFile(zip_path, "r") as zip_ref:
                 zip_ref.extractall(temp_extract_dir)
 
             # Walk through the temp folder to find .exe or .msi
             found_exe = False
             for root, dirs, files in os.walk(temp_extract_dir):
                 for file in files:
-                    if file.lower().endswith(('.exe', '.msi')):
+                    if file.lower().endswith((".exe", ".msi")):
                         source = os.path.join(root, file)
                         dest = os.path.join(folder, file)
 
@@ -129,7 +134,9 @@ def handle_zips(folder):
             shutil.rmtree(temp_extract_dir)
 
             if not found_exe:
-                print(f"   -> Warning: No .exe/.msi found in {os.path.basename(zip_path)}")
+                print(
+                    f"   -> Warning: No .exe/.msi found in {os.path.basename(zip_path)}"
+                )
 
         except Exception as e:
             print(f"   -> Zip Error: {e}")
@@ -146,13 +153,24 @@ def download_packages(targets, manifest_data):
 
         # --- PROCESS x86 ONLY ---
         try:
-            subprocess.run([
-                "winget", "download", "--id", app_id,
-                "-d", os.path.join(BASE_DIR, "x86"),
-                "-a", "x86",
-                "--accept-package-agreements", "--accept-source-agreements",
-                "--disable-interactivity", "--skip-dependencies"
-            ], capture_output=True, check=True)
+            subprocess.run(
+                [
+                    "winget",
+                    "download",
+                    "--id",
+                    app_id,
+                    "-d",
+                    os.path.join(BASE_DIR, "x86"),
+                    "-a",
+                    "x86",
+                    "--accept-package-agreements",
+                    "--accept-source-agreements",
+                    "--disable-interactivity",
+                    "--skip-dependencies",
+                ],
+                capture_output=True,
+                check=True,
+            )
 
             if app_id not in manifest_data["x86"]:
                 manifest_data["x86"].append(app_id)

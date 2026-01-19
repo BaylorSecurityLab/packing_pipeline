@@ -9,15 +9,13 @@ PROJECT_ROOT = SCRIPT_DIR.parent
 MANIFEST_PATH = PROJECT_ROOT / "manifest" / "packer_corpus.yaml"
 PYPROJECT_PATH = PROJECT_ROOT / "pyproject.toml"
 
+
 def get_git_contributors():
     """Gets unique names of everyone who committed to the repository."""
     try:
         # Run git log to get all author names
         result = subprocess.run(
-            ["git", "log", "--format=%an"],
-            capture_output=True,
-            text=True,
-            check=True
+            ["git", "log", "--format=%an"], capture_output=True, text=True, check=True
         )
         # Sort and deduplicate names
         authors = sorted(list(set(result.stdout.strip().splitlines())))
@@ -51,10 +49,7 @@ def update_manifest_header():
 
     # Update version
     content = re.sub(
-        r'^version:\s*".*?"',
-        f'version: "{version}"',
-        content,
-        flags=re.MULTILINE
+        r'^version:\s*".*?"', f'version: "{version}"', content, flags=re.MULTILINE
     )
 
     # Update maintainer
@@ -62,7 +57,7 @@ def update_manifest_header():
         r'^maintainer:\s*".*?"',
         f'maintainer: "{maintainers}"',
         content,
-        flags=re.MULTILINE
+        flags=re.MULTILINE,
     )
 
     # Update last_updated
@@ -70,7 +65,7 @@ def update_manifest_header():
         r'^last_updated:\s*".*?"',
         f'last_updated: "{today}"',
         content,
-        flags=re.MULTILINE
+        flags=re.MULTILINE,
     )
 
     # 6. Save back

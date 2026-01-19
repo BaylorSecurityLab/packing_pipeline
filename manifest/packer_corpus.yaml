@@ -21,6 +21,7 @@ definitions:
     license: "Shareware"
     notes: "File command output: MS-DOS executable PE32 executable (console) Intel 80386. EVALUATION VERSION LIMIT: Input files must be under 80KB."
     size_kb: "49"
+    output_behavior: "explicit"
     known_issues:
       - "Unicode Support: Fails to open files with non-ASCII characters in the path (e.g., Chinese, Arabic)."
       - "Large Files: Fails on files with large overlays (like installers/SFX) or files > 80KB due to trial limit."
@@ -40,6 +41,7 @@ definitions:
     license: "GPL"
     notes: "The Ultimate Packer for eXecutables. Handles varied formats (PE, ELF, Mach-O). Supports in-place decompression."
     size_kb: "652"
+    output_behavior: "explicit"
     known_issues:
       - "Antivirus: Files packed with UPX are frequently flagged as false positives by AV engines."
       - "Overlays: Default behavior copies overlays, but --overlay=strip might be needed for some specific targets."
@@ -58,6 +60,7 @@ definitions:
     license: "Freeware"
     notes: ""
     size_kb: "120"
+    output_behavior: "explicit"
     known_issues:
       - ""
 
@@ -75,6 +78,7 @@ definitions:
     license: "MIT"
     notes: "Reflective PE Packer. Generates reflective payloads and EXE stubs."
     size_kb: "2590"
+    output_behavior: "input_dir_suffix"
     known_issues:
       - "Heuristics: High detection rate by AV due to reflective loading techniques."
       - "Stability: Custom stubs are marked as experimental."
@@ -93,9 +97,11 @@ definitions:
       license: "Freeware"
       notes: "(C) 2006-2017 Benjamin 'BeRo' Rosseaux. Excellent for very small executables and demoscene intros."
       size_kb: "72 KB"
+      output_behavior: "explicit"
       known_issues:
         - "Compatibility: Focuses on extreme size reduction which can sometimes break standard PE headers unless +SPH is managed carefully."
         -
+
 
 
   - &alienyze_v14
@@ -112,6 +118,7 @@ definitions:
     license: "Commercial"
     notes: "GUI-based protector with Anti-Debugger, Anti-VM, and Integrity Checks."
     size_kb: "128"
+    output_behavior: "explicit"
     known_issues:
       - ""
 
@@ -129,6 +136,7 @@ definitions:
     license: "Freeware"
     notes: "."
     size_kb: "3287"
+    output_behavior: "explicit"
     known_issues:
       - ""
 
@@ -146,6 +154,7 @@ definitions:
     license: "MIT"
     notes: "Packer utility for compressing and complicating reversing compiled native code (native files). Features resource protection, DRM, and an optimized loader. The tool itself is a .NET assembly."
     size_kb: "3953"
+    output_behavior: "explicit"
     known_issues:
       - ""
 
@@ -163,6 +172,7 @@ definitions:
     license: "Commercial"
     notes: "Advanced solution created to provide Win32 EXE file packing and to protect them against non-professional reverse engineering."
     size_kb: "5567"
+    output_behavior: "explicit"
     known_issues:
       - ""
 
@@ -180,6 +190,7 @@ definitions:
     license: "Commercial"
     notes: "Multifunctional EXE packing tool designed for software developers to protect 32-bit applications with in-built application copy protection system."
     size_kb: "9653"
+    output_behavior: "explicit"
     known_issues:
       - ""
 
@@ -197,25 +208,27 @@ definitions:
     license: "MIT"
     notes: "Advanced utility for mutation (shallow obfuscation) of PE headers and Entry Points. Distinct from compression; focuses on signature evasion."
     size_kb: "2193"
+    output_behavior: "explicit"
     known_issues:
       - ""
 
-  - &confuserex_v160
-    packer_name: "confuserex_cli"
-    version: "1.6.0"
-    arch_origin: "x86"
-    supported_input_arch: [ "PE32", ".NET" ]
-    supported_output_arch: [ "PE32", ".NET" ]
-    dependencies: [ ".NET Framework" ]
-    tags: [ "CLI", "Protector", "Obfuscator", ".NET" ]
-    binary_path: "./packers/confuserex-cli/Confuser.CLI.exe"
-    binary_sha256: "0790671f930bd1375fa06ece29a776404cee44695e083cace46c905433644130"
-    source_url: "https://github.com/mkaring/ConfuserEx/releases/tag/v1.6.0"
-    license: "Open Source (MIT)"
-    notes: "Advanced open-source protector for .NET applications. Supports anti-tamper, anti-debug, and resource encryption."
-    size_kb: "15"
-    known_issues:
-      - "Output Syntax: The '-o' flag requires a DIRECTORY, not a filename. The tool preserves the input filename."
+  - &eronona_v1
+      packer_name: "eronona"
+      version: "1.0"
+      arch_origin: "x86"
+      supported_input_arch: "PE32"
+      supported_output_arch: "PE32"
+      dependencies: []
+      tags: ["CLI"]
+      binary_path: "./packers/eronona/eronona.exe"
+      binary_sha256: "CB23858B14525403FE6B4A1F1A48E2F0028D891232414B87A42B7B02C44B2E02"
+      source_url: "https://github.com/Eronana/packer/releases/tag/packer"
+      license: "MIT"
+      notes: "Simple Win32 EXE packer. Uses a custom compression algorithm with tunable lazy matching and hash chaining. Output files usually append '.packed.exe'."
+      size_kb: "43"
+      output_behavior: "suffix_packed"
+      known_issues:
+        - "Output Naming: Does not appear to support custom output filenames via CLI; auto-generates 'filename.packed.exe'."
 
 test_cases:
   # ==========================================
@@ -465,18 +478,34 @@ test_cases:
     validation:
       allow_x64_switch: false
 
-  # --- ConfuserEx Test Group ---
-  - id: "CONFUSER_001_DEFAULT"
-    <<: *confuserex_v160
-    command_label: "Default Protection (No Pause)"
-    # Syntax: Confuser.CLI -n -o <out_dir> <input_file>
-    cli_template: "{bin} -n -o {out} {in}"
+
+# --- Eronona Test Group ---
+  - id: "ERONONA_001_DEFAULT"
+    <<: *eronona_v1
+    command_label: "Default Compression (Level 3)"
+    # Syntax: eronona.exe <filein> [options]
+    cli_template: "{bin} {in}"
     validation:
       allow_x64_switch: false
 
-  - id: "CONFUSER_002_DEBUG_SYMBOLS"
-    <<: *confuserex_v160
-    command_label: "Protection with Debug Symbols"
-    cli_template: "{bin} -n -debug -o {out} {in}"
+  - id: "ERONONA_002_MAX"
+    <<: *eronona_v1
+    command_label: "Max Compression (Level 9)"
+    cli_template: "{bin} {in} -level 9"
+    validation:
+      allow_x64_switch: false
+
+  - id: "ERONONA_003_STORE"
+    <<: *eronona_v1
+    command_label: "Store Only (Level 0 - No Compression)"
+    cli_template: "{bin} {in} -level 0"
+    validation:
+      allow_x64_switch: false
+
+  - id: "ERONONA_004_CUSTOM_TUNING"
+    <<: *eronona_v1
+    command_label: "Custom Lazy Match & Chain"
+    # Overrides default lazy (8) and chain (32)
+    cli_template: "{bin} {in} -lazy 16 -chain 64"
     validation:
       allow_x64_switch: false
