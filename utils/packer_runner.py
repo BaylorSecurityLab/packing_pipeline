@@ -220,12 +220,8 @@ def pack_single_file(args):
     actual_amber_location = os.path.join(src_dir, expected_amber_output)
 
     # Eronona style: src_dir/filename.packed.exe
-    expected_suffix_packed_output = f"{name_no_ext}.packed.exe"  # calc.packed.exe ← CORRECT
+    expected_suffix_packed_output = f"{name_no_ext}.packed.exe"
     actual_suffix_packed_location = os.path.join(src_dir, expected_suffix_packed_output)
-
-    # Some packers might output to current working directory (cwd)
-    # We will set cwd to output_dir, but if they write relative to source...
-    # We handle this in post-processing below.
 
     if max_size_kb > 0:
         file_size_kb = os.path.getsize(src_path) / 1024
@@ -235,13 +231,28 @@ def pack_single_file(args):
     if os.path.exists(dst_path):
         return False, "Skipped (Exists)"
 
-    # --- TEMP FIX: Create local temp for intermediate Go files ---
+    # --- Create local temp for intermediate files and Safe Input Copy ---
     local_temp = os.path.join(output_dir, "_temp_build")
     os.makedirs(local_temp, exist_ok=True)
+
+    # --- NEW: Create a safe, simple copy of the input file ---
+    # This solves issues with spaces, Unicode, and long paths in legacy packers.
+    safe_input_name = "in.exe"
+    safe_input_path = os.path.join(local_temp, safe_input_name)
+    try:
+        shutil.copyfile(src_path, safe_input_path)
+    except Exception as e:
+        return False, f"Failed to create temp input copy: {e}"
 
     pack_env = os.environ.copy()
     pack_env["TEMP"] = os.path.abspath(local_temp)
     pack_env["TMP"] = os.path.abspath(local_temp)
+
+    if output_behavior == "in_place":
+        try:
+            shutil.copy2(safe_input_path, dst_path)
+        except Exception as e:
+            return False, f"Failed to setup in-place file: {e}"
 
     raw_parts = cmd_template.split()
     command_list = []
@@ -252,17 +263,19 @@ def pack_single_file(args):
         elif "{bin}" in part:
             command_list.append(packer_bin)
         elif "{in}" in part:
-            command_list.append(os.path.abspath(src_path))
+            # --- FIXED: Use the SAFE local copy (Short Path + No Spaces) ---
+            command_list.append(get_short_path(os.path.abspath(safe_input_path)))
         elif "{out}" in part:
-            command_list.append(get_short_path(os.path.abspath(dst_path)))
+            full_dst_path = os.path.abspath(dst_path)
+            if output_behavior == "explicit_absolute":
+                command_list.append(full_dst_path)
+            else:
+                command_list.append(get_short_path(full_dst_path))
         else:
             command_list.append(part)
 
     try:
-        # Determine Working Directory
-        # Default to output_dir, but some packers might need to be run from their own dir
-        # or from source dir. For now, output_dir is safest to avoid cluttering root.
-        cwd = output_dir
+        cwd = os.path.dirname(packer_bin)
 
         result = subprocess.run(
             command_list,
@@ -275,35 +288,38 @@ def pack_single_file(args):
             timeout=timeout,
             env=pack_env,
             cwd=cwd,
+            input="\n\n"
         )
 
         # Cleanup temp
         try:
+            # Note: We can't delete local_temp immediately if the packer failed to output
+            # but usually we want to clean up.
             for temp_file in os.listdir(local_temp):
-                os.remove(os.path.join(local_temp, temp_file))
+                try:
+                    os.remove(os.path.join(local_temp, temp_file))
+                except PermissionError:
+                    pass # Sometimes packers hold handles
             os.rmdir(local_temp)
         except:
             pass
 
-        # --- POST-PROCESSING: Move files to correct destination ---
+        # --- POST-PROCESSING ---
 
-        # 1. Handle "input_dir_suffix" (Amber style: filename_packed.exe)
+        # 1. Handle "input_dir_suffix" (Amber style)
         if output_behavior == "input_dir_suffix":
             if os.path.exists(actual_amber_location):
                 if os.path.exists(dst_path):
                     os.remove(dst_path)
                 shutil.move(actual_amber_location, dst_path)
 
-        # 2. Handle "suffix_packed" (Eronona style: filename.exe.packed.exe)
+        # 2. Handle "suffix_packed" (Eronona style)
         elif output_behavior == "suffix_packed":
-            # Check source directory for the artifact
             if os.path.exists(actual_suffix_packed_location):
                 if os.path.exists(dst_path):
                     os.remove(dst_path)
                 shutil.move(actual_suffix_packed_location, dst_path)
 
-            # Fallback: Sometimes packers write to CWD (output_dir) instead of source dir
-            # Check if it ended up in output_dir/filename.exe.packed.exe
             potential_cwd_output = os.path.join(output_dir, expected_suffix_packed_output)
             if os.path.exists(potential_cwd_output):
                 if os.path.exists(dst_path):
@@ -323,22 +339,22 @@ def pack_single_file(args):
             )
 
     except subprocess.TimeoutExpired:
-        # Cleanup potential leftover files
         if os.path.exists(actual_amber_location): os.remove(actual_amber_location)
         if os.path.exists(actual_suffix_packed_location): os.remove(actual_suffix_packed_location)
+        if output_behavior == "in_place" and os.path.exists(dst_path): os.remove(dst_path)
         return False, "Timeout (possible stuck dialog)"
 
     except subprocess.CalledProcessError as e:
-        # Cleanup
         if os.path.exists(actual_amber_location): os.remove(actual_amber_location)
         if os.path.exists(actual_suffix_packed_location): os.remove(actual_suffix_packed_location)
+        if output_behavior == "in_place" and os.path.exists(dst_path): os.remove(dst_path)
         combined_output = f"STDOUT: {e.stdout.strip()} | STDERR: {e.stderr.strip()}"
         return False, f"Exit Code {e.returncode} - {combined_output}"
 
     except Exception as e:
-        # Cleanup
         if os.path.exists(actual_amber_location): os.remove(actual_amber_location)
         if os.path.exists(actual_suffix_packed_location): os.remove(actual_suffix_packed_location)
+        if output_behavior == "in_place" and os.path.exists(dst_path): os.remove(dst_path)
         return False, f"Exception: {str(e)}"
 
 

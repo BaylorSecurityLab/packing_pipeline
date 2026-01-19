@@ -230,11 +230,108 @@ definitions:
       known_issues:
         - "Output Naming: Does not appear to support custom output filenames via CLI; auto-generates 'filename.packed.exe'."
 
+  - &hxor_v01
+      packer_name: "hxor_packer"
+      version: "0.1"
+      arch_origin: "x86"
+      supported_input_arch: "PE32"
+      supported_output_arch: "PE32"
+      dependencies: [ ]
+      tags: [ "CLI"]
+      binary_path: "./packers/hxor_packer/packer.exe"
+      binary_sha256: "a80c3732dbfbaaa65c21cf7a0a68295bac614d05675bf059bebed39a9d8d3db0"
+      source_url: "https://github.com/akuafif/hXOR-Packer/releases/tag/0.1"
+      license: "Freeware"
+      notes: "hXOR Packer by Afif (2012). Features basic compression and XOR-based encryption requiring a numeric key."
+      size_kb: "193"
+      output_behavior: "explicit_absolute"
+      known_issues:
+        - "Pathing: The help menu explicitly requests 'Absolute Path' for inputs and outputs"
+
+  - &hyperion_v231
+    packer_name: "hyperion"
+    version: "2.3.1"
+    arch_origin: "x86"
+    supported_input_arch: "PE32"
+    supported_output_arch: "PE32"
+    dependencies: [ "FASM" ]
+    tags: [ "CLI" ]
+    binary_path: "./packers/hyperion/hyperion.exe"
+    binary_sha256: "A0C336336EC39550476B329F7D7F14FDE2EC442614C682CC0EB22DC7DFCF3C15"
+    source_url: "https://github.com/nullsecuritynet/tools/tree/main/binary/hyperion"
+    license: "MIT"
+    notes: "Runtime Encrypter for 32-bit PE."
+    size_kb: "111"
+    output_behavior: "explicit"
+    known_issues:
+      - "File Size Limit: Fails on large files 'error: out of memory' or 'illegal instruction' because FASM cannot compile the massive source file generated."
+
+  - &mpress_v219
+      packer_name: "mpress"
+      version: "2.19"
+      arch_origin: "x86"
+      supported_input_arch: [ "PE32", "PE32+", ".NET" ]
+      supported_output_arch: [ "PE32", "PE32+", ".NET" ]
+      dependencies: [ ]
+      tags: [ "CLI" ]
+      binary_path: "./packers/mpress/mpress.exe"
+      binary_sha256: "2852680c94a9d68cdab285012d9328a1ceca290db60c9e35155c2bb3e46a41b4"
+      source_url: "https://www.autohotkey.com/mpress/mpress_web.html"
+      license: "Freeware"
+      notes: "MATCODE comPRESSor. High-performance in-place compressor. Excellent support for .NET executables and x64 (PE32+)."
+      size_kb: "101"
+      output_behavior: "in_place"
+      known_issues:
+        - "In-Place Only: Tool strictly modifies the target file. Does not support an output file argument."
+
+  - &pakkero_v071
+    packer_name: "pakkero"
+    version: "0.7.1"
+    arch_origin: "x64"
+    supported_input_arch: [ "PE32", "PE32+", "ELF" ]
+    supported_output_arch: [ "PE32", "PE32+", "ELF" ]
+    dependencies: [ "UPX" ]
+    tags: [ "CLI"]
+    binary_path: "./packers/pakkero/pakkero.exe"
+    binary_sha256: "245db974e05621a099e51f4f0c4ade085ee6557f67898f6a54820becb4c682fa"
+    source_url: "https://github.com/89luca89/pakkero/releases/tag/0.7.1"
+    license: "MIT"
+    notes: "Golang-based packer. Features output offset shifting, dependency registration for fingerprinting, and optional UPX compression."
+    size_kb: "3707"
+    output_behavior: "explicit"
+    known_issues:
+      - "UPX Path: The -c flag expects 'upx' to be available in the system PATH; otherwise, compression fails."
+
 test_cases:
   # ==========================================
   # SECTION 2: TEST CASES (The Execution Plan)
   # Reference the anchors above using '<<: *anchor_name'
   # ==========================================
+
+  # --- Pakkero Test Group ---
+  - id: "PAKKERO_001_DEFAULT"
+    <<: *pakkero_v071
+    command_label: "Default Packing (No Compression)"
+    # Syntax: pakkero -file <in> -o <out>
+    cli_template: "{bin} -file {in} -o {out}"
+    validation:
+      allow_x64_switch: true
+
+  - id: "PAKKERO_002_COMPRESSED"
+    <<: *pakkero_v071
+    command_label: "Packing with UPX Compression"
+    # Syntax: pakkero -file <in> -o <out> -c
+    cli_template: "{bin} -file {in} -o {out} -c"
+    validation:
+      allow_x64_switch: true
+
+  - id: "PAKKERO_003_OFFSET_SHIFT"
+    <<: *pakkero_v071
+    command_label: "Payload Offset Shift (1KB)"
+    # Syntax: pakkero -file <in> -o <out> -offset 1024
+    cli_template: "{bin} -file {in} -o {out} -offset 1024"
+    validation:
+      allow_x64_switch: true
 
   # --- exe32pack Test Group ---
   - id: "EXE32PACK_001_DEFAULT"
@@ -507,5 +604,83 @@ test_cases:
     command_label: "Custom Lazy Match & Chain"
     # Overrides default lazy (8) and chain (32)
     cli_template: "{bin} {in} -lazy 16 -chain 64"
+    validation:
+      allow_x64_switch: false
+
+  # --- hXOR Packer Test Group ---
+  - id: "HXOR_001_DEFAULT"
+    <<: *hxor_v01
+    command_label: "Default (No Flags)"
+    # Syntax: packer.exe <S> <D>
+    cli_template: "{bin} {in} {out}"
+    validation:
+      allow_x64_switch: false
+
+  - id: "HXOR_002_COMPRESSION"
+    <<: *hxor_v01
+    command_label: "Compression Only"
+    # Syntax: packer.exe <S> <D> -c
+    cli_template: "{bin} {in} {out} -c"
+    validation:
+      allow_x64_switch: false
+
+  - id: "HXOR_003_ENCRYPTION"
+    <<: *hxor_v01
+    command_label: "Encryption Only (Key: 12345)"
+    # Syntax: packer.exe <S> <D> -e <K>
+    cli_template: "{bin} {in} {out} -e 12345"
+    validation:
+      allow_x64_switch: false
+
+  - id: "HXOR_004_COMPRESSION_ENCRYPTION"
+    <<: *hxor_v01
+    command_label: "Comp & Encr (Key: 56213)"
+    # Syntax: packer.exe <S> <D> -ce <K>
+    cli_template: "{bin} {in} {out} -ce 56213"
+    validation:
+      allow_x64_switch: false
+
+  # --- Hyperion Test Group ---
+  - id: "HYPERION_001_DEFAULT"
+    <<: *hyperion_v231
+    command_label: "Default Encryption"
+    cli_template: "{bin} --verbose {in} {out}"
+    validation:
+      allow_x64_switch: false
+
+# --- MPRESS Test Group ---
+  - id: "MPRESS_001_DEFAULT"
+    <<: *mpress_v219
+    command_label: "Default Compression"
+    # Runner copies file to {out}, MPRESS modifies it there.
+    cli_template: "{bin} {out}"
+    validation:
+      allow_x64_switch: false
+
+  - id: "MPRESS_002_LZMA_BEST"
+    <<: *mpress_v219
+    command_label: "Best LZMA Parameters (Slow)"
+    cli_template: "{bin} -s {out}"
+    validation:
+      allow_x64_switch: false
+
+  - id: "MPRESS_003_LZMAT"
+    <<: *mpress_v219
+    command_label: "Force LZMAT Algorithm"
+    cli_template: "{bin} -m {out}"
+    validation:
+      allow_x64_switch: false
+
+  - id: "MPRESS_004_NO_RESOURCES"
+    <<: *mpress_v219
+    command_label: "Exclude Resources"
+    cli_template: "{bin} -r {out}"
+    validation:
+      allow_x64_switch: false
+
+  - id: "MPRESS_005_NO_NET_PATCH"
+    <<: *mpress_v219
+    command_label: "No .NET Signature Patching"
+    cli_template: "{bin} -S {out}"
     validation:
       allow_x64_switch: false
