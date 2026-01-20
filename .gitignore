@@ -12,3 +12,4 @@ venv/
 .vscode/
 .idea/
 *.log
+/manifest/~$packer_catalog.xlsx

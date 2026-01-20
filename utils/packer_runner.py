@@ -202,6 +202,16 @@ def get_short_path(path):
     _GetShortPathNameW(path, buf, buf_size)
     return buf.value
 
+def to_wsl_path(win_path):
+    """Convert a Windows path to WSL path format."""
+    # Normalize to absolute path
+    abs_path = os.path.abspath(win_path)
+    # Convert C:\Users\... to /mnt/c/Users/...
+    if len(abs_path) >= 2 and abs_path[1] == ':':
+        drive = abs_path[0].lower()
+        rest = abs_path[2:].replace('\\', '/')
+        return f"/mnt/{drive}{rest}"
+    return abs_path.replace('\\', '/')
 
 def pack_single_file(args):
     """Worker function to pack a single file."""
@@ -257,20 +267,32 @@ def pack_single_file(args):
     raw_parts = cmd_template.split()
     command_list = []
 
+    is_wsl_command = raw_parts[0].lower() == "wsl" if raw_parts else False
+
     for part in raw_parts:
         if "{python}" in part:
             command_list.append(sys.executable)
         elif "{bin}" in part:
-            command_list.append(packer_bin)
+            if is_wsl_command:
+                command_list.append(to_wsl_path(packer_bin))
+            else:
+                command_list.append(packer_bin)
         elif "{in}" in part:
-            # --- FIXED: Use the SAFE local copy (Short Path + No Spaces) ---
-            command_list.append(get_short_path(os.path.abspath(safe_input_path)))
+            safe_path = get_short_path(os.path.abspath(safe_input_path))
+            if is_wsl_command:
+                command_list.append(to_wsl_path(safe_path))
+            else:
+                command_list.append(safe_path)
         elif "{out}" in part:
             full_dst_path = os.path.abspath(dst_path)
             if output_behavior == "explicit_absolute":
-                command_list.append(full_dst_path)
+                path_to_use = full_dst_path
             else:
-                command_list.append(get_short_path(full_dst_path))
+                path_to_use = get_short_path(full_dst_path)
+            if is_wsl_command:
+                command_list.append(to_wsl_path(path_to_use))
+            else:
+                command_list.append(path_to_use)
         else:
             command_list.append(part)
 

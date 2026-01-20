@@ -284,54 +284,38 @@ definitions:
       known_issues:
         - "In-Place Only: Tool strictly modifies the target file. Does not support an output file argument."
 
-  - &pakkero_v071
-    packer_name: "pakkero"
-    version: "0.7.1"
-    arch_origin: "x64"
-    supported_input_arch: [ "PE32", "PE32+", "ELF" ]
-    supported_output_arch: [ "PE32", "PE32+", "ELF" ]
-    dependencies: [ "UPX" ]
-    tags: [ "CLI"]
-    binary_path: "./packers/pakkero/pakkero.exe"
-    binary_sha256: "245db974e05621a099e51f4f0c4ade085ee6557f67898f6a54820becb4c682fa"
-    source_url: "https://github.com/89luca89/pakkero/releases/tag/0.7.1"
-    license: "MIT"
-    notes: "Golang-based packer. Features output offset shifting, dependency registration for fingerprinting, and optional UPX compression."
-    size_kb: "3707"
-    output_behavior: "explicit"
-    known_issues:
-      - "UPX Path: The -c flag expects 'upx' to be available in the system PATH; otherwise, compression fails."
+  - &pe_packer_czs
+      packer_name: "pe_packer"
+      version: "1.0"
+      arch_origin: "x86"
+      supported_input_arch: "PE32"
+      supported_output_arch: "PE32"
+      dependencies: [ ]
+      tags: [ "CLI" ]
+      binary_path: "./packers/Windows-PE-Packer/build/bin/PE-Packer.exe"
+      binary_sha256: "a02f586b9957803ee339bca8281bff2c6e468a0c3091e88ea60d139eeae1ea7e"
+      source_url: "https://github.com/czs108/Windows-PE-Packer"
+      license: "MIT"
+      notes: "Written in C and Intel x86 Assembly. Designed to obstruct reverse engineering."
+      size_kb: "58"
+      output_behavior: "explicit"
+      known_issues:
+        - ""
 
 test_cases:
-  # ==========================================
-  # SECTION 2: TEST CASES (The Execution Plan)
-  # Reference the anchors above using '<<: *anchor_name'
-  # ==========================================
+# ==========================================
+# SECTION 2: TEST CASES (The Execution Plan)
+# Reference the anchors above using '<<: *anchor_name'
+# ==========================================
 
-  # --- Pakkero Test Group ---
-  - id: "PAKKERO_001_DEFAULT"
-    <<: *pakkero_v071
-    command_label: "Default Packing (No Compression)"
-    # Syntax: pakkero -file <in> -o <out>
-    cli_template: "{bin} -file {in} -o {out}"
+# --- PE-Packer (czs108) Test Group ---
+  - id: "PE_PACKER_CZS_001"
+    <<: *pe_packer_czs
+    command_label: "Default Packing"
+    # Usage: PE-Packer <input-file> <output-file>
+    cli_template: "{bin} {in} {out}"
     validation:
-      allow_x64_switch: true
-
-  - id: "PAKKERO_002_COMPRESSED"
-    <<: *pakkero_v071
-    command_label: "Packing with UPX Compression"
-    # Syntax: pakkero -file <in> -o <out> -c
-    cli_template: "{bin} -file {in} -o {out} -c"
-    validation:
-      allow_x64_switch: true
-
-  - id: "PAKKERO_003_OFFSET_SHIFT"
-    <<: *pakkero_v071
-    command_label: "Payload Offset Shift (1KB)"
-    # Syntax: pakkero -file <in> -o <out> -offset 1024
-    cli_template: "{bin} -file {in} -o {out} -offset 1024"
-    validation:
-      allow_x64_switch: true
+      allow_x64_switch: false
 
   # --- exe32pack Test Group ---
   - id: "EXE32PACK_001_DEFAULT"
