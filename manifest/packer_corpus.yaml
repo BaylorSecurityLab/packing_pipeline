@@ -356,7 +356,7 @@ definitions:
     known_issues:
       - "In-Place Only: The tool strictly modifies the target file provided as the argument."
       - "Stability: As a v1.0 PoC, it does not handle complex PE headers or overlays correctly."
-      -
+
 test_cases:
 # ==========================================
 # SECTION 2: TEST CASES (The Execution Plan)
