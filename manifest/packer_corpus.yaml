@@ -302,11 +302,76 @@ definitions:
       known_issues:
         - ""
 
+  - &pelock_v211
+    packer_name: "pelock"
+    version: "2.11 (Demo)"
+    arch_origin: "x86"
+    supported_input_arch: "PE32"
+    supported_output_arch: "PE32"
+    dependencies: [ ]
+    tags: [ "GUI", "License-Manager" ]
+    binary_path: "./packers/pelock/PELock Demo/PELock.exe"
+    binary_sha256: "4543c9e8f924e66d0d0814f535b1f1ed2b90f146e85fbd29f3532c62919f8257"
+    source_url: "https://www.pelock.com/products/pelock/download"
+    license: "Commercial (Demo)"
+    notes: "Software protection system for 32-bit Windows executables. Features polymorphism, compression, and a built-in licensing system. Demo version has limitations."
+    size_kb: "2073"
+    output_behavior: "explicit"
+    known_issues:
+      - "Demo Limitations: Demo version restricts encryption macros and includes nag screens."
+
+  - &petite_v24
+    packer_name: "petite"
+    version: "2.4"
+    arch_origin: "x86"
+    supported_input_arch: "PE32"
+    supported_output_arch: "PE32"
+    dependencies: [ ]
+    tags: [ "CLI", "Compressor" ]
+    binary_path: "./packers/petite/petite24/petite.exe"
+    binary_sha256: "d087f4f24f7608c1e3cc16ddc9511720fa0d86fdcee0b8d73543c840823b5db6"
+    source_url: "http://www.un4seen.com/petite/"
+    license: "Freeware"
+    notes: "Classic Win32 executable compressor by Un4seen Developments. Features configurable resource compression and import table mangling."
+    size_kb: "30"
+    output_behavior: "explicit"
+    known_issues:
+      - "Compatibility: Older packer (2015); aggressive import mangling (-m1) may break modern Windows 10/11 executables."
+
+  - &theark_v1
+    packer_name: "theark"
+    version: "1.0"
+    arch_origin: "x86"
+    supported_input_arch: "PE32"
+    supported_output_arch: "PE32"
+    dependencies: [ ]
+    tags: [ "CLI", "Protector", "GitHub-PoC" ]
+    binary_path: "./packers/theark/Release/Release/theArk.exe"
+    binary_sha256: "0b25b0024efb5fa7423b2d1ba601ba981948df01bce1b4e6f40cc9d98138d999"
+    source_url: "https://github.com/aaaddress1/theArk/releases/tag/1.0"
+    license: "Open Source"
+    notes: "Proof-of-Concept PE packer by aaaddress1. Performs in-place modification of the target executable."
+    size_kb: "15"
+    output_behavior: "in_place"
+    known_issues:
+      - "In-Place Only: The tool strictly modifies the target file provided as the argument."
+      - "Stability: As a v1.0 PoC, it does not handle complex PE headers or overlays correctly."
+      -
 test_cases:
 # ==========================================
 # SECTION 2: TEST CASES (The Execution Plan)
 # Reference the anchors above using '<<: *anchor_name'
 # ==========================================
+
+# --- theArk Test Group ---
+  - id: "THEARK_001_DEFAULT"
+    <<: *theark_v1
+    command_label: "Default Packing"
+    # Usage: theArk.exe [TARGET_PE_FILE]
+    # The runner must copy the input to {out} before running this command.
+    cli_template: "{bin} {out}"
+    validation:
+      allow_x64_switch: false
 
 # --- PE-Packer (czs108) Test Group ---
   - id: "PE_PACKER_CZS_001"
@@ -666,5 +731,46 @@ test_cases:
     <<: *mpress_v219
     command_label: "No .NET Signature Patching"
     cli_template: "{bin} -S {out}"
+    validation:
+      allow_x64_switch: false
+
+  # --- Petite Test Group ---
+  - id: "PETITE_001_DEFAULT"
+    <<: *petite_v24
+    command_label: "Default Compression (Level 1)"
+    # Syntax: petite [options] files...
+    # -y to overwrite if exists, -b0 to disable backup file creation
+    cli_template: "{bin} -y -b0 -o{out} {in}"
+    validation:
+      allow_x64_switch: false
+
+  - id: "PETITE_002_MAX_COMPRESSION"
+    <<: *petite_v24
+    command_label: "Max Compression (Level 9)"
+    cli_template: "{bin} -9 -y -b0 -o{out} {in}"
+    validation:
+      allow_x64_switch: false
+
+  - id: "PETITE_003_RESOURCE_OPT"
+    <<: *petite_v24
+    command_label: "Compress Non-Version/Icon Resources"
+    # -r* selects all non-version and icon resources
+    cli_template: "{bin} -r* -y -b0 -o{out} {in}"
+    validation:
+      allow_x64_switch: false
+
+  - id: "PETITE_004_MANGLE_IMPORTS"
+    <<: *petite_v24
+    command_label: "Mangle Imports & Strip Relocs"
+    # -m1 (mangle imports), -s1 (strip relocs), -e1 (compress exports)
+    cli_template: "{bin} -m1 -s1 -e1 -y -b0 -o{out} {in}"
+    validation:
+      allow_x64_switch: false
+
+  - id: "PETITE_005_NO_COMPRESS_DEBUG"
+    <<: *petite_v24
+    command_label: "Strip Debug Info Only"
+    # -d1 (strip debug), Level 1 compression default
+    cli_template: "{bin} -d1 -y -b0 -o{out} {in}"
     validation:
       allow_x64_switch: false
