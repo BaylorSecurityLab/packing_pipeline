@@ -194,6 +194,10 @@ def get_short_path(path):
     except UnicodeEncodeError:
         pass
 
+    # Must exist for GetShortPathName to work
+    if not os.path.exists(path):
+        return path
+
     buf_size = _GetShortPathNameW(path, None, 0)
     if buf_size == 0:
         return path
@@ -201,6 +205,7 @@ def get_short_path(path):
     buf = ctypes.create_unicode_buffer(buf_size)
     _GetShortPathNameW(path, buf, buf_size)
     return buf.value
+
 
 def to_wsl_path(win_path):
     """Convert a Windows path to WSL path format."""
@@ -213,6 +218,7 @@ def to_wsl_path(win_path):
         return f"/mnt/{drive}{rest}"
     return abs_path.replace('\\', '/')
 
+
 def pack_single_file(args):
     """Worker function to pack a single file."""
     src_path, output_dir, packer_bin, cmd_template, max_size_kb, timeout, output_behavior = args
@@ -220,18 +226,6 @@ def pack_single_file(args):
     filename = os.path.basename(src_path)
     safe_filename = sanitize_filename(filename)
     dst_path = os.path.join(output_dir, safe_filename)
-
-    # --- Pre-calculate Potential Output Locations ---
-    name_no_ext = os.path.splitext(filename)[0]
-    src_dir = os.path.dirname(src_path)
-
-    # Amber style: src_dir/filename_packed.exe
-    expected_amber_output = f"{name_no_ext}_packed.exe"
-    actual_amber_location = os.path.join(src_dir, expected_amber_output)
-
-    # Eronona style: src_dir/filename.packed.exe
-    expected_suffix_packed_output = f"{name_no_ext}.packed.exe"
-    actual_suffix_packed_location = os.path.join(src_dir, expected_suffix_packed_output)
 
     if max_size_kb > 0:
         file_size_kb = os.path.getsize(src_path) / 1024
@@ -247,57 +241,89 @@ def pack_single_file(args):
 
     # --- NEW: Create a safe, simple copy of the input file ---
     # This solves issues with spaces, Unicode, and long paths in legacy packers.
+    # The packer will work on 'in.exe' inside the temp folder.
     safe_input_name = "in.exe"
     safe_input_path = os.path.join(local_temp, safe_input_name)
+
+    # Clean up previous temp files to ensure no collision
+    if os.path.exists(safe_input_path):
+        try:
+            os.remove(safe_input_path)
+        except:
+            pass
+
     try:
         shutil.copyfile(src_path, safe_input_path)
     except Exception as e:
         return False, f"Failed to create temp input copy: {e}"
 
+    # Calculate EXPECTED output locations based on the SAFE INPUT name (in.exe)
+    # Because the packer runs on 'in.exe' in 'local_temp', the output will be there.
+    safe_name_no_ext = os.path.splitext(safe_input_name)[0]  # "in"
+
+    # Amber style: local_temp/in_packed.exe
+    temp_amber_output = os.path.join(local_temp, f"{safe_name_no_ext}_packed.exe")
+
+    # Eronona style: local_temp/in.packed.exe
+    temp_suffix_output = os.path.join(local_temp, f"{safe_name_no_ext}.packed.exe")
+
     pack_env = os.environ.copy()
     pack_env["TEMP"] = os.path.abspath(local_temp)
     pack_env["TMP"] = os.path.abspath(local_temp)
 
+    # In-place behavior: copy input to destination first, then pack destination
     if output_behavior == "in_place":
         try:
             shutil.copy2(safe_input_path, dst_path)
         except Exception as e:
             return False, f"Failed to setup in-place file: {e}"
 
+    # --- Robust Command Construction ---
     raw_parts = cmd_template.split()
     command_list = []
-
     is_wsl_command = raw_parts[0].lower() == "wsl" if raw_parts else False
 
+    # Prepare values for substitution
+    # Use short paths for Windows binaries to avoid space issues
+    val_bin = packer_bin
+    if is_wsl_command:
+        val_bin = to_wsl_path(packer_bin)
+
+    val_in = get_short_path(os.path.abspath(safe_input_path))
+    if is_wsl_command:
+        val_in = to_wsl_path(val_in)
+
+    val_out = os.path.abspath(dst_path)
+    if output_behavior != "explicit_absolute":
+        val_out = get_short_path(val_out)
+    if is_wsl_command:
+        val_out = to_wsl_path(val_out)
+
+    val_python = sys.executable
+
     for part in raw_parts:
-        if "{python}" in part:
-            command_list.append(sys.executable)
-        elif "{bin}" in part:
-            if is_wsl_command:
-                command_list.append(to_wsl_path(packer_bin))
-            else:
-                command_list.append(packer_bin)
-        elif "{in}" in part:
-            safe_path = get_short_path(os.path.abspath(safe_input_path))
-            if is_wsl_command:
-                command_list.append(to_wsl_path(safe_path))
-            else:
-                command_list.append(safe_path)
-        elif "{out}" in part:
-            full_dst_path = os.path.abspath(dst_path)
-            if output_behavior == "explicit_absolute":
-                path_to_use = full_dst_path
-            else:
-                path_to_use = get_short_path(full_dst_path)
-            if is_wsl_command:
-                command_list.append(to_wsl_path(path_to_use))
-            else:
-                command_list.append(path_to_use)
-        else:
-            command_list.append(part)
+        # Use simple substitution to preserve flags attached to placeholders
+        # e.g., "-f{in}" -> "-fC:\path\to\in.exe"
+        new_part = part
+        if "{python}" in new_part:
+            new_part = new_part.replace("{python}", val_python)
+
+        if "{bin}" in new_part:
+            new_part = new_part.replace("{bin}", val_bin)
+
+        if "{in}" in new_part:
+            new_part = new_part.replace("{in}", val_in)
+
+        if "{out}" in new_part:
+            new_part = new_part.replace("{out}", val_out)
+
+        command_list.append(new_part)
 
     try:
         cwd = os.path.dirname(packer_bin)
+
+        # DEBUG: Uncomment the next line to see exactly what runs
+        # print(f"DEBUG EXECUTING: {command_list}")
 
         result = subprocess.run(
             command_list,
@@ -315,14 +341,8 @@ def pack_single_file(args):
 
         # Cleanup temp
         try:
-            # Note: We can't delete local_temp immediately if the packer failed to output
-            # but usually we want to clean up.
-            for temp_file in os.listdir(local_temp):
-                try:
-                    os.remove(os.path.join(local_temp, temp_file))
-                except PermissionError:
-                    pass # Sometimes packers hold handles
-            os.rmdir(local_temp)
+            # We delay strict cleanup slightly to allow file handles to close
+            pass
         except:
             pass
 
@@ -330,26 +350,31 @@ def pack_single_file(args):
 
         # 1. Handle "input_dir_suffix" (Amber style)
         if output_behavior == "input_dir_suffix":
-            if os.path.exists(actual_amber_location):
+            if os.path.exists(temp_amber_output):
                 if os.path.exists(dst_path):
                     os.remove(dst_path)
-                shutil.move(actual_amber_location, dst_path)
+                shutil.move(temp_amber_output, dst_path)
 
         # 2. Handle "suffix_packed" (Eronona style)
         elif output_behavior == "suffix_packed":
-            if os.path.exists(actual_suffix_packed_location):
+            if os.path.exists(temp_suffix_output):
                 if os.path.exists(dst_path):
                     os.remove(dst_path)
-                shutil.move(actual_suffix_packed_location, dst_path)
+                shutil.move(temp_suffix_output, dst_path)
 
-            potential_cwd_output = os.path.join(output_dir, expected_suffix_packed_output)
-            if os.path.exists(potential_cwd_output):
-                if os.path.exists(dst_path):
-                    os.remove(dst_path)
-                os.rename(potential_cwd_output, dst_path)
+            # Fallback: sometimes it might drop in the CWD (unlikely with Safe Copy but possible)
+            cwd_suffix_output = os.path.join(cwd, "in.packed.exe")
+            if os.path.exists(cwd_suffix_output):
+                if os.path.exists(dst_path): os.remove(dst_path)
+                shutil.move(cwd_suffix_output, dst_path)
 
         # 3. Final Verification
         if os.path.exists(dst_path):
+            # Clean up input copy if successful
+            try:
+                os.remove(safe_input_path)
+            except:
+                pass
             return True, "Packed"
         else:
             combined_output = (
@@ -361,21 +386,18 @@ def pack_single_file(args):
             )
 
     except subprocess.TimeoutExpired:
-        if os.path.exists(actual_amber_location): os.remove(actual_amber_location)
-        if os.path.exists(actual_suffix_packed_location): os.remove(actual_suffix_packed_location)
+        if os.path.exists(temp_amber_output): os.remove(temp_amber_output)
         if output_behavior == "in_place" and os.path.exists(dst_path): os.remove(dst_path)
         return False, "Timeout (possible stuck dialog)"
 
     except subprocess.CalledProcessError as e:
-        if os.path.exists(actual_amber_location): os.remove(actual_amber_location)
-        if os.path.exists(actual_suffix_packed_location): os.remove(actual_suffix_packed_location)
+        if os.path.exists(temp_amber_output): os.remove(temp_amber_output)
         if output_behavior == "in_place" and os.path.exists(dst_path): os.remove(dst_path)
         combined_output = f"STDOUT: {e.stdout.strip()} | STDERR: {e.stderr.strip()}"
         return False, f"Exit Code {e.returncode} - {combined_output}"
 
     except Exception as e:
-        if os.path.exists(actual_amber_location): os.remove(actual_amber_location)
-        if os.path.exists(actual_suffix_packed_location): os.remove(actual_suffix_packed_location)
+        if os.path.exists(temp_amber_output): os.remove(temp_amber_output)
         if output_behavior == "in_place" and os.path.exists(dst_path): os.remove(dst_path)
         return False, f"Exception: {str(e)}"
 
