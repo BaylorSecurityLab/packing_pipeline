@@ -7,14 +7,50 @@ last_updated: "2026-01-12"
 # Define packers here once. Use '&name' to create a reusable anchor.
 # ==========================================
 definitions:
+  - &acprotect_legacy
+    packer_name: "acprotect"
+    version: "Legacy"
+    arch_origin: "x86"
+    supported_input_arch: "PE32"
+    supported_output_arch: "PE32"
+    dependencies: []
+    tags: ["GUI"]
+    binary_path: "./packers/acprotect/ACProtect/ACProtect.exe"
+    binary_sha256: "f082359b90eed2aed56403667527e038b84204021d281e09057496aae177b058"
+    source_url: "https://archive.org/details/tucows_304741_ACProtect"
+    license: "Commercial (Shareware)"
+    notes: "Professional software protection system (formerly ultraprotect.com). Features embedded encryption (RSA), anti-debugging, and metamorphic engine."
+    size_kb: "998"
+    output_behavior: "explicit"
+    known_issues:
+      - ""
+
+  - &yoda_crypter_v13
+    packer_name: "yoda_crypter"
+    version: "1.3"
+    arch_origin: "x86"
+    supported_input_arch: "PE32"
+    supported_output_arch: "PE32"
+    dependencies: []
+    tags: ["GUI", "Crypter", "Polymorphism"]
+    binary_path: "./packers/yoda_crypter/yC1.3/yC1.3/yC.exe"
+    binary_sha256: "337b92acf0dd3fac565b9a07ddef1bb07852b1c4a0dcaa0c4df5debd9d51c629"
+    source_url: "https://sourceforge.net/projects/yodap/"
+    license: "Freeware"
+    notes: "Yoda's Crypter (yC). A polymorphic encryptor designed for signature evasion. Distinct from Yoda's Protector."
+    size_kb: "108"
+    output_behavior: "explicit"
+    known_issues:
+      - ""
+
   - &exe32pack_v142
     packer_name: "exe32pack"
     version: "1.42"
     arch_origin: "x32"
     supported_input_arch: "PE32"
     supported_output_arch: "PE32"
-    dependencies: [ ]
-    tags: ["CLI" ]
+    dependencies: []
+    tags: ["CLI"]
     binary_path: "./packers/exe32pack/exe32pack.exe"
     binary_sha256: "e81d42faae9cd704f678d400d71caae0e252ea500c7daf5920ceeb66d039ddf5"
     source_url: "https://exe32pack.apponic.com/download/"
@@ -33,7 +69,7 @@ definitions:
     arch_origin: "x64"
     supported_input_arch: ["PE32", "PE32+"]
     supported_output_arch: ["PE32", "PE32+"]
-    dependencies: [ ]
+    dependencies: []
     tags: ["CLI", "Multi-Platform"]
     binary_path: "./packers/upx/upx.exe"
     binary_sha256: "41c7492edeed0f7e67d347ca9e8d2131e2af7ca7a7695f92283a8e655c251c13"
@@ -52,8 +88,8 @@ definitions:
     arch_origin: "x86"
     supported_input_arch: "PE32"
     supported_output_arch: "PE32"
-    dependencies: [ ]
-    tags: [ "GUI" ]
+    dependencies: []
+    tags: ["GUI"]
     binary_path: "./packers/yoda_protect/yp.exe"
     binary_sha256: "a48ae6f9abd8e767b5fa25727959b9fd7cf1ef601c520e0bf0e0e4544479cc89"
     source_url: "https://sourceforge.net/projects/yodap/"
@@ -68,10 +104,10 @@ definitions:
     packer_name: "amber"
     version: "3.1"
     arch_origin: "x64"
-    supported_input_arch: [ "PE32", "PE32+" ]
-    supported_output_arch: [ "PE32", "PE32+" ]
-    dependencies: [ ]
-    tags: [ "CLI", "Reflective", "Security" ]
+    supported_input_arch: ["PE32", "PE32+"]
+    supported_output_arch: ["PE32", "PE32+"]
+    dependencies: []
+    tags: ["CLI", "Reflective", "Security"]
     binary_path: "./packers/amber/amber.exe"
     binary_sha256: "e5509a144cb371b7afe6fb6a526fca317688da6b27bfcb7be1faf8fffd58a472"
     source_url: "https://github.com/EgeBalci/amber/releases/tag/v3.1"
@@ -84,25 +120,23 @@ definitions:
       - "Stability: Custom stubs are marked as experimental."
 
   - &bero_v100
-      packer_name: "beroexepacker"
-      version: "1.00.2017.01.27"
-      arch_origin: "x86"
-      supported_input_arch: "PE32"
-      supported_output_arch: "PE32"
-      dependencies: [ ]
-      tags: ["CLI", "Tiny-EXE", "Demoscene"]
-      binary_path: "./packers/beroexepacker/bep.exe"
-      binary_sha256: "3f81abdc1ec3971be78db8a8c38ced0970bc9eec3415046596e47a5ca85cd272"
-      source_url: "https://blog.rosseaux.net/page/875fbe6549aa072b5ee0ac9cefff4827/BeRoEXEPacker"
-      license: "Freeware"
-      notes: "(C) 2006-2017 Benjamin 'BeRo' Rosseaux. Excellent for very small executables and demoscene intros."
-      size_kb: "72 KB"
-      output_behavior: "explicit"
-      known_issues:
-        - "Compatibility: Focuses on extreme size reduction which can sometimes break standard PE headers unless +SPH is managed carefully."
-        -
-
-
+    packer_name: "beroexepacker"
+    version: "1.00.2017.01.27"
+    arch_origin: "x86"
+    supported_input_arch: "PE32"
+    supported_output_arch: "PE32"
+    dependencies: []
+    tags: ["CLI", "Tiny-EXE", "Demoscene"]
+    binary_path: "./packers/beroexepacker/bep.exe"
+    binary_sha256: "3f81abdc1ec3971be78db8a8c38ced0970bc9eec3415046596e47a5ca85cd272"
+    source_url: "https://blog.rosseaux.net/page/875fbe6549aa072b5ee0ac9cefff4827/BeRoEXEPacker"
+    license: "Freeware"
+    notes: "(C) 2006-2017 Benjamin 'BeRo' Rosseaux. Excellent for very small executables and demoscene intros."
+    size_kb: "72 KB"
+    output_behavior: "explicit"
+    known_issues:
+      - "Compatibility: Focuses on extreme size reduction which can sometimes break standard PE headers unless +SPH is managed carefully."
+      -
 
   - &alienyze_v14
     packer_name: "alienyze_protector"
@@ -110,8 +144,8 @@ definitions:
     arch_origin: "x86"
     supported_input_arch: "PE32"
     supported_output_arch: "PE32"
-    dependencies: [ ]
-    tags: [ "GUI" ]
+    dependencies: []
+    tags: ["GUI"]
     binary_path: "./packers/alienyze_protector/alienyze.exe"
     binary_sha256: "86e46398131254fd0ce718344b06f45892d74ef3592e5adf9f800a646da6aae6"
     source_url: "https://alienyze.com/"
@@ -128,8 +162,8 @@ definitions:
     arch_origin: "x86"
     supported_input_arch: "PE32"
     supported_output_arch: "PE32"
-    dependencies: [ ]
-    tags: [ "GUI", "Freeware" ]
+    dependencies: []
+    tags: ["GUI", "Freeware"]
     binary_path: "./packers/exepacker/EXE Packer/ExePacker.exe"
     binary_sha256: "2055DA20FC856A632A10B827D6B20E561784A5E90A26B2BC35FCC0AF2DB3653E"
     source_url: "https://www.alternate-tools.com/pages/c_exepacker.php"
@@ -146,8 +180,8 @@ definitions:
     arch_origin: "x86"
     supported_input_arch: "PE32"
     supported_output_arch: "PE32"
-    dependencies: [ ".NET Framework" ]
-    tags: [ "GUI", "Obfuscator", "DRM", ".NET-Assembly" ]
+    dependencies: [".NET Framework"]
+    tags: ["GUI", "Obfuscator", "DRM", ".NET-Assembly"]
     binary_path: "./packers/asm_guard/asm_guard.exe"
     binary_sha256: "4a41b9ae527604f56289c1d659b50aeed34e6b2378e2accdfdbfdc5db870676b"
     source_url: "https://github.com/DosX-dev/ASM-Guard/releases"
@@ -164,8 +198,8 @@ definitions:
     arch_origin: "x86"
     supported_input_arch: "PE32"
     supported_output_arch: "PE32"
-    dependencies: [ ]
-    tags: [ "GUI", "Commercial" ]
+    dependencies: []
+    tags: ["GUI", "Commercial"]
     binary_path: "./packers/aspack/setup.exe"
     binary_sha256: "B1AAD17F65FBDB5FB75E13A00BD3B1DB6E5168F8E4419E57B13FB34DC48C4BA4"
     source_url: "http://www.aspack.com/"
@@ -182,8 +216,8 @@ definitions:
     arch_origin: "x86"
     supported_input_arch: "PE32"
     supported_output_arch: "PE32"
-    dependencies: [ ]
-    tags: [ "GUI", "Installer", "Copy-Protection" ]
+    dependencies: []
+    tags: ["GUI", "Installer", "Copy-Protection"]
     binary_path: "./packers/asprotect32/setup.exe"
     binary_sha256: "A73694CB69CCBCC2E14D85D08AA589D01E9A3F082CBE3A4E25A80C695C2885CA"
     source_url: "http://www.aspack.com/"
@@ -198,10 +232,10 @@ definitions:
     packer_name: "astral_pe"
     version: "1.6.0.0"
     arch_origin: "x64"
-    supported_input_arch: [ "PE32", "PE32+" ]
-    supported_output_arch: [ "PE32", "PE32+" ]
-    dependencies: [ ]
-    tags: [ "CLI", "Mutator" ]
+    supported_input_arch: ["PE32", "PE32+"]
+    supported_output_arch: ["PE32", "PE32+"]
+    dependencies: []
+    tags: ["CLI", "Mutator"]
     binary_path: "./packers/astral_pe/astral_pe.exe"
     binary_sha256: "632246efaff5da152e10e5e1c0c3df4ba7091d19367099cdc426c3baeee73ba8"
     source_url: "https://github.com/DosX-dev/Astral-PE/releases/tag/Stable"
@@ -213,40 +247,40 @@ definitions:
       - ""
 
   - &eronona_v1
-      packer_name: "eronona"
-      version: "1.0"
-      arch_origin: "x86"
-      supported_input_arch: "PE32"
-      supported_output_arch: "PE32"
-      dependencies: []
-      tags: ["CLI"]
-      binary_path: "./packers/eronona/eronona.exe"
-      binary_sha256: "CB23858B14525403FE6B4A1F1A48E2F0028D891232414B87A42B7B02C44B2E02"
-      source_url: "https://github.com/Eronana/packer/releases/tag/packer"
-      license: "MIT"
-      notes: "Simple Win32 EXE packer. Uses a custom compression algorithm with tunable lazy matching and hash chaining. Output files usually append '.packed.exe'."
-      size_kb: "43"
-      output_behavior: "suffix_packed"
-      known_issues:
-        - "Output Naming: Does not appear to support custom output filenames via CLI; auto-generates 'filename.packed.exe'."
+    packer_name: "eronona"
+    version: "1.0"
+    arch_origin: "x86"
+    supported_input_arch: "PE32"
+    supported_output_arch: "PE32"
+    dependencies: []
+    tags: ["CLI"]
+    binary_path: "./packers/eronona/eronona.exe"
+    binary_sha256: "CB23858B14525403FE6B4A1F1A48E2F0028D891232414B87A42B7B02C44B2E02"
+    source_url: "https://github.com/Eronana/packer/releases/tag/packer"
+    license: "MIT"
+    notes: "Simple Win32 EXE packer. Uses a custom compression algorithm with tunable lazy matching and hash chaining. Output files usually append '.packed.exe'."
+    size_kb: "43"
+    output_behavior: "suffix_packed"
+    known_issues:
+      - "Output Naming: Does not appear to support custom output filenames via CLI; auto-generates 'filename.packed.exe'."
 
   - &hxor_v01
-      packer_name: "hxor_packer"
-      version: "0.1"
-      arch_origin: "x86"
-      supported_input_arch: "PE32"
-      supported_output_arch: "PE32"
-      dependencies: [ ]
-      tags: [ "CLI"]
-      binary_path: "./packers/hxor_packer/packer.exe"
-      binary_sha256: "a80c3732dbfbaaa65c21cf7a0a68295bac614d05675bf059bebed39a9d8d3db0"
-      source_url: "https://github.com/akuafif/hXOR-Packer/releases/tag/0.1"
-      license: "Freeware"
-      notes: "hXOR Packer by Afif (2012). Features basic compression and XOR-based encryption requiring a numeric key."
-      size_kb: "193"
-      output_behavior: "explicit_absolute"
-      known_issues:
-        - "Pathing: The help menu explicitly requests 'Absolute Path' for inputs and outputs"
+    packer_name: "hxor_packer"
+    version: "0.1"
+    arch_origin: "x86"
+    supported_input_arch: "PE32"
+    supported_output_arch: "PE32"
+    dependencies: []
+    tags: ["CLI"]
+    binary_path: "./packers/hxor_packer/packer.exe"
+    binary_sha256: "a80c3732dbfbaaa65c21cf7a0a68295bac614d05675bf059bebed39a9d8d3db0"
+    source_url: "https://github.com/akuafif/hXOR-Packer/releases/tag/0.1"
+    license: "Freeware"
+    notes: "hXOR Packer by Afif (2012). Features basic compression and XOR-based encryption requiring a numeric key."
+    size_kb: "193"
+    output_behavior: "explicit_absolute"
+    known_issues:
+      - "Pathing: The help menu explicitly requests 'Absolute Path' for inputs and outputs"
 
   - &hyperion_v231
     packer_name: "hyperion"
@@ -254,8 +288,8 @@ definitions:
     arch_origin: "x86"
     supported_input_arch: "PE32"
     supported_output_arch: "PE32"
-    dependencies: [ "FASM" ]
-    tags: [ "CLI" ]
+    dependencies: ["FASM"]
+    tags: ["CLI"]
     binary_path: "./packers/hyperion/hyperion.exe"
     binary_sha256: "A0C336336EC39550476B329F7D7F14FDE2EC442614C682CC0EB22DC7DFCF3C15"
     source_url: "https://github.com/nullsecuritynet/tools/tree/main/binary/hyperion"
@@ -267,40 +301,40 @@ definitions:
       - "File Size Limit: Fails on large files 'error: out of memory' or 'illegal instruction' because FASM cannot compile the massive source file generated."
 
   - &mpress_v219
-      packer_name: "mpress"
-      version: "2.19"
-      arch_origin: "x86"
-      supported_input_arch: [ "PE32", "PE32+", ".NET" ]
-      supported_output_arch: [ "PE32", "PE32+", ".NET" ]
-      dependencies: [ ]
-      tags: [ "CLI" ]
-      binary_path: "./packers/mpress/mpress.exe"
-      binary_sha256: "2852680c94a9d68cdab285012d9328a1ceca290db60c9e35155c2bb3e46a41b4"
-      source_url: "https://www.autohotkey.com/mpress/mpress_web.html"
-      license: "Freeware"
-      notes: "MATCODE comPRESSor. High-performance in-place compressor. Excellent support for .NET executables and x64 (PE32+)."
-      size_kb: "101"
-      output_behavior: "in_place"
-      known_issues:
-        - "In-Place Only: Tool strictly modifies the target file. Does not support an output file argument."
+    packer_name: "mpress"
+    version: "2.19"
+    arch_origin: "x86"
+    supported_input_arch: ["PE32", "PE32+", ".NET"]
+    supported_output_arch: ["PE32", "PE32+", ".NET"]
+    dependencies: []
+    tags: ["CLI"]
+    binary_path: "./packers/mpress/mpress.exe"
+    binary_sha256: "2852680c94a9d68cdab285012d9328a1ceca290db60c9e35155c2bb3e46a41b4"
+    source_url: "https://www.autohotkey.com/mpress/mpress_web.html"
+    license: "Freeware"
+    notes: "MATCODE comPRESSor. High-performance in-place compressor. Excellent support for .NET executables and x64 (PE32+)."
+    size_kb: "101"
+    output_behavior: "in_place"
+    known_issues:
+      - "In-Place Only: Tool strictly modifies the target file. Does not support an output file argument."
 
   - &pe_packer_czs
-      packer_name: "pe_packer"
-      version: "1.0"
-      arch_origin: "x86"
-      supported_input_arch: "PE32"
-      supported_output_arch: "PE32"
-      dependencies: [ ]
-      tags: [ "CLI" ]
-      binary_path: "./packers/Windows-PE-Packer/build/bin/PE-Packer.exe"
-      binary_sha256: "a02f586b9957803ee339bca8281bff2c6e468a0c3091e88ea60d139eeae1ea7e"
-      source_url: "https://github.com/czs108/Windows-PE-Packer"
-      license: "MIT"
-      notes: "Written in C and Intel x86 Assembly. Designed to obstruct reverse engineering."
-      size_kb: "58"
-      output_behavior: "explicit"
-      known_issues:
-        - ""
+    packer_name: "pe_packer"
+    version: "1.0"
+    arch_origin: "x86"
+    supported_input_arch: "PE32"
+    supported_output_arch: "PE32"
+    dependencies: []
+    tags: ["CLI"]
+    binary_path: "./packers/Windows-PE-Packer/build/bin/PE-Packer.exe"
+    binary_sha256: "a02f586b9957803ee339bca8281bff2c6e468a0c3091e88ea60d139eeae1ea7e"
+    source_url: "https://github.com/czs108/Windows-PE-Packer"
+    license: "MIT"
+    notes: "Written in C and Intel x86 Assembly. Designed to obstruct reverse engineering."
+    size_kb: "58"
+    output_behavior: "explicit"
+    known_issues:
+      - ""
 
   - &pelock_v211
     packer_name: "pelock"
@@ -308,8 +342,8 @@ definitions:
     arch_origin: "x86"
     supported_input_arch: "PE32"
     supported_output_arch: "PE32"
-    dependencies: [ ]
-    tags: [ "GUI", "License-Manager" ]
+    dependencies: []
+    tags: ["GUI", "License-Manager"]
     binary_path: "./packers/pelock/PELock Demo/PELock.exe"
     binary_sha256: "4543c9e8f924e66d0d0814f535b1f1ed2b90f146e85fbd29f3532c62919f8257"
     source_url: "https://www.pelock.com/products/pelock/download"
@@ -326,8 +360,8 @@ definitions:
     arch_origin: "x86"
     supported_input_arch: "PE32"
     supported_output_arch: "PE32"
-    dependencies: [ ]
-    tags: [ "CLI", "Compressor" ]
+    dependencies: []
+    tags: ["CLI", "Compressor"]
     binary_path: "./packers/petite/petite24/petite.exe"
     binary_sha256: "d087f4f24f7608c1e3cc16ddc9511720fa0d86fdcee0b8d73543c840823b5db6"
     source_url: "http://www.un4seen.com/petite/"
@@ -344,8 +378,8 @@ definitions:
     arch_origin: "x86"
     supported_input_arch: "PE32"
     supported_output_arch: "PE32"
-    dependencies: [ ]
-    tags: [ "CLI", "Protector", "GitHub-PoC" ]
+    dependencies: []
+    tags: ["CLI", "Protector", "GitHub-PoC"]
     binary_path: "./packers/theark/Release/Release/theArk.exe"
     binary_sha256: "0b25b0024efb5fa7423b2d1ba601ba981948df01bce1b4e6f40cc9d98138d999"
     source_url: "https://github.com/aaaddress1/theArk/releases/tag/1.0"
@@ -358,12 +392,12 @@ definitions:
       - "Stability: As a v1.0 PoC, it does not handle complex PE headers or overlays correctly."
 
 test_cases:
-# ==========================================
-# SECTION 2: TEST CASES (The Execution Plan)
-# Reference the anchors above using '<<: *anchor_name'
-# ==========================================
+  # ==========================================
+  # SECTION 2: TEST CASES (The Execution Plan)
+  # Reference the anchors above using '<<: *anchor_name'
+  # ==========================================
 
-# --- theArk Test Group ---
+  # --- theArk Test Group ---
   - id: "THEARK_001_DEFAULT"
     <<: *theark_v1
     command_label: "Default Packing"
@@ -373,7 +407,7 @@ test_cases:
     validation:
       allow_x64_switch: false
 
-# --- PE-Packer (czs108) Test Group ---
+  # --- PE-Packer (czs108) Test Group ---
   - id: "PE_PACKER_CZS_001"
     <<: *pe_packer_czs
     command_label: "Default Packing"
@@ -391,14 +425,12 @@ test_cases:
     validation:
       allow_x64_switch: false
 
-
   - id: "EXE32PACK_002_MEDIUM"
     <<: *exe32pack_v142
     command_label: "Medium Compression (Tiny Overhead)"
     cli_template: "{bin} /M:1 {in} {out}"
     validation:
       allow_x64_switch: false
-
 
   - id: "EXE32PACK_003_TIGHT"
     <<: *exe32pack_v142
@@ -407,14 +439,12 @@ test_cases:
     validation:
       allow_x64_switch: false
 
-
   - id: "EXE32PACK_004_REALIGN"
     <<: *exe32pack_v142
     command_label: "Realign Only (No Compression)"
     cli_template: "{bin} /R {in} {out}"
     validation:
       allow_x64_switch: false
-
 
   # --- UPX Test Group ---
 
@@ -529,7 +559,7 @@ test_cases:
     validation:
       allow_x64_switch: false
 
-# --- Amber Test Group ---
+  # --- Amber Test Group ---
 
   - id: "AMBER_001_DEFAULT_BUILD"
     <<: *amber_v31
@@ -559,7 +589,7 @@ test_cases:
     validation:
       allow_x64_switch: false
 
-# --- BeRoEXEPacker Test Group ---
+  # --- BeRoEXEPacker Test Group ---
   - id: "BEP_001_DEFAULT"
     <<: *bero_v100
     command_label: "Default Compression"
@@ -624,8 +654,7 @@ test_cases:
     validation:
       allow_x64_switch: false
 
-
-# --- Eronona Test Group ---
+  # --- Eronona Test Group ---
   - id: "ERONONA_001_DEFAULT"
     <<: *eronona_v1
     command_label: "Default Compression (Level 3)"
@@ -697,7 +726,7 @@ test_cases:
     validation:
       allow_x64_switch: false
 
-# --- MPRESS Test Group ---
+  # --- MPRESS Test Group ---
   - id: "MPRESS_001_DEFAULT"
     <<: *mpress_v219
     command_label: "Default Compression"
