@@ -7,6 +7,79 @@ last_updated: "2026-01-12"
 # Define packers here once. Use '&name' to create a reusable anchor.
 # ==========================================
 definitions:
+  - &pecompact_legacy
+    packer_name: "pecompact"
+    version: "Legacy"
+    arch_origin: "x86"
+    supported_input_arch: "PE32"
+    supported_output_arch: "PE32"
+    dependencies: []
+    tags: ["GUI"]
+    binary_path: "./packers/pecompact/PECompact/pecompact.exe"
+    binary_sha256: "84c09b85971d41b84dbb2238c75c8a340afce6da2a16921ae3b7596aad57ac2d"
+    source_url: "https://archive.org/details/pecompct_zip"
+    license: "Shareware"
+    notes: "PECompact by Jeremy Collake. A well-known legacy packer known for high compression ratios and anti-debug features."
+    size_kb: "34"
+    output_behavior: "explicit"
+    known_issues:
+      - ""
+
+  - &rlpack_v121
+    packer_name: "rlpack"
+    version: "1.21 Basic"
+    arch_origin: "x86"
+    supported_input_arch: "PE32"
+    supported_output_arch: "PE32"
+    dependencies: []
+    tags: ["GUI"]
+    binary_path: "./packers/rlpack/RLPack.exe"
+    binary_sha256: "070ee0f340a85a6b5c6aa5577aecf22c95ae380ef1e05e62073e726bd3dc7da2"
+    source_url: "https://www.softpedia.com/get/Programming/Packers-Crypters-Protectors/RLPack-Basic-Edition.shtml"
+    license: "Freeware (Basic)"
+    notes: "RLPack Basic Edition (by ap0x). A compressing executable protector"
+    size_kb: "58"
+    output_behavior: "explicit"
+    known_issues:
+      - ""
+
+  - &kkrunchy_v023
+    packer_name: "kkrunchy"
+    version: "0.23 alpha"
+    arch_origin: "x86"
+    supported_input_arch: "PE32"
+    supported_output_arch: "PE32"
+    dependencies: []
+    tags: ["CLI"]
+    binary_path: "./packers/kkrunchy/kkrunchy.exe"
+    binary_sha256: "70b8af13448406bebbd3639d64e161752aca325fc57a353bf31edd76af5f7b1b"
+    source_url: "https://www.farbrausch.de/~fg/kkrunchy/"
+    license: "Freeware"
+    notes: "A radical EXE packer designed for 64k and 4k intros."
+    size_kb: "40"
+    output_behavior: "explicit"
+    known_issues:
+      - "Stability: Frequent Access Violation crashes (Exit Code 0xC0000005) when parsing modern complex PE structures."
+      - "Compatibility: Produces non-standard PE structures that often crash modern debuggers or static analysis tools."
+
+  - &fsg_v20
+    packer_name: "fsg"
+    version: "2.0"
+    arch_origin: "x86"
+    supported_input_arch: "PE32"
+    supported_output_arch: "PE32"
+    dependencies: []
+    tags: ["GUI"]
+    binary_path: "./packers/fsg/fsg/fsg.exe"
+    binary_sha256: "733038f506b52a5993f923ae29909cca60b7af0dfe66b1c703e2d4626c3b7e28"
+    source_url: "https://web.archive.org/web/20051210214158/http://www.exetools.com/files/compressors/win/fsg.zip"
+    license: "Freeware"
+    notes: "Fast Small Good (FSG) by dulek/xt. Specifically designed for extremely small output sizes"
+    size_kb: "15"
+    output_behavior: "explicit"
+    known_issues:
+      - ""
+
   - &acprotect_legacy
     packer_name: "acprotect"
     version: "Legacy"
@@ -326,7 +399,7 @@ definitions:
     supported_output_arch: "PE32"
     dependencies: []
     tags: ["CLI"]
-    binary_path: "./packers/Windows-PE-Packer/build/bin/PE-Packer.exe"
+    binary_path: "./packers/windows-pe-packer/build/bin/PE-Packer.exe"
     binary_sha256: "a02f586b9957803ee339bca8281bff2c6e468a0c3091e88ea60d139eeae1ea7e"
     source_url: "https://github.com/czs108/Windows-PE-Packer"
     license: "MIT"
@@ -396,6 +469,30 @@ test_cases:
   # SECTION 2: TEST CASES (The Execution Plan)
   # Reference the anchors above using '<<: *anchor_name'
   # ==========================================
+  # --- kkrunchy Test Group ---
+  - id: "KKRUNCHY_001_DEFAULT"
+    <<: *kkrunchy_v023
+    command_label: "Default Compression (Good)"
+    cli_template: "{bin} --out {out} {in}"
+    validation:
+      allow_x64_switch: false
+      allow_x86_switch: false
+
+  - id: "KKRUNCHY_002_BEST"
+    <<: *kkrunchy_v023
+    command_label: "Best Compression (Slow)"
+    cli_template: "{bin} --best --out {out} {in}"
+    validation:
+      allow_x64_switch: false
+      allow_x86_switch: false
+
+  - id: "KKRUNCHY_003_NEW"
+    <<: *kkrunchy_v023
+    command_label: "Experimental New Frontend"
+    cli_template: "{bin} --new --out {out} {in}"
+    validation:
+      allow_x64_switch: false
+      allow_x86_switch: false
 
   # --- theArk Test Group ---
   - id: "THEARK_001_DEFAULT"
