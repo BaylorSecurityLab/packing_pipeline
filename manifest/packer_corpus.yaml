@@ -7,23 +7,111 @@ last_updated: "2026-01-12"
 # Define packers here once. Use '&name' to create a reusable anchor.
 # ==========================================
 definitions:
-  - &pecompact_legacy
-    packer_name: "pecompact"
-    version: "Legacy"
+  - &rewolf_virt_poc
+    packer_name: "x86_virtualizer"
+    version: "1.0 (PoC)"
     arch_origin: "x86"
     supported_input_arch: "PE32"
     supported_output_arch: "PE32"
-    dependencies: []
-    tags: ["GUI"]
-    binary_path: "./packers/pecompact/PECompact/pecompact.exe"
-    binary_sha256: "84c09b85971d41b84dbb2238c75c8a340afce6da2a16921ae3b7596aad57ac2d"
-    source_url: "https://archive.org/details/pecompct_zip"
-    license: "Shareware"
-    notes: "PECompact by Jeremy Collake. A well-known legacy packer known for high compression ratios and anti-debug features."
-    size_kb: "34"
-    output_behavior: "explicit"
+    dependencies: [ ]
+    tags: [ "GUI", "Virtualizer"]
+    binary_path: "./packers/x86-virtualizer/x86.virt.exe"
+    binary_sha256: "4c189edb97c3e64277d537153ee9601c0043427d715c10f2d2f09eff2e1b2379"
+    source_url: "https://github.com/rwfpl/rewolf-x86-virtualizer"
+    license: "Open Source (MIT/BSD)"
+    notes: "Proof-of-Concept x86 machine code virtualizer by ReWolf. Translates native instructions into a custom bytecode interpreted by a polymorphic VM."
+    size_kb: "80"
+    known_issues:
+      - "Stability: As a Proof-of-Concept (PoC), it may not handle complex modern instruction sets (SSE/AVX) or specific calling conventions correctly."
+
+  - &xcomp_v097
+    packer_name: "xcomp"
+    version: "0.97"
+    arch_origin: "x86"
+    supported_input_arch: "PE32"
+    supported_output_arch: "PE32"
+    dependencies: [ ]
+    tags: [ "CLI", "In-Place", "Legacy" ]
+    binary_path: "./packers/xcomp/XCompc.exe"
+    binary_sha256: "5e33e701bc871198ef32e1598641e7704d7a1e74f022f924a17ee9e7ca302836"
+    source_url: "http://www.soft-lab.de/JoKo/index_old.htm"
+    license: "Freeware"
+    notes: "(c) 2007 JoKo. A 32-bit PE packer supporting LZRW and LZSS compression. Modifies files in-place."
+    size_kb: "25"
+    output_behavior: "in_place"
+    known_issues:
+      - "Stability: Susceptible to Access Violation crashes (Exit Code 0xC0000005) on complex, modern installers (e.g., Adobe Acrobat Reader)."
+      - "Legacy Constraints: As a 2007 tool, it may fail on executables with extensive Overlay data or non-standard Section alignments."
+
+  - &winupack_v039
+    packer_name: "winupack"
+    version: "0.39"
+    arch_origin: "x86"
+    supported_input_arch: "PE32"
+    supported_output_arch: "PE32"
+    dependencies: [ "upack" ]
+    tags: [ "GUI", "Frontend" ]
+    binary_path: "./packers/wupack/WinUpackE.exe"
+    binary_sha256: "7ae78bec94af597d27dd66b681300da0004945434e4ad2b11c60321ea0bd90e5"
+    source_url: "https://www.sac.sk/download/pack/wupck039.zip"
+    license: "Freeware"
+    notes: "Graphical User Interface (GUI) frontend for the Upack CLI compressor. Useful for manual testing but not suitable for automation."
+    size_kb: "27"
     known_issues:
       - ""
+
+  - &upack_v399
+    packer_name: "upack"
+    version: "0.399 (Brute)"
+    arch_origin: "x86"
+    supported_input_arch: "PE32"
+    supported_output_arch: "PE32"
+    dependencies: [ ]
+    tags: [ "CLI" ]
+    binary_path: "./packers/upack/Upack.exe"
+    binary_sha256: "bbbf9630c2e0990e6d8cbb52b5842e7d7a1def8e844c2dcb01a1f8106d82bdd7"
+    source_url: "https://www.sac.sk/download/pack/upack399.rar"
+    license: "Freeware"
+    notes: "(c) 2005 dwing. A legendary packer often associated with malware due to its unique PE header manipulation (e.g., merging sections)."
+    size_kb: "21"
+    output_behavior: "in_place"
+    known_issues:
+      - ""
+
+  - &telock_v098
+    packer_name: "telock"
+    version: "0.98"
+    arch_origin: "x86"
+    supported_input_arch: "PE32"
+    supported_output_arch: "PE32"
+    dependencies: [ ]
+    tags: [ "GUI" ]
+    binary_path: "./packers/telock/telock.exe"
+    binary_sha256: "5203aa4b6ad2d63fc8c7f6a05fb72b6ac75985ee8077820b47faa5a1b97c13c1"
+    source_url: "https://www.softpedia.com/get/Programming/Packers-Crypters-Protectors/Telock.shtml"
+    license: "Freeware"
+    notes: "tElock (The Experimental Lock) by tE. A famous legacy protector designed to defeat debuggers and disassemblers with polymorphic encryption."
+    size_kb: "54"
+    known_issues:
+      - ""
+
+  - &pecompact_legacy
+      packer_name: "pecompact"
+      version: "Legacy"
+      arch_origin: "x86"
+      supported_input_arch: "PE32"
+      supported_output_arch: "PE32"
+      dependencies: []
+      tags: ["GUI"]
+      binary_path: "./packers/pecompact/PECompact/pecompact.exe"
+      binary_sha256: "84c09b85971d41b84dbb2238c75c8a340afce6da2a16921ae3b7596aad57ac2d"
+      source_url: "https://archive.org/details/pecompct_zip"
+      license: "Shareware"
+      notes: "PECompact by Jeremy Collake. A well-known legacy packer known for high compression ratios and anti-debug features."
+      size_kb: "34"
+      output_behavior: "explicit"
+      known_issues:
+        - ""
 
   - &rlpack_v121
     packer_name: "rlpack"
@@ -469,6 +557,82 @@ test_cases:
   # SECTION 2: TEST CASES (The Execution Plan)
   # Reference the anchors above using '<<: *anchor_name'
   # ==========================================
+  
+  # --- XComp Test Group ---
+  - id: "XCOMP_001_DEFAULT"
+    <<: *xcomp_v097
+    command_label: "Default Compression"
+    # -b: Don't create backup file (runner handles backups)
+    cli_template: "{bin} -b {in}"
+    validation:
+      allow_x64_switch: false
+      allow_x86_switch: false
+
+  - id: "XCOMP_002_MAX_COMPRESSION"
+    <<: *xcomp_v097
+    command_label: "Max Compression (Level 9)"
+    cli_template: "{bin} -b -l:9 {in}"
+    validation:
+      allow_x64_switch: false
+      allow_x86_switch: false
+
+  - id: "XCOMP_003_LZSS_ALGO"
+    <<: *xcomp_v097
+    command_label: "Force LZSS Algorithm"
+    cli_template: "{bin} -b -lzs {in}"
+    validation:
+      allow_x64_switch: false
+      allow_x86_switch: false
+
+  - id: "XCOMP_004_STRIP_EXPORTS"
+    <<: *xcomp_v097
+    command_label: "Delete Exports Section"
+    cli_template: "{bin} -b -e {in}"
+    validation:
+      allow_x64_switch: false
+      allow_x86_switch: false
+
+  # --- Upack Test Group ---
+  - id: "UPACK_001_DEFAULT"
+    <<: *upack_v399
+    command_label: "Default Compression"
+    cli_template: "{bin} {in}"
+    validation:
+      allow_x64_switch: false
+      allow_x86_switch: false
+
+  - id: "UPACK_002_MAX_COMPRESSION"
+    <<: *upack_v399
+    command_label: "Max Compression (LC 6, FB 273)"
+    cli_template: "{bin} {in} -c6 -f273"
+    validation:
+      allow_x64_switch: false
+      allow_x86_switch: false
+
+  - id: "UPACK_003_STRIP_ALL"
+    <<: *upack_v399
+    command_label: "Strip Exports and Relocations"
+    cli_template: "{bin} {in} -set -srt"
+    validation:
+      allow_x64_switch: false
+      allow_x86_switch: false
+
+  - id: "UPACK_004_BRUTE_FORCE"
+    <<: *upack_v399
+    command_label: "Brute Mode (Compress Resources)"
+    cli_template: "{bin} {in} -brute -force"
+    validation:
+      allow_x64_switch: false
+      allow_x86_switch: false
+
+  - id: "UPACK_005_PRESERVE_ICONS"
+    <<: *upack_v399
+    command_label: "Preserve Icons"
+    cli_template: "{bin} {in} -rai"
+    validation:
+      allow_x64_switch: false
+      allow_x86_switch: false
+
   # --- kkrunchy Test Group ---
   - id: "KKRUNCHY_001_DEFAULT"
     <<: *kkrunchy_v023
