@@ -7,20 +7,129 @@ last_updated: "2026-01-12"
 # Define packers here once. Use '&name' to create a reusable anchor.
 # ==========================================
 definitions:
+  - &xpa_exe
+    packer_name: "XPA"
+    version: "0.1"
+    arch_origin: "x86"
+    supported_input_arch: "PE32"
+    supported_output_arch: "PE32"
+    dependencies: []
+    tags: ["GUI"]
+    binary_path: "./packers/xpa/XPA.EXE"
+    binary_sha256: "5b1bb60ca1898c6bd303d6e9605a54b33063ff37664cf309dee6d1dcae291593"
+    source_url: "https://defacto2.net/f/a520164?packer=upxs"
+    license: "Freeware"
+    notes: "Legacy GUI packer (likely 'Xtreme Packer' or similar acronym). Requires manual interaction."
+    size_kb: "60"
+    output_behavior: "explicit"
+    known_issues:
+      - ""
+
+  - &upx_scrambler_304
+    packer_name: "UPX Scrambler"
+    version: "3.0.4"
+    arch_origin: "x86"
+    supported_input_arch: "PE32"
+    supported_output_arch: "PE32"
+    dependencies: []
+    tags: ["GUI", "Scrambler"]
+    binary_path: "./packers/upx_scrambler/upxs304.exe"
+    binary_sha256: "eb59536bfe402267af20dba1adfe35f6a88d30d6fd0460bebdc7cff782b3a971"
+    source_url: "https://defacto2.net/f/a520164?packer=upxs"
+    license: "Freeware"
+    notes: "A tool designed to obfuscate or 'scramble' the headers of UPX-packed executables to prevent easy unpacking. It is a GUI-based utility."
+    size_kb: "17"
+    output_behavior: "explicit"
+    known_issues:
+      - ""
+
+  - &shrink32_exe
+    packer_name: "Shrinker"
+    version: "0.1"
+    arch_origin: "x86"
+    supported_input_arch: "PE32"
+    supported_output_arch: "PE32"
+    dependencies: []
+    tags: ["GUI"]
+    binary_path: "./packers/shrinker/Shrink32.exe"
+    binary_sha256: "87d6ee4ce86397d45200698be1a917aa9eca24e80359bd18a39f545afec68bfe"
+    source_url: "https://defacto2.net/f/a520164?packer=upxs"
+    license: "Shareware/Commercial"
+    notes: "Legacy packer by Blink Inc. Execution triggers a GUI window with no console output, making it unsuitable for standard CLI automation."
+    size_kb: "361"
+    output_behavior: "explicit"
+    known_issues:
+      - ""
+
+  - &pepack_v10
+    packer_name: "pepack"
+    version: "1.0"
+    arch_origin: "x86"
+    supported_input_arch: "PE32"
+    supported_output_arch: "PE32"
+    dependencies: []
+    tags: ["CLI"]
+    binary_path: "./packers/pepack/pepack.exe"
+    binary_sha256: "5ce18d6d19cd249d7936e522448dfc742cbe2a33c94400c024631a2505080b37"
+    source_url: "https://web.archive.org/web/20060111104142/http://www.exetools.com/files/compressors/win/pepack10.zip"
+    license: "Freeware"
+    notes: "(C) Copyright 1998 by ANAKiN. A classic legacy packer. The `-o` flag description ('write to output.exe') implies a static output filename, so using in-place modification on a copy is safer for automation."
+    size_kb: "15"
+    output_behavior: "in_place"
+    known_issues:
+      - ""
+
+  - &ped_legacy
+    packer_name: "pe_diminisher"
+    version: "Legacy"
+    arch_origin: "x86"
+    supported_input_arch: "PE32"
+    supported_output_arch: "PE32"
+    dependencies: []
+    tags: ["GUI", "Header-Stripper"]
+    binary_path: "./packers/ped/ped.exe"
+    binary_sha256: "cb6c5b337d31716f9fdb5517d6cce426436e46cf818ee91a98df667a22fef4f1"
+    source_url: "https://web.archive.org/web/20060111104142/http://www.exetools.com/files/compressors/win/ped.zip"
+    license: "Freeware"
+    notes: "PE Diminisher (PED). A legacy GUI tool designed to reduce executable size by stripping DOS headers and optimizing PE structures."
+    size_kb: "14"
+    output_behavior: "explicit"
+    known_issues:
+      - ""
+
+  - &hackupx_v100
+    packer_name: "hackupx"
+    version: "1.00"
+    arch_origin: "x86"
+    supported_input_arch: "PE32"
+    supported_output_arch: "PE32"
+    dependencies: ["upx"]
+    tags: ["CLI", "Mutator", "Obfuscator", "Multi-Stage"]
+    binary_path: "./packers/hackupx/hackupx.exe"
+    binary_sha256: "47a0ac6605d6f63b94df7c54d54674dcf4f48038b39d08668f633edd61812e10"
+    source_url: "https://defacto2.net/f/a520164?packer=upxs"
+    license: "Freeware"
+    notes: "UPX Mutator by ROSE SWE (2001). Scrambles the headers/signatures of UPX-compressed executables to prevent automatic unpacking."
+    size_kb: "35"
+    output_behavior: "in_place"
+    known_issues:
+      - ""
+
   - &rewolf_virt_poc
     packer_name: "x86_virtualizer"
     version: "1.0 (PoC)"
     arch_origin: "x86"
     supported_input_arch: "PE32"
     supported_output_arch: "PE32"
-    dependencies: [ ]
-    tags: [ "GUI", "Virtualizer"]
+    dependencies: []
+    tags: ["GUI", "Virtualizer"]
     binary_path: "./packers/x86-virtualizer/x86.virt.exe"
     binary_sha256: "4c189edb97c3e64277d537153ee9601c0043427d715c10f2d2f09eff2e1b2379"
     source_url: "https://github.com/rwfpl/rewolf-x86-virtualizer"
     license: "Open Source (MIT/BSD)"
     notes: "Proof-of-Concept x86 machine code virtualizer by ReWolf. Translates native instructions into a custom bytecode interpreted by a polymorphic VM."
     size_kb: "80"
+    output_behavior: "explicit"
     known_issues:
       - "Stability: As a Proof-of-Concept (PoC), it may not handle complex modern instruction sets (SSE/AVX) or specific calling conventions correctly."
 
@@ -30,8 +139,8 @@ definitions:
     arch_origin: "x86"
     supported_input_arch: "PE32"
     supported_output_arch: "PE32"
-    dependencies: [ ]
-    tags: [ "CLI", "In-Place", "Legacy" ]
+    dependencies: []
+    tags: ["CLI", "In-Place", "Legacy"]
     binary_path: "./packers/xcomp/XCompc.exe"
     binary_sha256: "5e33e701bc871198ef32e1598641e7704d7a1e74f022f924a17ee9e7ca302836"
     source_url: "http://www.soft-lab.de/JoKo/index_old.htm"
@@ -49,14 +158,15 @@ definitions:
     arch_origin: "x86"
     supported_input_arch: "PE32"
     supported_output_arch: "PE32"
-    dependencies: [ "upack" ]
-    tags: [ "GUI", "Frontend" ]
+    dependencies: ["upack"]
+    tags: ["GUI", "Frontend"]
     binary_path: "./packers/wupack/WinUpackE.exe"
     binary_sha256: "7ae78bec94af597d27dd66b681300da0004945434e4ad2b11c60321ea0bd90e5"
     source_url: "https://www.sac.sk/download/pack/wupck039.zip"
     license: "Freeware"
     notes: "Graphical User Interface (GUI) frontend for the Upack CLI compressor. Useful for manual testing but not suitable for automation."
     size_kb: "27"
+    output_behavior: "explicit"
     known_issues:
       - ""
 
@@ -66,8 +176,8 @@ definitions:
     arch_origin: "x86"
     supported_input_arch: "PE32"
     supported_output_arch: "PE32"
-    dependencies: [ ]
-    tags: [ "CLI" ]
+    dependencies: []
+    tags: ["CLI"]
     binary_path: "./packers/upack/Upack.exe"
     binary_sha256: "bbbf9630c2e0990e6d8cbb52b5842e7d7a1def8e844c2dcb01a1f8106d82bdd7"
     source_url: "https://www.sac.sk/download/pack/upack399.rar"
@@ -84,34 +194,35 @@ definitions:
     arch_origin: "x86"
     supported_input_arch: "PE32"
     supported_output_arch: "PE32"
-    dependencies: [ ]
-    tags: [ "GUI" ]
+    dependencies: []
+    tags: ["GUI"]
     binary_path: "./packers/telock/telock.exe"
     binary_sha256: "5203aa4b6ad2d63fc8c7f6a05fb72b6ac75985ee8077820b47faa5a1b97c13c1"
     source_url: "https://www.softpedia.com/get/Programming/Packers-Crypters-Protectors/Telock.shtml"
     license: "Freeware"
     notes: "tElock (The Experimental Lock) by tE. A famous legacy protector designed to defeat debuggers and disassemblers with polymorphic encryption."
     size_kb: "54"
+    output_behavior: "explicit"
     known_issues:
       - ""
 
   - &pecompact_legacy
-      packer_name: "pecompact"
-      version: "Legacy"
-      arch_origin: "x86"
-      supported_input_arch: "PE32"
-      supported_output_arch: "PE32"
-      dependencies: []
-      tags: ["GUI"]
-      binary_path: "./packers/pecompact/PECompact/pecompact.exe"
-      binary_sha256: "84c09b85971d41b84dbb2238c75c8a340afce6da2a16921ae3b7596aad57ac2d"
-      source_url: "https://archive.org/details/pecompct_zip"
-      license: "Shareware"
-      notes: "PECompact by Jeremy Collake. A well-known legacy packer known for high compression ratios and anti-debug features."
-      size_kb: "34"
-      output_behavior: "explicit"
-      known_issues:
-        - ""
+    packer_name: "pecompact"
+    version: "Legacy"
+    arch_origin: "x86"
+    supported_input_arch: "PE32"
+    supported_output_arch: "PE32"
+    dependencies: []
+    tags: ["GUI"]
+    binary_path: "./packers/pecompact/PECompact/pecompact.exe"
+    binary_sha256: "84c09b85971d41b84dbb2238c75c8a340afce6da2a16921ae3b7596aad57ac2d"
+    source_url: "https://archive.org/details/pecompct_zip"
+    license: "Shareware"
+    notes: "PECompact by Jeremy Collake. A well-known legacy packer known for high compression ratios and anti-debug features."
+    size_kb: "34"
+    output_behavior: "explicit"
+    known_issues:
+      - ""
 
   - &rlpack_v121
     packer_name: "rlpack"
@@ -557,7 +668,43 @@ test_cases:
   # SECTION 2: TEST CASES (The Execution Plan)
   # Reference the anchors above using '<<: *anchor_name'
   # ==========================================
-  
+
+  # --- PE-PACK Test Group ---
+  - id: "PEPACK_001_DEFAULT"
+    <<: *pepack_v10
+    command_label: "Default Packing"
+    # Usage: pepack filename [options]
+    # Runner copies target to {out}, then we run pepack on {out}.
+    cli_template: "{bin} {out}"
+    validation:
+      allow_x64_switch: false
+
+  - id: "PEPACK_002_FULL_COMPRESSION"
+    <<: *pepack_v10
+    command_label: "Pack All (Resources + Version + Icons)"
+    # -ver: pack version info
+    # -icn: pack icons
+    cli_template: "{bin} {out} -ver -icn"
+    validation:
+      allow_x64_switch: false
+
+  - id: "PEPACK_003_FAST_ALIGN"
+    <<: *pepack_v10
+    command_label: "Fast Compression + 512 Align"
+    # -spd: faster compression
+    # -aln: set file align to 512
+    cli_template: "{bin} {out} -spd -aln"
+    validation:
+      allow_x64_switch: false
+
+  - id: "PEPACK_004_NO_RESOURCES"
+    <<: *pepack_v10
+    command_label: "Skip Resources"
+    # -rs-: do not pack RESOURCES
+    cli_template: "{bin} {out} -rs-"
+    validation:
+      allow_x64_switch: false
+
   # --- XComp Test Group ---
   - id: "XCOMP_001_DEFAULT"
     <<: *xcomp_v097
@@ -1062,5 +1209,15 @@ test_cases:
     command_label: "Strip Debug Info Only"
     # -d1 (strip debug), Level 1 compression default
     cli_template: "{bin} -d1 -y -b0 -o{out} {in}"
+    validation:
+      allow_x64_switch: false
+
+  # --- HACK-UPX Test Group ---
+  - id: "HACKUPX_001_MUTATE"
+    <<: *hackupx_v100
+    command_label: "Mutate UPX Header"
+    # Usage: hackupx.exe <file>
+    # Note: Runner must provide a UPX-packed file at {out}
+    cli_template: "{bin} {out}"
     validation:
       allow_x64_switch: false

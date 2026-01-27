@@ -212,16 +212,26 @@ def to_wsl_path(win_path):
     # Normalize to absolute path
     abs_path = os.path.abspath(win_path)
     # Convert C:\Users\... to /mnt/c/Users/...
-    if len(abs_path) >= 2 and abs_path[1] == ':':
+    if len(abs_path) >= 2 and abs_path[1] == ":":
         drive = abs_path[0].lower()
-        rest = abs_path[2:].replace('\\', '/')
+        rest = abs_path[2:].replace("\\", "/")
         return f"/mnt/{drive}{rest}"
-    return abs_path.replace('\\', '/')
+    return abs_path.replace("\\", "/")
 
 
 def pack_single_file(args):
     """Worker function to pack a single file."""
-    src_path, output_dir, packer_bin, cmd_template, max_size_kb, timeout, output_behavior = args
+    (
+        src_path,
+        output_dir,
+        packer_bin,
+        cmd_template,
+        max_size_kb,
+        timeout,
+        output_behavior,
+        dependencies,
+        config,
+    ) = args
 
     filename = os.path.basename(src_path)
     safe_filename = sanitize_filename(filename)
@@ -234,6 +244,95 @@ def pack_single_file(args):
 
     if os.path.exists(dst_path):
         return False, "Skipped (Exists)"
+
+    current_input = src_path
+    temp_files_to_clean = []
+
+    if dependencies:
+        for dep_name in dependencies:
+            dep_def = next(
+                (
+                    p
+                    for p in config.get("definitions", [])
+                    if p["packer_name"].lower() == dep_name.lower()
+                ),
+                None,
+            )
+            dep_test_cases = [
+                t
+                for t in config.get("test_cases", [])
+                if t["packer_name"].lower() == dep_name.lower()
+            ]
+
+            if not dep_def or not dep_test_cases:
+                return False, f"Dependency or test case not found for: {dep_name}"
+
+            dep_case = next(
+                (t for t in dep_test_cases if "DEFAULT" in t["id"]), dep_test_cases[0]
+            )
+
+            # --- FIX: Use a safe local path for the dependency stage ---
+            # This prevents the "FileNotFound" error by avoiding long absolute paths with spaces
+            dep_stage_path = os.path.abspath(
+                os.path.join(output_dir, f"stage_{dep_name}_{safe_filename}")
+            )
+
+            # Create a local temporary copy of the current_input to the output_dir
+            # so the packer is working on a local file, not a deep-pathed source file.
+            temp_local_input = os.path.abspath(
+                os.path.join(output_dir, f"tmp_input_{dep_name}.exe")
+            )
+            shutil.copy2(current_input, temp_local_input)
+            temp_files_to_clean.append(temp_local_input)
+
+            script_dir = os.path.dirname(os.path.abspath(__file__))
+            project_root = os.path.abspath(os.path.join(script_dir, ".."))
+            raw_dep_bin = dep_case["binary_path"]
+            if raw_dep_bin.startswith("./"):
+                raw_dep_bin = raw_dep_bin[2:]
+            dep_bin = os.path.abspath(os.path.join(project_root, raw_dep_bin))
+
+            # Build command using the local temp input
+            dep_raw_template = dep_case["cli_template"]
+            dep_cmd_parts = dep_raw_template.split()
+            dep_command = []
+
+            for part in dep_cmd_parts:
+                # We use get_short_path to further protect against path issues
+                new_part = (
+                    part.replace("{bin}", get_short_path(dep_bin))
+                    .replace("{in}", get_short_path(temp_local_input))
+                    .replace("{out}", get_short_path(dep_stage_path))
+                    .replace("{python}", sys.executable)
+                )
+                dep_command.append(new_part)
+
+            try:
+                # Handle in_place for dependencies
+                if dep_def.get("output_behavior") == "in_place":
+                    shutil.copy2(temp_local_input, dep_stage_path)
+                    dep_command = [
+                        p.replace(
+                            get_short_path(temp_local_input),
+                            get_short_path(dep_stage_path),
+                        )
+                        for p in dep_command
+                    ]
+
+                subprocess.run(
+                    dep_command,
+                    check=True,
+                    capture_output=True,
+                    timeout=timeout,
+                    cwd=os.path.dirname(dep_bin),
+                )
+
+                current_input = dep_stage_path
+                temp_files_to_clean.append(dep_stage_path)
+            except subprocess.CalledProcessError as e:
+                return False, f"Dependency {dep_name} failed: {e.stderr.decode()}"
+            except Exception as e:
+                return False, f"Stage failed ({dep_name}): {str(e)}"
 
     # --- Create local temp for intermediate files and Safe Input Copy ---
     local_temp = os.path.join(output_dir, "_temp_build")
@@ -336,7 +435,7 @@ def pack_single_file(args):
             timeout=timeout,
             env=pack_env,
             cwd=cwd,
-            input="\n\n"
+            input="\n\n",
         )
 
         # Cleanup temp
@@ -365,7 +464,8 @@ def pack_single_file(args):
             # Fallback: sometimes it might drop in the CWD (unlikely with Safe Copy but possible)
             cwd_suffix_output = os.path.join(cwd, "in.packed.exe")
             if os.path.exists(cwd_suffix_output):
-                if os.path.exists(dst_path): os.remove(dst_path)
+                if os.path.exists(dst_path):
+                    os.remove(dst_path)
                 shutil.move(cwd_suffix_output, dst_path)
 
         # 3. Final Verification
@@ -386,19 +486,25 @@ def pack_single_file(args):
             )
 
     except subprocess.TimeoutExpired:
-        if os.path.exists(temp_amber_output): os.remove(temp_amber_output)
-        if output_behavior == "in_place" and os.path.exists(dst_path): os.remove(dst_path)
+        if os.path.exists(temp_amber_output):
+            os.remove(temp_amber_output)
+        if output_behavior == "in_place" and os.path.exists(dst_path):
+            os.remove(dst_path)
         return False, "Timeout (possible stuck dialog)"
 
     except subprocess.CalledProcessError as e:
-        if os.path.exists(temp_amber_output): os.remove(temp_amber_output)
-        if output_behavior == "in_place" and os.path.exists(dst_path): os.remove(dst_path)
+        if os.path.exists(temp_amber_output):
+            os.remove(temp_amber_output)
+        if output_behavior == "in_place" and os.path.exists(dst_path):
+            os.remove(dst_path)
         combined_output = f"STDOUT: {e.stdout.strip()} | STDERR: {e.stderr.strip()}"
         return False, f"Exit Code {e.returncode} - {combined_output}"
 
     except Exception as e:
-        if os.path.exists(temp_amber_output): os.remove(temp_amber_output)
-        if output_behavior == "in_place" and os.path.exists(dst_path): os.remove(dst_path)
+        if os.path.exists(temp_amber_output):
+            os.remove(temp_amber_output)
+        if output_behavior == "in_place" and os.path.exists(dst_path):
+            os.remove(dst_path)
         return False, f"Exception: {str(e)}"
 
 
@@ -478,6 +584,7 @@ def run_packing(packer_name_input, max_size_kb=0, config=None, workers=1):
 
             # Get the behavior from the definition (defaults to explicit)
             output_behavior = packer_def.get("output_behavior", "explicit")
+            dependencies = packer_def.get("dependencies", [])
 
             print(f"\n--- Case: {test_id} (Workers: {workers}) ---")
 
@@ -492,6 +599,8 @@ def run_packing(packer_name_input, max_size_kb=0, config=None, workers=1):
                         max_size_kb,
                         settings["timeout"],
                         output_behavior,
+                        dependencies,
+                        config,
                     )
                 )
 
