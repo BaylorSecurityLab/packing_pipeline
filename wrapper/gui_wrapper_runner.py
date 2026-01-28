@@ -5,7 +5,7 @@ Scans benign_sources/x86 directory and runs appropriate GUI packers on compatibl
 
 import sys
 from pathlib import Path
-from typing import List, Dict, Optional, Any
+from typing import List, Dict, Optional, Set
 import argparse
 
 from asm_guard_wrapper import AsmGuardWrapper
@@ -50,9 +50,9 @@ class GUIWrapperRunner:
             main_dir: Main project directory
             yaml_path: Path to packer_corpus.yaml
         """
-        self.source_dir = Path(source_dir)
-        self.main_dir = Path(main_dir)
-        self.yaml_path = Path(yaml_path)
+        self.source_dir = Path(source_dir).resolve()
+        self.main_dir = Path(main_dir).resolve()
+        self.yaml_path = Path(yaml_path).resolve()
 
         # Validate paths
         if not self.source_dir.exists():
@@ -80,7 +80,7 @@ class GUIWrapperRunner:
             packer_name: Name of the packer
 
         Returns:
-            Path: Output directory (e.g., main_dir/pack_sources/asm_guard)
+            Path: Output directory (e.g., main_dir/packed_sources/asm_guard)
         """
         output_dir = self.main_dir / "packed_sources" / packer_name
         output_dir.mkdir(parents=True, exist_ok=True)
@@ -95,6 +95,98 @@ class GUIWrapperRunner:
             return True
 
         return file_path.suffix.lower() in [ext.lower() for ext in supported]
+
+    # ========== DIRECTORY SNAPSHOT & CLEANUP ==========
+
+    def snapshot_directory(self, directory: Path, recursive: bool = False) -> Set[Path]:
+        """
+        Take a snapshot of all files in a directory
+
+        Args:
+            directory: Directory to snapshot
+            recursive: Whether to include subdirectories
+
+        Returns:
+            Set of absolute file paths
+        """
+        directory = Path(directory).resolve()
+
+        if recursive:
+            files = set(f.resolve() for f in directory.rglob("*") if f.is_file())
+        else:
+            files = set(f.resolve() for f in directory.glob("*") if f.is_file())
+
+        print(f"[SNAPSHOT] Captured {len(files)} files in {directory}")
+        return files
+
+    def cleanup_new_files(
+        self,
+        directory: Path,
+        original_files: Set[Path],
+        recursive: bool = False,
+        dry_run: bool = False,
+    ) -> List[Path]:
+        """
+        Remove any files that were not in the original snapshot
+
+        Args:
+            directory: Directory to clean
+            original_files: Set of file paths from snapshot
+            recursive: Whether to check subdirectories
+            dry_run: If True, only list files without deleting
+
+        Returns:
+            List of deleted (or would-be-deleted) file paths
+        """
+        directory = Path(directory).resolve()
+
+        # Get current files
+        if recursive:
+            current_files = set(
+                f.resolve() for f in directory.rglob("*") if f.is_file()
+            )
+        else:
+            current_files = set(f.resolve() for f in directory.glob("*") if f.is_file())
+
+        # Find new files (files that weren't in original snapshot)
+        new_files = current_files - original_files
+
+        if not new_files:
+            print(f"\n[CLEANUP] No new files to clean up in {directory}")
+            return []
+
+        print(f"\n{'=' * 60}")
+        print(f"CLEANUP: {len(new_files)} new file(s) found")
+        print(f"{'=' * 60}")
+
+        deleted_files = []
+        for file_path in sorted(new_files):
+            relative_path = (
+                file_path.relative_to(directory)
+                if file_path.is_relative_to(directory)
+                else file_path
+            )
+
+            if dry_run:
+                print(f"  [WOULD DELETE] {relative_path}")
+                deleted_files.append(file_path)
+            else:
+                try:
+                    file_path.unlink()
+                    print(f"  [DELETED] {relative_path}")
+                    deleted_files.append(file_path)
+                except Exception as e:
+                    print(f"  [ERROR] Could not delete {relative_path}: {e}")
+
+        if dry_run:
+            print(f"\n[DRY RUN] Would have deleted {len(deleted_files)} file(s)")
+        else:
+            print(f"\n[CLEANUP] Deleted {len(deleted_files)} file(s)")
+
+        print(f"{'=' * 60}")
+        return deleted_files
+
+    # ========== SCANNING & PACKING ==========
 
     def scan_source_directory(
         self, packer_name: str = DEFAULT_PACKER, recursive: bool = False
@@ -141,14 +233,6 @@ class GUIWrapperRunner:
     ) -> Optional[Dict[str, bool]]:
         """
         Build configuration dict for a packer from check/uncheck lists
-
-        Args:
-            packer_name: Name of the packer
-            check_options: List of option short names to enable
-            uncheck_options: List of option short names to disable
-
-        Returns:
-            Configuration dict or None if no options specified
         """
         if not check_options and not uncheck_options:
             return None
@@ -184,14 +268,6 @@ class GUIWrapperRunner:
     ) -> bool:
         """
         Run ASM Guard wrapper on a single file
-
-        Args:
-            file_path: Path to the file to pack
-            packer_config: Optional checkbox configuration dict
-            output_dir: Directory to save the packed file (if None, uses default)
-
-        Returns:
-            bool: True if successful
         """
         print(f"\n{'=' * 60}")
         print(f"PROCESSING: {file_path.name}")
@@ -201,10 +277,7 @@ class GUIWrapperRunner:
             wrapper = AsmGuardWrapper(str(self.yaml_path), str(self.main_dir))
 
             # Determine click mode - default to "all" (check all boxes)
-            if packer_config:
-                click_mode = packer_config
-            else:
-                click_mode = "all"
+            click_mode = packer_config if packer_config else "all"
 
             # Use packer-specific output directory if not specified
             if output_dir is None:
@@ -214,13 +287,16 @@ class GUIWrapperRunner:
 
             success = wrapper.run(
                 click_mode=click_mode,
-                file_path=str(file_path),
+                file_path=str(file_path.resolve()),  # Always use absolute path
                 output_dir=str(output_dir),
             )
             return success
 
         except Exception as e:
             print(f"[ERROR] Failed to process {file_path.name}: {e}")
+            import traceback
+
+            traceback.print_exc()
             return False
 
     def run_packer(
@@ -232,21 +308,9 @@ class GUIWrapperRunner:
     ) -> bool:
         """
         Run the specified packer on a file
-
-        Args:
-            packer_name: Name of the packer
-            file_path: Path to the file
-            packer_config: Packer-specific configuration
-            output_dir: Directory to save the packed file (if None, uses default)
-
-        Returns:
-            bool: True if successful
         """
         packer_methods = {
             "asm_guard": self.run_asm_guard,
-            # Add more packers here:
-            # "themida": self.run_themida,
-            # "vmprotect": self.run_vmprotect,
         }
 
         if packer_name not in packer_methods:
@@ -254,7 +318,6 @@ class GUIWrapperRunner:
             print(f"[INFO] Available packers: {list(packer_methods.keys())}")
             return False
 
-        # Use packer-specific output directory if not specified
         if output_dir is None:
             output_dir = self.get_output_directory(packer_name)
 
@@ -266,21 +329,11 @@ class GUIWrapperRunner:
 
     def is_already_packed(self, file_path: Path, packer_name: str) -> bool:
         """
-        Check if a file has already been packed (output exists in pack_sources)
-
-        Args:
-            file_path: Path to the source file
-            packer_name: Name of the packer
-
-        Returns:
-            bool: True if already packed
+        Check if a file has already been packed (output exists in packed_sources)
         """
         output_dir = self.get_output_directory(packer_name)
-
-        # ASM Guard creates: filename_protected.exe
         protected_name = f"{file_path.stem}_protected{file_path.suffix}"
         output_path = output_dir / protected_name
-
         return output_path.exists()
 
     def run_batch(
@@ -291,7 +344,7 @@ class GUIWrapperRunner:
         recursive: bool = False,
         dry_run: bool = False,
         limit: Optional[int] = None,
-        skip_existing: bool = True,  # New parameter
+        skip_existing: bool = True,
     ) -> Dict[str, bool]:
         """
         Run packer on all compatible files in the source directory
@@ -332,7 +385,7 @@ class GUIWrapperRunner:
 
             if skipped_files:
                 print(f"\n[INFO] Skipping {len(skipped_files)} already packed files:")
-                for f in skipped_files[:10]:  # Show first 10
+                for f in skipped_files[:10]:
                     print(f"  - {f.name}")
                 if len(skipped_files) > 10:
                     print(f"  ... and {len(skipped_files) - 10} more")
@@ -359,6 +412,10 @@ class GUIWrapperRunner:
             print("\n[DRY RUN] No files will be processed")
             return {f.name: None for f in files}
 
+        # ========== SNAPSHOT SOURCE DIRECTORY BEFORE PROCESSING ==========
+        print(f"\n[INFO] Taking snapshot of source directory before processing...")
+        original_files = self.snapshot_directory(self.source_dir, recursive=recursive)
+
         # Process each file
         results = {}
         for i, file_path in enumerate(files, 1):
@@ -378,6 +435,10 @@ class GUIWrapperRunner:
 
                 print("[INFO] Pausing before next file...")
                 time.sleep(2)
+
+        # ========== CLEANUP NEW FILES AFTER PROCESSING ==========
+        print(f"\n[INFO] Cleaning up source directory...")
+        self.cleanup_new_files(self.source_dir, original_files, recursive=recursive)
 
         # Print summary
         self.print_summary(results)
@@ -471,7 +532,7 @@ def main():
         epilog="""
 Examples:
   # Process all compatible files in x86 directory with ASM Guard
-  # Output goes to ../pack_sources/asm_guard/
+  # Output goes to ../packed_sources/asm_guard/
   python gui_wrapper_runner.py
   
   # Dry run - list files without processing
@@ -497,6 +558,9 @@ Examples:
 
   # List all available packers
   python gui_wrapper_runner.py --list-packers
+  
+  # Re-process all files (don't skip existing)
+  python gui_wrapper_runner.py --no-skip
         """,
     )
 
@@ -519,7 +583,7 @@ Examples:
         "--output-dir",
         type=str,
         default=None,
-        help="Directory to save packed files (default: ../pack_sources/<packer>/)",
+        help="Directory to save packed files (default: ../packed_sources/<packer>/)",
     )
 
     parser.add_argument(
@@ -594,17 +658,18 @@ Examples:
         return 0
 
     # Determine paths
-    script_dir = Path(__file__).parent
-    main_dir = script_dir.parent  # Go up one level to main directory
+    script_dir = Path(__file__).parent.resolve()
+    main_dir = script_dir.parent
 
-    # Source directory
-    if args.source_dir:
-        source_dir = Path(args.source_dir)
-    else:
-        source_dir = script_dir.parent / "benign_sources" / "x86"
+    # Source directory - always resolve to absolute
+    source_dir = (
+        Path(args.source_dir).resolve()
+        if Path(args.source_dir).is_absolute()
+        else (script_dir / args.source_dir).resolve()
+    )
 
     # Output directory (if specified via CLI)
-    output_dir = Path(args.output_dir) if args.output_dir else None
+    output_dir = Path(args.output_dir).resolve() if args.output_dir else None
 
     yaml_path = main_dir / "manifest" / "packer_corpus.yaml"
 
@@ -615,7 +680,7 @@ Examples:
     if output_dir:
         print(f"Output directory (CLI): {output_dir}")
     else:
-        print(f"Output directory: ../pack_sources/{args.packer}/ (default)")
+        print(f"Output directory: ../packed_sources/{args.packer}/ (default)")
 
     try:
         runner = GUIWrapperRunner(
@@ -633,10 +698,13 @@ Examples:
 
         # Single file mode
         if args.file:
-            file_path = Path(args.file)
+            file_path = Path(args.file).resolve()
             if not file_path.exists():
                 print(f"[ERROR] File not found: {file_path}")
                 return 1
+
+            # Snapshot before single file
+            original_files = runner.snapshot_directory(file_path.parent)
 
             success = runner.run_packer(
                 args.packer,
@@ -644,6 +712,10 @@ Examples:
                 packer_config=packer_config,
                 output_dir=output_dir,
             )
+
+            # Cleanup after single file
+            runner.cleanup_new_files(file_path.parent, original_files)
+
             return 0 if success else 1
 
         # Batch mode
