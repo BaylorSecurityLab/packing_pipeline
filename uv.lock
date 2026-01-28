@@ -217,6 +217,7 @@ source = { virtual = "." }
 dependencies = [
     { name = "bump-my-version" },
     { name = "pyautogui" },
+    { name = "pyperclip" },
     { name = "pywin32", marker = "sys_platform == 'win32'" },
     { name = "pywinauto" },
     { name = "pyyaml" },
@@ -229,6 +230,7 @@ dependencies = [
 requires-dist = [
     { name = "bump-my-version", specifier = ">=1.2.6" },
     { name = "pyautogui", specifier = ">=0.9.54" },
+    { name = "pyperclip", specifier = ">=1.11.0" },
     { name = "pywin32", marker = "sys_platform == 'win32'", specifier = ">=311" },
     { name = "pywinauto", specifier = ">=0.6.9" },
     { name = "pyyaml", specifier = ">=6.0.3" },

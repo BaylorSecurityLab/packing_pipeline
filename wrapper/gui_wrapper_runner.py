@@ -8,26 +8,13 @@ from pathlib import Path
 from typing import List, Dict, Optional, Any
 import argparse
 
-# Import the wrapper (adjust import path as needed)
 from asm_guard_wrapper import AsmGuardWrapper
 
 
-# Dictionary defining which file extensions each packer supports
-# Default is ["*"] meaning all files
 PACKER_FILE_SUPPORT: Dict[str, List[str]] = {
     "asm_guard": [".exe"],
-    # Add more packers here as you implement them
-    # "themida": [".exe", ".dll"],
-    # "upx": [".exe", ".dll", ".sys"],
-    # "vmprotect": [".exe", ".dll"],
-    # "enigma": [".exe"],
-    # "obsidium": [".exe", ".dll"],
-    # "pecompact": [".exe", ".dll", ".scr", ".ocx"],
-    # "mpress": ["*"],  # * means all files
 }
 
-# Packer-specific option mappings
-# Each packer has its own set of options with short names -> full names
 PACKER_OPTIONS: Dict[str, Dict[str, str]] = {
     "asm_guard": {
         "max_compression": "maximum_instruction_compression",
@@ -36,20 +23,9 @@ PACKER_OPTIONS: Dict[str, Dict[str, str]] = {
         "flood_mode": "enhanced_flood_mode",
         "different_types": "add_different_types",
     },
-    # Add more packers here:
-    # "themida": {
-    #     "vm_level": "virtualization_level",
-    #     "anti_debug": "anti_debugging",
-    #     "compress": "compression_enabled",
-    # },
-    # "vmprotect": {
-    #     "mutation": "code_mutation",
-    #     "virtualize": "virtualization",
-    #     "ultra": "ultra_mode",
-    # },
 }
 
-# Default checkbox/option states when packer opens (for state-aware toggling)
+
 PACKER_DEFAULT_STATES: Dict[str, Dict[str, bool]] = {
     "asm_guard": {
         "maximum_instruction_compression": False,
@@ -58,11 +34,6 @@ PACKER_DEFAULT_STATES: Dict[str, Dict[str, bool]] = {
         "enhanced_flood_mode": False,
         "add_different_types": False,
     },
-    # "themida": {
-    #     "virtualization_level": False,
-    #     "anti_debugging": True,
-    #     "compression_enabled": True,
-    # },
 }
 
 # Default packer to use
@@ -90,52 +61,33 @@ class GUIWrapperRunner:
             raise FileNotFoundError(f"YAML file not found: {self.yaml_path}")
 
     def get_supported_extensions(self, packer_name: str) -> List[str]:
-        """
-        Get list of supported file extensions for a packer
-
-        Args:
-            packer_name: Name of the packer
-
-        Returns:
-            List of extensions (e.g., ['.exe', '.dll']) or ['*'] for all
-        """
+        """Get list of supported file extensions for a packer"""
         return PACKER_FILE_SUPPORT.get(packer_name, ["*"])
 
     def get_packer_options(self, packer_name: str) -> Dict[str, str]:
-        """
-        Get option name mappings for a packer
-
-        Args:
-            packer_name: Name of the packer
-
-        Returns:
-            Dict mapping short names to full names
-        """
+        """Get option name mappings for a packer"""
         return PACKER_OPTIONS.get(packer_name, {})
 
     def get_packer_defaults(self, packer_name: str) -> Dict[str, bool]:
-        """
-        Get default option states for a packer
-
-        Args:
-            packer_name: Name of the packer
-
-        Returns:
-            Dict mapping option names to default states
-        """
+        """Get default option states for a packer"""
         return PACKER_DEFAULT_STATES.get(packer_name, {})
 
-    def is_file_supported(self, file_path: Path, packer_name: str) -> bool:
+    def get_output_directory(self, packer_name: str) -> Path:
         """
-        Check if a file is supported by the specified packer
+        Get the output directory for a packer's packed files
 
         Args:
-            file_path: Path to the file
             packer_name: Name of the packer
 
         Returns:
-            bool: True if supported
+            Path: Output directory (e.g., main_dir/pack_sources/asm_guard)
         """
+        output_dir = self.main_dir / "packed_sources" / packer_name
+        output_dir.mkdir(parents=True, exist_ok=True)
+        return output_dir
+
+    def is_file_supported(self, file_path: Path, packer_name: str) -> bool:
+        """Check if a file is supported by the specified packer"""
         supported = self.get_supported_extensions(packer_name)
 
         # "*" means all files are supported
@@ -228,6 +180,7 @@ class GUIWrapperRunner:
         self,
         file_path: Path,
         packer_config: Optional[Dict[str, bool]] = None,
+        output_dir: Optional[Path] = None,
     ) -> bool:
         """
         Run ASM Guard wrapper on a single file
@@ -235,6 +188,7 @@ class GUIWrapperRunner:
         Args:
             file_path: Path to the file to pack
             packer_config: Optional checkbox configuration dict
+            output_dir: Directory to save the packed file (if None, uses default)
 
         Returns:
             bool: True if successful
@@ -246,13 +200,23 @@ class GUIWrapperRunner:
         try:
             wrapper = AsmGuardWrapper(str(self.yaml_path), str(self.main_dir))
 
-            # Determine click mode
+            # Determine click mode - default to "all" (check all boxes)
             if packer_config:
                 click_mode = packer_config
             else:
                 click_mode = "all"
 
-            success = wrapper.run(click_mode=click_mode, file_path=str(file_path))
+            # Use packer-specific output directory if not specified
+            if output_dir is None:
+                output_dir = self.get_output_directory("asm_guard")
+
+            print(f"[INFO] Output directory: {output_dir}")
+
+            success = wrapper.run(
+                click_mode=click_mode,
+                file_path=str(file_path),
+                output_dir=str(output_dir),
+            )
             return success
 
         except Exception as e:
@@ -264,6 +228,7 @@ class GUIWrapperRunner:
         packer_name: str,
         file_path: Path,
         packer_config: Optional[Dict[str, bool]] = None,
+        output_dir: Optional[Path] = None,
     ) -> bool:
         """
         Run the specified packer on a file
@@ -272,6 +237,7 @@ class GUIWrapperRunner:
             packer_name: Name of the packer
             file_path: Path to the file
             packer_config: Packer-specific configuration
+            output_dir: Directory to save the packed file (if None, uses default)
 
         Returns:
             bool: True if successful
@@ -288,15 +254,44 @@ class GUIWrapperRunner:
             print(f"[INFO] Available packers: {list(packer_methods.keys())}")
             return False
 
-        return packer_methods[packer_name](file_path, packer_config=packer_config)
+        # Use packer-specific output directory if not specified
+        if output_dir is None:
+            output_dir = self.get_output_directory(packer_name)
+
+        return packer_methods[packer_name](
+            file_path,
+            packer_config=packer_config,
+            output_dir=output_dir,
+        )
+
+    def is_already_packed(self, file_path: Path, packer_name: str) -> bool:
+        """
+        Check if a file has already been packed (output exists in pack_sources)
+
+        Args:
+            file_path: Path to the source file
+            packer_name: Name of the packer
+
+        Returns:
+            bool: True if already packed
+        """
+        output_dir = self.get_output_directory(packer_name)
+
+        # ASM Guard creates: filename_protected.exe
+        protected_name = f"{file_path.stem}_protected{file_path.suffix}"
+        output_path = output_dir / protected_name
+
+        return output_path.exists()
 
     def run_batch(
         self,
         packer_name: str = DEFAULT_PACKER,
         packer_config: Optional[Dict[str, bool]] = None,
+        output_dir: Optional[Path] = None,
         recursive: bool = False,
         dry_run: bool = False,
         limit: Optional[int] = None,
+        skip_existing: bool = True,  # New parameter
     ) -> Dict[str, bool]:
         """
         Run packer on all compatible files in the source directory
@@ -304,9 +299,11 @@ class GUIWrapperRunner:
         Args:
             packer_name: Name of the packer to use
             packer_config: Packer-specific configuration
+            output_dir: Directory to save packed files (if None, uses default)
             recursive: Whether to scan subdirectories
             dry_run: If True, only list files without processing
             limit: Maximum number of files to process (None = all)
+            skip_existing: If True, skip files that are already packed
 
         Returns:
             Dict mapping filename to success status
@@ -314,18 +311,47 @@ class GUIWrapperRunner:
         # Get compatible files
         files = self.scan_source_directory(packer_name, recursive)
 
+        if not files:
+            print("[WARNING] No compatible files found!")
+            return {}
+
+        # Use packer-specific output directory if not specified
+        if output_dir is None:
+            output_dir = self.get_output_directory(packer_name)
+
+        # Filter out already packed files
+        if skip_existing:
+            files_to_process = []
+            skipped_files = []
+
+            for f in files:
+                if self.is_already_packed(f, packer_name):
+                    skipped_files.append(f)
+                else:
+                    files_to_process.append(f)
+
+            if skipped_files:
+                print(f"\n[INFO] Skipping {len(skipped_files)} already packed files:")
+                for f in skipped_files[:10]:  # Show first 10
+                    print(f"  - {f.name}")
+                if len(skipped_files) > 10:
+                    print(f"  ... and {len(skipped_files) - 10} more")
+
+            files = files_to_process
+
         if limit:
             files = files[:limit]
             print(f"[INFO] Limited to first {limit} files")
 
         if not files:
-            print("[WARNING] No compatible files found!")
+            print("[INFO] All files already packed! Nothing to do.")
             return {}
 
         # Print file list
         print(f"\n{'=' * 60}")
         print(f"FILES TO PROCESS ({len(files)} files)")
         print(f"{'=' * 60}")
+        print(f"[INFO] Output directory: {output_dir}")
         for i, f in enumerate(files, 1):
             print(f"  {i:3d}. {f.name}")
 
@@ -342,6 +368,7 @@ class GUIWrapperRunner:
                 packer_name,
                 file_path,
                 packer_config=packer_config,
+                output_dir=output_dir,
             )
             results[file_path.name] = success
 
@@ -386,15 +413,8 @@ class GUIWrapperRunner:
 
 
 def build_packer_argparser(packer_name: str, parser: argparse.ArgumentParser):
-    """
-    Add packer-specific arguments to the parser
-
-    Args:
-        packer_name: Name of the packer
-        parser: ArgumentParser to add arguments to
-    """
+    """Add packer-specific arguments to the parser"""
     options = PACKER_OPTIONS.get(packer_name, {})
-    defaults = PACKER_DEFAULT_STATES.get(packer_name, {})
 
     if not options:
         return
@@ -451,6 +471,7 @@ def main():
         epilog="""
 Examples:
   # Process all compatible files in x86 directory with ASM Guard
+  # Output goes to ../pack_sources/asm_guard/
   python gui_wrapper_runner.py
   
   # Dry run - list files without processing
@@ -464,6 +485,9 @@ Examples:
   
   # Use custom options (packer-specific)
   python gui_wrapper_runner.py --check max_compression --uncheck junk_cpp
+  
+  # Specify custom output directory
+  python gui_wrapper_runner.py --output-dir "C:\\custom\\output"
   
   # Scan subdirectories recursively
   python gui_wrapper_runner.py --recursive
@@ -489,6 +513,13 @@ Examples:
         type=str,
         default="../benign_sources/x86",
         help="Source directory containing files",
+    )
+
+    parser.add_argument(
+        "--output-dir",
+        type=str,
+        default=None,
+        help="Directory to save packed files (default: ../pack_sources/<packer>/)",
     )
 
     parser.add_argument(
@@ -530,8 +561,13 @@ Examples:
         help="Show detailed info about a specific packer's options",
     )
 
+    parser.add_argument(
+        "--no-skip",
+        action="store_true",
+        help="Process all files even if already packed",
+    )
+
     # Add packer-specific options for default packer
-    # (In a more advanced version, this could be dynamic based on --packer)
     build_packer_argparser(DEFAULT_PACKER, parser)
 
     args = parser.parse_args()
@@ -545,7 +581,7 @@ Examples:
             ext_str = ", ".join(extensions) if extensions != ["*"] else "ALL FILES"
             print(f"  {packer:20s} : {ext_str}")
         print("=" * 60)
-        print("\nUse --packer-info <name> for detailed options")
+        print("\nUse --packer-info <n> for detailed options")
         return 0
 
     # Show packer info and exit
@@ -567,12 +603,19 @@ Examples:
     else:
         source_dir = script_dir.parent / "benign_sources" / "x86"
 
+    # Output directory (if specified via CLI)
+    output_dir = Path(args.output_dir) if args.output_dir else None
+
     yaml_path = main_dir / "manifest" / "packer_corpus.yaml"
 
     print(f"Script directory: {script_dir}")
     print(f"Main directory: {main_dir}")
     print(f"Source directory: {source_dir}")
     print(f"YAML path: {yaml_path}")
+    if output_dir:
+        print(f"Output directory (CLI): {output_dir}")
+    else:
+        print(f"Output directory: ../pack_sources/{args.packer}/ (default)")
 
     try:
         runner = GUIWrapperRunner(
@@ -599,6 +642,7 @@ Examples:
                 args.packer,
                 file_path,
                 packer_config=packer_config,
+                output_dir=output_dir,
             )
             return 0 if success else 1
 
@@ -606,9 +650,11 @@ Examples:
         results = runner.run_batch(
             packer_name=args.packer,
             packer_config=packer_config,
+            output_dir=output_dir,
             recursive=args.recursive,
             dry_run=args.dry_run,
             limit=args.limit,
+            skip_existing=not args.no_skip,
         )
 
         # Return non-zero if any failed
