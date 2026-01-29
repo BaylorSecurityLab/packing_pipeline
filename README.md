@@ -23,6 +23,7 @@ packer-corpus/
 │   └── update_manifest.py
 ├── pyproject.toml        # Dependency definitions
 └── uv.lock               # Lockfile for reproducible builds
+```
 
 # 🚀 Prerequisites & Installation
 
