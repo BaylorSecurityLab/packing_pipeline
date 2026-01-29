@@ -1,0 +1,44 @@
+name: Generate Dataset Statistics
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - "manifest/packer_corpus.yaml"
+      - "utils/dataset_stats.py"
+      - ".github/workflows/generate_stats.yml"
+
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  generate-stats:
+    runs-on: ubuntu-latest
+    if: "!contains(github.event.head_commit.message, '[skip ci]')"
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          python-version: "3.13"
+
+      - name: Install project
+        run: uv sync --all-extras --dev
+
+      - name: Generate Dataset Statistics JSON
+        run: |
+          uv run python utils/dataset_stats.py --json manifest/dataset_stats.json
+
+      - name: Commit statistics
+        uses: stefanzweifel/git-auto-commit-action@v5
+        with:
+          commit_message: "🤖 Auto-update dataset statistics [skip ci]"
+          file_pattern: "manifest/dataset_stats.json"

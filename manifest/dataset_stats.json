@@ -1,0 +1,184 @@
+{
+  "metadata": {
+    "version": "0.1.0",
+    "maintainer": "AKOrojo, Abanisenioluwa Kolawole Orojo, Banny Orojo",
+    "last_updated": "2026-01-12"
+  },
+  "basic_counts": {
+    "total_packers": 36,
+    "total_test_cases": 70
+  },
+  "interface_types": {
+    "gui": {
+      "packers": 19,
+      "tests": 0
+    },
+    "cli": {
+      "packers": 17,
+      "tests": 70
+    }
+  },
+  "tag_distribution": {
+    "GUI": 19,
+    "Scrambler": 1,
+    "CLI": 17,
+    "Header-Stripper": 1,
+    "Mutator": 2,
+    "Obfuscator": 2,
+    "Multi-Stage": 1,
+    "Virtualizer": 1,
+    "In-Place": 1,
+    "Legacy": 1,
+    "Frontend": 1,
+    "Crypter": 1,
+    "Polymorphism": 1,
+    "Multi-Platform": 1,
+    "Reflective": 1,
+    "Security": 1,
+    "Tiny-EXE": 1,
+    "Demoscene": 1,
+    "Freeware": 1,
+    "DRM": 1,
+    ".NET-Assembly": 1,
+    "Commercial": 1,
+    "Installer": 1,
+    "Copy-Protection": 1,
+    "License-Manager": 1,
+    "Compressor": 1,
+    "Protector": 1,
+    "GitHub-PoC": 1
+  },
+  "architecture_distribution": {
+    "x86": 32,
+    "x32": 1,
+    "x64": 3
+  },
+  "supported_input_architectures": {
+    "PE32": 36,
+    "PE32+": 4,
+    ".NET": 1
+  },
+  "output_behavior_distribution": {
+    "explicit": 27,
+    "in_place": 6,
+    "input_dir_suffix": 1,
+    "suffix_packed": 1,
+    "explicit_absolute": 1
+  },
+  "license_distribution": {
+    "Freeware": 18,
+    "Shareware/Commercial": 1,
+    "Open Source (MIT/BSD)": 1,
+    "Shareware": 2,
+    "Freeware (Basic)": 1,
+    "Commercial (Shareware)": 1,
+    "GPL": 1,
+    "MIT": 6,
+    "Commercial": 3,
+    "Commercial (Demo)": 1,
+    "Open Source": 1
+  },
+  "tests_per_packer": {
+    "pepack": 4,
+    "xcomp": 4,
+    "upack": 5,
+    "kkrunchy": 3,
+    "theark": 1,
+    "pe_packer": 1,
+    "exe32pack": 4,
+    "upx": 15,
+    "amber": 4,
+    "beroexepacker": 7,
+    "astral_pe": 2,
+    "eronona": 4,
+    "hxor_packer": 4,
+    "hyperion": 1,
+    "mpress": 5,
+    "petite": 5,
+    "hackupx": 1
+  },
+  "packers_with_dependencies": [
+    {
+      "packer": "hackupx",
+      "dependencies": [
+        "upx"
+      ]
+    },
+    {
+      "packer": "winupack",
+      "dependencies": [
+        "upack"
+      ]
+    },
+    {
+      "packer": "asm_guard",
+      "dependencies": [
+        ".NET Framework"
+      ]
+    },
+    {
+      "packer": "hyperion",
+      "dependencies": [
+        "FASM"
+      ]
+    }
+  ],
+  "packers_with_known_issues": [
+    {
+      "packer": "x86_virtualizer",
+      "issue_count": 1
+    },
+    {
+      "packer": "xcomp",
+      "issue_count": 2
+    },
+    {
+      "packer": "kkrunchy",
+      "issue_count": 2
+    },
+    {
+      "packer": "exe32pack",
+      "issue_count": 3
+    },
+    {
+      "packer": "upx",
+      "issue_count": 2
+    },
+    {
+      "packer": "amber",
+      "issue_count": 2
+    },
+    {
+      "packer": "beroexepacker",
+      "issue_count": 1
+    },
+    {
+      "packer": "eronona",
+      "issue_count": 1
+    },
+    {
+      "packer": "hxor_packer",
+      "issue_count": 1
+    },
+    {
+      "packer": "hyperion",
+      "issue_count": 1
+    },
+    {
+      "packer": "mpress",
+      "issue_count": 1
+    },
+    {
+      "packer": "pelock",
+      "issue_count": 1
+    },
+    {
+      "packer": "petite",
+      "issue_count": 1
+    },
+    {
+      "packer": "theark",
+      "issue_count": 2
+    }
+  ]
+}
