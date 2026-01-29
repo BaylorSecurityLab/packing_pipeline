@@ -2,7 +2,7 @@
 
 **Automated Framework for Generating Packed Executable Datasets**
 
-This repository serves as the "Orchestrator" for the **LLeal Security Lab** automated packing research project. It manages the acquisition of benign executable sources, the configuration of packer tools, and the automated generation of packed artifacts for malware analysis and evasion research.
+This repository serves as the "Orchestrator" for the **Leal Security Lab** automated packing research project. It manages the acquisition of benign executable sources, the configuration of packer tools, and the automated generation of packed artifacts for malware analysis and evasion research.
 
 ## 📂 Repository Structure
 
@@ -23,6 +23,7 @@ packer-corpus/
 │   └── update_manifest.py
 ├── pyproject.toml        # Dependency definitions
 └── uv.lock               # Lockfile for reproducible builds
+```
 
 # 🚀 Prerequisites & Installation
 
