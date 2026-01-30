@@ -2,8 +2,8 @@
 	path = benign_sources
 	url = ../inputs.git
 [submodule "packed_sources"]
-	path = packed_sources
-	url = ../packer-corpus-outputs.git
+    path = packed_sources
+    url = rclone::unibox:packer-corpus
 [submodule "packers"]
 	path = packers
 	url = ../tools.git
