@@ -8,7 +8,7 @@ from pathlib import Path
 from typing import List, Dict, Optional, Set
 import argparse
 
-from asm_guard_wrapper import AsmGuardWrapper
+from asm_guard import AsmGuard
 
 
 PACKER_FILE_SUPPORT: Dict[str, List[str]] = {
@@ -274,7 +274,7 @@ class GUIWrapperRunner:
         print(f"{'=' * 60}")
 
         try:
-            wrapper = AsmGuardWrapper(str(self.yaml_path), str(self.main_dir))
+            wrapper = AsmGuard(str(self.yaml_path), str(self.main_dir))
 
             # Determine click mode - default to "all" (check all boxes)
             click_mode = packer_config if packer_config else "all"
@@ -413,7 +413,7 @@ class GUIWrapperRunner:
             return {f.name: None for f in files}
 
         # ========== SNAPSHOT SOURCE DIRECTORY BEFORE PROCESSING ==========
-        print(f"\n[INFO] Taking snapshot of source directory before processing...")
+        print("\n[INFO] Taking snapshot of source directory before processing...")
         original_files = self.snapshot_directory(self.source_dir, recursive=recursive)
 
         # Process each file
@@ -437,7 +437,7 @@ class GUIWrapperRunner:
                 time.sleep(2)
 
         # ========== CLEANUP NEW FILES AFTER PROCESSING ==========
-        print(f"\n[INFO] Cleaning up source directory...")
+        print("\n[INFO] Cleaning up source directory...")
         self.cleanup_new_files(self.source_dir, original_files, recursive=recursive)
 
         # Print summary
@@ -513,7 +513,7 @@ def print_packer_info(packer_name: str):
     defaults = PACKER_DEFAULT_STATES.get(packer_name, {})
 
     if options:
-        print(f"\nAvailable options:")
+        print("\nAvailable options:")
         for short_name, full_name in options.items():
             default_state = defaults.get(full_name, False)
             state_str = "CHECKED" if default_state else "UNCHECKED"

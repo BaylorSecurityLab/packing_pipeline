@@ -15,7 +15,7 @@ import win32gui
 import win32process
 
 
-class BaseGUIWrapper(ABC):
+class BaseGUI(ABC):
     """
     Abstract base class for GUI automation wrappers.
 
@@ -68,7 +68,7 @@ class BaseGUIWrapper(ABC):
     # ========== ABSTRACT METHODS (must be implemented by subclasses) ==========
 
     @abstractmethod
-    def get_packer_name(self):
+    def get_packer_name(self) -> str:
         """
         Return the name of the packer (e.g., 'asm_guard', 'themida').
 
@@ -78,7 +78,7 @@ class BaseGUIWrapper(ABC):
         pass
 
     @abstractmethod
-    def run(self, click_mode="all", file_path=None, output_dir=None):
+    def run(self, click_mode="all", file_path=None, output_dir=None) -> bool:
         """
         Main execution flow for the packer.
 
@@ -119,7 +119,9 @@ class BaseGUIWrapper(ABC):
         for packer in data.get("definitions", []):
             if packer.get("packer_name") == packer_name:
                 self.packer_info = packer
-                print(f"[SUCCESS] Found {packer_name} v{packer.get('version', 'unknown')}")
+                print(
+                    f"[SUCCESS] Found {packer_name} v{packer.get('version', 'unknown')}"
+                )
                 print(f"[INFO] Binary path: {packer['binary_path']}")
                 return True
 
@@ -201,11 +203,11 @@ class BaseGUIWrapper(ABC):
         exe_path = self.get_exe_path()
         print(f"\n[INFO] Launching application: {exe_path}")
 
+        # Launch GUI application without capturing output
+        # This prevents issues with Windows GUI apps
         self.process = subprocess.Popen(
             str(exe_path),
             cwd=exe_path.parent,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
         )
 
         print(f"[SUCCESS] Process started with PID: {self.process.pid}")
@@ -243,11 +245,24 @@ class BaseGUIWrapper(ABC):
 
                 win32gui.EnumWindows(enum_windows_callback, windows)
 
+                # Debug: print all windows found for this PID
+                if windows:
+                    print(
+                        f"[DEBUG] Found {len(windows)} window(s) for PID {self.process.pid}:"
+                    )
+                    for _, title in windows:
+                        print(f"  - '{title}'")
+
                 for _, title in windows:
                     title_lower = title.lower()
                     if any(p in title_lower for p in self.EXCLUDE_WINDOW_PATTERNS):
+                        print(
+                            f"[DEBUG] Excluding window '{title}' (matches exclusion pattern)"
+                        )
                         continue
-                    print(f"[SUCCESS] Found window: '{title}' (PID: {self.process.pid})")
+                    print(
+                        f"[SUCCESS] Found window: '{title}' (PID: {self.process.pid})"
+                    )
                     self.window = gw.getWindowsWithTitle(title)[0]
                     return True
 
@@ -435,7 +450,9 @@ class BaseGUIWrapper(ABC):
                 for title in gw.getAllTitles():
                     if not title:
                         continue
-                    if any(p.lower() in title.lower() for p in self.FILE_PICKER_PATTERNS):
+                    if any(
+                        p.lower() in title.lower() for p in self.FILE_PICKER_PATTERNS
+                    ):
                         print(f"[SUCCESS] Found file picker: '{title}'")
                         return gw.getWindowsWithTitle(title)[0]
             except Exception as e:
@@ -531,6 +548,7 @@ class BaseGUIWrapper(ABC):
         try:
             with open(file_path, "r+b") as f:
                 import msvcrt
+
                 msvcrt.locking(f.fileno(), msvcrt.LK_NBLCK, 1)
                 msvcrt.locking(f.fileno(), msvcrt.LK_UNLCK, 1)
             return False
