@@ -54,6 +54,10 @@ class BaseGUI(ABC):
         "Choose File",
     ]
 
+    SHORT_TIMEOUT = 5
+    LONG_TIMEOUT = 10
+    EXTRA_LONG_TIMEOUT = 500
+
     def __init__(self, yaml_path, main_dir):
         """
         Initialize the GUI wrapper.
@@ -219,7 +223,7 @@ class BaseGUI(ABC):
 
         return True
 
-    def find_window(self, window_title=None, timeout=10):
+    def find_window(self, window_title=None, timeout=LONG_TIMEOUT):
         """
         Find the packer window by title or process ID.
 
@@ -285,7 +289,7 @@ class BaseGUI(ABC):
         print(f"[ERROR] Window matching {search_type} not found within timeout")
         return False
 
-    def close_application(self):
+    def close_application(self, SHORT_TIMEOUT=SHORT_TIMEOUT):
         """
         Close the packer application.
         """
@@ -294,7 +298,7 @@ class BaseGUI(ABC):
         try:
             if self.process:
                 self.process.terminate()
-                self.process.wait(timeout=5)
+                self.process.wait(timeout=SHORT_TIMEOUT)
                 print("[INFO] Application terminated gracefully")
         except Exception as e:
             print(f"[WARNING] Graceful termination failed: {e}")
@@ -443,7 +447,7 @@ class BaseGUI(ABC):
 
     # ========== FILE PICKER AUTOMATION ==========
 
-    def find_file_picker_window(self, timeout=5):
+    def find_file_picker_window(self, timeout=SHORT_TIMEOUT):
         """
         Find the Windows Explorer/File Picker window.
 

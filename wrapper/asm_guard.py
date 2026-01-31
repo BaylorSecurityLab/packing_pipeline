@@ -422,9 +422,7 @@ class AsmGuard(BaseGUI):
             time.sleep(5)
 
             # Step 13: Wait for completion
-            protected_file = self.wait_for_protection_complete(
-                str(input_file), timeout=120
-            )
+            protected_file = self.wait_for_protection_complete(str(input_file))
 
             if protected_file:
                 # Step 14: Clean up .asmg files in the INPUT directory
@@ -486,31 +484,34 @@ class AsmGuard(BaseGUI):
             print(f"\n[WARNING] Unknown click_mode: {click_mode}")
             return {}
 
-    def wait_for_protection_complete(
-        self, input_file_path, timeout=120, check_interval=10
-    ):
+    def wait_for_protection_complete(self, input_file_path, check_interval=15):
         """
-        Wait for the protection process to complete.
-
-        Args:
-            input_file_path: Path to the input file
-            timeout: Maximum seconds to wait
-            check_interval: Seconds between checks
-
-        Returns:
-            str: Path to protected file or None if timeout
+        Wait for the protection process to complete with stability verification.
+        Targets the '{stem}_protected{suffix}' file naming convention.
         """
+        timeout = self.EXTRA_LONG_TIMEOUT
         input_path = Path(input_file_path)
+
+        # Define the expected output path
         protected_name = f"{input_path.stem}_protected{input_path.suffix}"
         protected_path = input_path.parent / protected_name
 
-        print(f"\n[INFO] Waiting for protection to complete...")
+        # Stability settings
+        required_stable_checks = 5
+        stable_count = 0
+        check_interval = self.LONG_TIMEOUT
+
+        print("\n[INFO] Waiting for protection to complete...")
         print(f"[INFO] Watching for: {protected_path}")
-        print(f"[INFO] Timeout: {timeout}s")
+        print(
+            f"[INFO] Stability Requirement: {required_stable_checks} consecutive unlocked checks"
+        )
+        print(f"[INFO] Interval: {check_interval}s | Timeout: {timeout}s")
 
         start_time = time.time()
-        last_size = 0
-        stable_count = 0
+
+        # Initial buffer to let the packer start creating the new file
+        time.sleep(10)
 
         while time.time() - start_time < timeout:
             elapsed = int(time.time() - start_time)
@@ -518,23 +519,41 @@ class AsmGuard(BaseGUI):
             if protected_path.exists():
                 current_size = protected_path.stat().st_size
 
-                if self.is_file_locked(protected_path):
-                    print(f"  [{elapsed}s] Writing... {current_size:,} bytes")
-                    last_size = current_size
+                if self.is_file_locked(str(protected_path)):
+                    # File is still being written to; reset counter
+                    if stable_count > 0:
+                        print(
+                            f"  [{elapsed}s] Lock reappeared! Resetting stability counter."
+                        )
+
                     stable_count = 0
+                    print(f"  [{elapsed}s] Writing... {current_size:,} bytes")
                 else:
-                    # File exists and is not locked - it's complete!
-                    print(f"\n[SUCCESS] Protection complete! ({elapsed}s)")
-                    print(f"[INFO] Output file: {protected_path}")
-                    print(f"[INFO] File size: {current_size:,} bytes")
-                    return str(protected_path)
+                    # File is unlocked; increment stability counter
+                    stable_count += 1
+                    print(
+                        f"  [{elapsed}s] File unlocked. Verification {stable_count}/{required_stable_checks}..."
+                    )
+
+                    if stable_count >= required_stable_checks:
+                        print(
+                            f"\n[SUCCESS] Protection complete and verified stable! ({elapsed}s)"
+                        )
+                        print(f"[INFO] Output file: {protected_path}")
+                        print(f"[INFO] Final size: {current_size:,} bytes")
+                        return str(protected_path)
             else:
-                print(f"  [{elapsed}s] Processing...", end="\r")
+                # File hasn't been created yet
+                print(
+                    f"  [{elapsed}s] Processing (waiting for file creation)...",
+                    end="\r",
+                )
+                stable_count = 0
 
             time.sleep(check_interval)
 
         # Timeout reached
-        print(f"\n[ERROR] Timeout after {timeout}s waiting for protected file")
+        print(f"\n[ERROR] Timeout after {timeout}s waiting for stable protected file")
         return None
 
 

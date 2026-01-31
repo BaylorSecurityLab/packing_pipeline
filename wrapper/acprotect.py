@@ -79,30 +79,32 @@ class ACProtect(BaseGUI):
         print(f"[SUCCESS] Entered file path in both text boxes: {file_path}")
         return True
 
-    def wait_for_protection_complete(self, file_path, timeout=120, check_interval=5):
+    def wait_for_protection_complete(self, file_path):
         """
-        Wait for the protection process to complete.
+        Wait for the protection process to complete with stability verification.
 
-        Since ACProtect uses in-place protection, we wait for the file
-        to be unlocked (no longer being written to).
-
-        Args:
-            file_path: Path to the file being protected
-            timeout: Maximum seconds to wait
-            check_interval: Seconds between checks
-
-        Returns:
-            str: Path to protected file or None if timeout
+        Requires the file to remain unlocked for 5 consecutive checks to ensure
+        the packer hasn't just momentarily dropped the lock due to an error.
         """
+        timeout = self.EXTRA_LONG_TIMEOUT
         file_path = Path(file_path)
+        check_interval = self.LONG_TIMEOUT
 
-        print(f"\n[INFO] Waiting for protection to complete...")
+        # Stability settings
+        required_stable_checks = 5
+        stable_count = 0
+        check_interval = 15
+
+        print("\n[INFO] Waiting for protection to complete...")
         print(f"[INFO] Watching: {file_path}")
-        print(f"[INFO] Timeout: {timeout}s")
+        print(
+            f"[INFO] Stability Requirement: {required_stable_checks} consecutive unlocked checks"
+        )
+        print(f"[INFO] Interval: {check_interval}s | Timeout: {timeout}s")
 
         start_time = time.time()
 
-        # Give the packer time to start and lock the file
+        # Initial buffer to let the packer start its work
         time.sleep(20)
 
         while time.time() - start_time < timeout:
@@ -112,20 +114,38 @@ class ACProtect(BaseGUI):
                 current_size = file_path.stat().st_size
 
                 if self.is_file_locked(str(file_path)):
+                    # File is busy; reset the stability counter
+                    if stable_count > 0:
+                        print(
+                            f"  [{elapsed}s] Lock reappeared! Resetting stability counter."
+                        )
+
+                    stable_count = 0
                     print(f"  [{elapsed}s] Protecting... {current_size:,} bytes")
                 else:
-                    # File exists and is not locked - protection complete!
-                    print(f"\n[SUCCESS] Protection complete! ({elapsed}s)")
-                    print(f"[INFO] Output file: {file_path}")
-                    print(f"[INFO] File size: {current_size:,} bytes")
-                    return str(file_path)
+                    # File is unlocked; increment stability counter
+                    stable_count += 1
+                    print(
+                        f"  [{elapsed}s] File unlocked. Verification {stable_count}/{required_stable_checks}..."
+                    )
+
+                    if stable_count >= required_stable_checks:
+                        print(
+                            f"\n[SUCCESS] Protection complete and verified stable! ({elapsed}s)"
+                        )
+                        print(f"[INFO] Output file: {file_path}")
+                        print(f"[INFO] Final size: {current_size:,} bytes")
+                        return str(file_path)
             else:
                 print(f"  [{elapsed}s] File not found, waiting...")
+                stable_count = 0  # Reset if file disappears
 
             time.sleep(check_interval)
 
         # Timeout reached
-        print(f"\n[ERROR] Timeout after {timeout}s waiting for protection to complete")
+        print(
+            f"\n[ERROR] Timeout after {timeout}s waiting for stable protection completion"
+        )
         return None
 
     def close_acprotect(self):
@@ -175,7 +195,7 @@ class ACProtect(BaseGUI):
                 return False
 
             # Step 3: Find the window by title
-            if not self.find_window(window_title="ACProtector", timeout=15):
+            if not self.find_window(window_title="ACProtector"):
                 print("[ERROR] Could not find ACProtect window")
                 return False
 
@@ -202,9 +222,7 @@ class ACProtect(BaseGUI):
             print("[INFO] Protection process started!")
 
             # Step 6: Wait for protection to complete
-            protected_file = self.wait_for_protection_complete(
-                str(input_file), timeout=120
-            )
+            protected_file = self.wait_for_protection_complete(str(input_file))
 
             if protected_file:
                 # Step 7: Move to output directory if specified
