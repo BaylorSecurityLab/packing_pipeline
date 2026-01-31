@@ -13,6 +13,9 @@ import subprocess
 import pygetwindow as gw
 import win32gui
 import win32process
+import shutil
+import win32file
+import pywintypes
 
 
 class BaseGUI(ABC):
@@ -193,9 +196,12 @@ class BaseGUI(ABC):
 
     # ========== WINDOW MANAGEMENT ==========
 
-    def launch_application(self):
+    def launch_application(self, shell=False):
         """
         Launch the packer GUI application.
+
+        Args:
+            shell (bool): Whether to use the shell as the executable program. Defaults to False.
 
         Returns:
             bool: True if launched successfully
@@ -205,10 +211,7 @@ class BaseGUI(ABC):
 
         # Launch GUI application without capturing output
         # This prevents issues with Windows GUI apps
-        self.process = subprocess.Popen(
-            str(exe_path),
-            cwd=exe_path.parent,
-        )
+        self.process = subprocess.Popen(str(exe_path), cwd=exe_path.parent, shell=shell)
 
         print(f"[SUCCESS] Process started with PID: {self.process.pid}")
         print("[INFO] Waiting for GUI window to appear...")
@@ -216,17 +219,22 @@ class BaseGUI(ABC):
 
         return True
 
-    def find_window(self, timeout=10):
+    def find_window(self, window_title=None, timeout=10):
         """
-        Find the packer window by process ID.
+        Find the packer window by title or process ID.
 
         Args:
-            timeout: Maximum seconds to wait for window
+            window_title (str, optional): Specific title to search for.
+                                        If None, searches by self.process.pid.
+            timeout (int): Maximum seconds to wait for window.
 
         Returns:
             bool: True if window found
         """
-        print("\n[INFO] Searching for application window by process...")
+        search_type = (
+            f"title '{window_title}'" if window_title else f"PID {self.process.pid}"
+        )
+        print(f"\n[INFO] Searching for application window by {search_type}...")
 
         start_time = time.time()
 
@@ -237,7 +245,14 @@ class BaseGUI(ABC):
                 def enum_windows_callback(hwnd, results):
                     if win32gui.IsWindowVisible(hwnd):
                         title = win32gui.GetWindowText(hwnd)
-                        if title:
+                        if not title:
+                            return True
+
+                        # Logic branch: search by Title or PID
+                        if window_title:
+                            if window_title.lower() in title.lower():
+                                results.append((hwnd, title))
+                        elif self.process:
                             _, window_pid = win32process.GetWindowThreadProcessId(hwnd)
                             if window_pid == self.process.pid:
                                 results.append((hwnd, title))
@@ -245,24 +260,20 @@ class BaseGUI(ABC):
 
                 win32gui.EnumWindows(enum_windows_callback, windows)
 
-                # Debug: print all windows found for this PID
-                if windows:
-                    print(
-                        f"[DEBUG] Found {len(windows)} window(s) for PID {self.process.pid}:"
-                    )
-                    for _, title in windows:
-                        print(f"  - '{title}'")
-
-                for _, title in windows:
+                # Process found windows
+                for hwnd, title in windows:
                     title_lower = title.lower()
+
+                    # Check exclusions
                     if any(p in title_lower for p in self.EXCLUDE_WINDOW_PATTERNS):
                         print(
                             f"[DEBUG] Excluding window '{title}' (matches exclusion pattern)"
                         )
                         continue
-                    print(
-                        f"[SUCCESS] Found window: '{title}' (PID: {self.process.pid})"
-                    )
+
+                    print(f"[SUCCESS] Found window: '{title}' (HWND: {hwnd})")
+
+                    # Using pygetwindow to wrap the found handle
                     self.window = gw.getWindowsWithTitle(title)[0]
                     return True
 
@@ -271,7 +282,7 @@ class BaseGUI(ABC):
 
             time.sleep(0.5)
 
-        print("[ERROR] Window not found within timeout")
+        print(f"[ERROR] Window matching {search_type} not found within timeout")
         return False
 
     def close_application(self):
@@ -537,25 +548,40 @@ class BaseGUI(ABC):
 
     def is_file_locked(self, file_path):
         """
-        Check if a file is locked (still being written to).
+        Check if a file is locked (being read from OR written to by another process).
+
+        Uses exclusive access check - fails if ANY process has ANY handle open.
 
         Args:
             file_path: Path to the file
 
         Returns:
-            bool: True if locked, False if available
+            bool: True if locked (read OR write), False if completely available
         """
         try:
-            with open(file_path, "r+b") as f:
-                import msvcrt
+            # Try to open with EXCLUSIVE access (dwShareMode=0)
+            # This fails if ANY other process has the file open for ANY reason
+            handle = win32file.CreateFile(
+                str(file_path),
+                win32file.GENERIC_READ | win32file.GENERIC_WRITE,
+                0,  # <-- KEY: No sharing allowed (not even read)
+                None,
+                win32file.OPEN_EXISTING,
+                win32file.FILE_ATTRIBUTE_NORMAL,
+                None,
+            )
+            win32file.CloseHandle(handle)
+            return False  # Got exclusive access = file is FREE
 
-                msvcrt.locking(f.fileno(), msvcrt.LK_NBLCK, 1)
-                msvcrt.locking(f.fileno(), msvcrt.LK_UNLCK, 1)
-            return False
-        except (IOError, OSError, PermissionError):
-            return True
+        except pywintypes.error:
+            # ERROR_SHARING_VIOLATION (32) or ERROR_LOCK_VIOLATION (33)
+            return True  # File is LOCKED
+        except Exception:
+            return True  # Assume locked if check fails
 
-    def move_protected_file_to_output(self, protected_file_path, output_dir=None):
+    def move_protected_file_to_output(
+        self, protected_file_path, output_dir=None, max_retries=5, retry_delay=2
+    ):
         """
         Move the protected file to specified output directory.
 
@@ -566,8 +592,6 @@ class BaseGUI(ABC):
         Returns:
             str: Final file path or None on failure
         """
-        import shutil
-
         if not protected_file_path:
             return None
 
@@ -589,13 +613,25 @@ class BaseGUI(ABC):
         print(f"  From: {source}")
         print(f"  To:   {destination}")
 
-        try:
-            shutil.move(str(source), str(destination))
-            print(f"[SUCCESS] File moved to: {destination}")
-            return str(destination)
-        except Exception as e:
-            print(f"[ERROR] Failed to move file: {e}")
-            return None
+        for attempt in range(max_retries):
+            try:
+                if self.is_file_locked(source):
+                    print(
+                        f"  [Attempt {attempt + 1}/{max_retries}] File still locked, waiting {retry_delay}s..."
+                    )
+                    time.sleep(retry_delay)
+                    continue
+                shutil.move(str(source), str(destination))
+                print(f"[SUCCESS] File moved to: {destination}")
+                return str(destination)
+            except PermissionError as e:
+                print(
+                    f"  [Attempt {attempt + 1}/{max_retries}] File in use, retrying in {retry_delay}s..."
+                )
+                time.sleep(retry_delay)
+
+        print(f"[ERROR] Failed to move file after {max_retries} attempts")
+        return None
 
     def cleanup_on_failure(self, input_file_path):
         """

@@ -4,15 +4,18 @@ Scans benign_sources/x86 directory and runs appropriate GUI packers on compatibl
 """
 
 import sys
+import shutil
 from pathlib import Path
 from typing import List, Dict, Optional, Set
 import argparse
 
 from asm_guard import AsmGuard
+from acprotect import ACProtect
 
 
 PACKER_FILE_SUPPORT: Dict[str, List[str]] = {
     "asm_guard": [".exe"],
+    "acprotect": [".exe"],
 }
 
 PACKER_OPTIONS: Dict[str, Dict[str, str]] = {
@@ -34,6 +37,7 @@ PACKER_DEFAULT_STATES: Dict[str, Dict[str, bool]] = {
         "enhanced_flood_mode": False,
         "add_different_types": False,
     },
+    "acprotect": {},
 }
 
 # Default packer to use
@@ -86,6 +90,41 @@ class GUIWrapperRunner:
         output_dir.mkdir(parents=True, exist_ok=True)
         return output_dir
 
+    def get_temp_directory(self, output_dir: Path) -> Path:
+        """
+        Get the temp directory inside the output directory for working copies
+
+        Args:
+            output_dir: The output directory
+
+        Returns:
+            Path: Temp directory (e.g., output_dir/temp)
+        """
+        temp_dir = output_dir / "temp"
+        temp_dir.mkdir(parents=True, exist_ok=True)
+        return temp_dir
+
+    def copy_to_temp(self, file_path: Path, output_dir: Path) -> Path:
+        """
+        Copy input file to temp directory inside output directory
+
+        Args:
+            file_path: Path to the original input file
+            output_dir: The output directory
+
+        Returns:
+            Path: Path to the copied file in temp directory
+        """
+        temp_dir = self.get_temp_directory(output_dir)
+        temp_file = temp_dir / file_path.name
+
+        print(f"[INFO] Copying input file to temp directory...")
+        print(f"[INFO]   Source: {file_path}")
+        print(f"[INFO]   Dest:   {temp_file}")
+
+        shutil.copy2(file_path, temp_file)
+        return temp_file
+
     def is_file_supported(self, file_path: Path, packer_name: str) -> bool:
         """Check if a file is supported by the specified packer"""
         supported = self.get_supported_extensions(packer_name)
@@ -118,73 +157,6 @@ class GUIWrapperRunner:
 
         print(f"[SNAPSHOT] Captured {len(files)} files in {directory}")
         return files
-
-    def cleanup_new_files(
-        self,
-        directory: Path,
-        original_files: Set[Path],
-        recursive: bool = False,
-        dry_run: bool = False,
-    ) -> List[Path]:
-        """
-        Remove any files that were not in the original snapshot
-
-        Args:
-            directory: Directory to clean
-            original_files: Set of file paths from snapshot
-            recursive: Whether to check subdirectories
-            dry_run: If True, only list files without deleting
-
-        Returns:
-            List of deleted (or would-be-deleted) file paths
-        """
-        directory = Path(directory).resolve()
-
-        # Get current files
-        if recursive:
-            current_files = set(
-                f.resolve() for f in directory.rglob("*") if f.is_file()
-            )
-        else:
-            current_files = set(f.resolve() for f in directory.glob("*") if f.is_file())
-
-        # Find new files (files that weren't in original snapshot)
-        new_files = current_files - original_files
-
-        if not new_files:
-            print(f"\n[CLEANUP] No new files to clean up in {directory}")
-            return []
-
-        print(f"\n{'=' * 60}")
-        print(f"CLEANUP: {len(new_files)} new file(s) found")
-        print(f"{'=' * 60}")
-
-        deleted_files = []
-        for file_path in sorted(new_files):
-            relative_path = (
-                file_path.relative_to(directory)
-                if file_path.is_relative_to(directory)
-                else file_path
-            )
-
-            if dry_run:
-                print(f"  [WOULD DELETE] {relative_path}")
-                deleted_files.append(file_path)
-            else:
-                try:
-                    file_path.unlink()
-                    print(f"  [DELETED] {relative_path}")
-                    deleted_files.append(file_path)
-                except Exception as e:
-                    print(f"  [ERROR] Could not delete {relative_path}: {e}")
-
-        if dry_run:
-            print(f"\n[DRY RUN] Would have deleted {len(deleted_files)} file(s)")
-        else:
-            print(f"\n[CLEANUP] Deleted {len(deleted_files)} file(s)")
-
-        print(f"{'=' * 60}")
-        return deleted_files
 
     # ========== SCANNING & PACKING ==========
 
@@ -299,6 +271,41 @@ class GUIWrapperRunner:
             traceback.print_exc()
             return False
 
+    def run_acprotect(
+        self,
+        file_path: Path,
+        packer_config: Optional[Dict[str, bool]] = None,
+        output_dir: Optional[Path] = None,
+    ) -> bool:
+        """
+        Run ACProtect wrapper on a single file
+        """
+        print(f"\n{'=' * 60}")
+        print(f"PROCESSING: {file_path.name}")
+        print(f"{'=' * 60}")
+
+        try:
+            wrapper = ACProtect(str(self.yaml_path), str(self.main_dir))
+
+            if output_dir is None:
+                output_dir = self.get_output_directory("acprotect")
+
+            print(f"[INFO] Output directory: {output_dir}")
+
+            success = wrapper.run(
+                click_mode=packer_config if packer_config else "all",
+                file_path=str(file_path.resolve()),
+                output_dir=str(output_dir),
+            )
+            return success
+
+        except Exception as e:
+            print(f"[ERROR] Failed to process {file_path.name}: {e}")
+            import traceback
+
+            traceback.print_exc()
+            return False
+
     def run_packer(
         self,
         packer_name: str,
@@ -308,9 +315,13 @@ class GUIWrapperRunner:
     ) -> bool:
         """
         Run the specified packer on a file
+
+        The input file is first copied to a temp directory inside the output
+        directory, and the packer operates on that copy.
         """
         packer_methods = {
             "asm_guard": self.run_asm_guard,
+            "acprotect": self.run_acprotect,
         }
 
         if packer_name not in packer_methods:
@@ -321,8 +332,11 @@ class GUIWrapperRunner:
         if output_dir is None:
             output_dir = self.get_output_directory(packer_name)
 
+        # Copy input file to temp directory inside output directory
+        temp_file = self.copy_to_temp(file_path, output_dir)
+
         return packer_methods[packer_name](
-            file_path,
+            temp_file,  # Use the temp copy instead of the original
             packer_config=packer_config,
             output_dir=output_dir,
         )
@@ -330,11 +344,16 @@ class GUIWrapperRunner:
     def is_already_packed(self, file_path: Path, packer_name: str) -> bool:
         """
         Check if a file has already been packed (output exists in packed_sources)
+        Uses fuzzy matching - checks if any file contains the original stem
         """
         output_dir = self.get_output_directory(packer_name)
-        protected_name = f"{file_path.stem}_protected{file_path.suffix}"
-        output_path = output_dir / protected_name
-        return output_path.exists()
+        stem = file_path.stem.lower()
+
+        # Check if any file in output_dir contains the original filename stem
+        for existing_file in output_dir.glob("*"):
+            if existing_file.is_file() and stem in existing_file.stem.lower():
+                return True
+        return False
 
     def run_batch(
         self,
@@ -436,16 +455,20 @@ class GUIWrapperRunner:
                 print("[INFO] Pausing before next file...")
                 time.sleep(2)
 
-        # ========== CLEANUP NEW FILES AFTER PROCESSING ==========
-        print("\n[INFO] Cleaning up source directory...")
-        self.cleanup_new_files(self.source_dir, original_files, recursive=recursive)
+        # ========== DELETE TEMP DIRECTORY ==========
+        temp_dir = self.get_temp_directory(output_dir)
+        if temp_dir.exists():
+            import shutil
+
+            shutil.rmtree(temp_dir, ignore_errors=True)
+            print(f"[INFO] Deleted temp directory: {temp_dir}")
 
         # Print summary
-        self.print_summary(results)
+        self.print_summary(results, skipped_files if skip_existing else [])
 
         return results
 
-    def print_summary(self, results: Dict[str, bool]):
+    def print_summary(self, results: Dict[str, bool], skipped_files: List[Path] = None):
         """Print processing summary"""
         print(f"\n{'=' * 60}")
         print("BATCH PROCESSING SUMMARY")
@@ -453,8 +476,9 @@ class GUIWrapperRunner:
 
         successful = sum(1 for v in results.values() if v is True)
         failed = sum(1 for v in results.values() if v is False)
-        skipped = sum(1 for v in results.values() if v is None)
-        total = len(results)
+        dry_run_skipped = sum(1 for v in results.values() if v is None)
+        already_packed = len(skipped_files) if skipped_files else 0
+        total = len(results) + already_packed
 
         for filename, status in results.items():
             if status is True:
@@ -462,14 +486,28 @@ class GUIWrapperRunner:
             elif status is False:
                 status_str = "✗ FAILED"
             else:
-                status_str = "○ SKIPPED"
+                status_str = "○ DRY RUN"
             print(f"  {status_str}  {filename}")
 
-        print(f"\n  Total:      {total}")
-        print(f"  Successful: {successful}")
-        print(f"  Failed:     {failed}")
-        if skipped:
-            print(f"  Skipped:    {skipped}")
+        # List skipped (already packed) files
+        if skipped_files:
+            print("\n  SKIPPED (already packed):")
+            for f in skipped_files:
+                print(f"    ○ {f.name}")
+
+        # List failed files explicitly
+        failed_files = [name for name, status in results.items() if status is False]
+        if failed_files:
+            print("\n  FAILED FILES:")
+            for name in failed_files:
+                print(f"    ✗ {name}")
+
+        print(f"\n  Total:         {total}")
+        print(f"  Successful:    {successful}")
+        print(f"  Failed:        {failed}")
+        print(f"  Already packed:{already_packed}")
+        if dry_run_skipped:
+            print(f"  Dry run:       {dry_run_skipped}")
         print(f"{'=' * 60}")
 
 

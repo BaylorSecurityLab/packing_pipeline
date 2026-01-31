@@ -256,58 +256,6 @@ class AsmGuard(BaseGUI):
         )
 
     # ========== PROTECTION PROCESS METHODS ==========
-
-    def wait_for_protection_complete(
-        self, input_file_path, timeout=120, check_interval=2
-    ):
-        """
-        Wait for the protection process to complete.
-
-        Args:
-            input_file_path: Path to the input file
-            timeout: Maximum seconds to wait
-            check_interval: Seconds between checks
-
-        Returns:
-            str: Path to protected file or None if timeout
-        """
-        input_path = Path(input_file_path)
-        protected_name = f"{input_path.stem}_protected{input_path.suffix}"
-        protected_path = input_path.parent / protected_name
-
-        print(f"\n[INFO] Waiting for protection to complete...")
-        print(f"[INFO] Watching for: {protected_path}")
-        print(f"[INFO] Timeout: {timeout}s")
-
-        start_time = time.time()
-        last_size = 0
-        stable_count = 0
-
-        while time.time() - start_time < timeout:
-            elapsed = int(time.time() - start_time)
-
-            if protected_path.exists():
-                current_size = protected_path.stat().st_size
-
-                if self.is_file_locked(protected_path):
-                    print(f"  [{elapsed}s] Writing... {current_size:,} bytes")
-                    last_size = current_size
-                    stable_count = 0
-                else:
-                    # File exists and is not locked - it's complete!
-                    print(f"\n[SUCCESS] Protection complete! ({elapsed}s)")
-                    print(f"[INFO] Output file: {protected_path}")
-                    print(f"[INFO] File size: {current_size:,} bytes")
-                    return str(protected_path)
-            else:
-                print(f"  [{elapsed}s] Processing...", end="\r")
-
-            time.sleep(check_interval)
-
-        # Timeout reached
-        print(f"\n[ERROR] Timeout after {timeout}s waiting for protected file")
-        return None
-
     def cleanup_asmg_files(self, directory):
         """
         Delete .asmg files created by ASM Guard.
@@ -537,6 +485,57 @@ class AsmGuard(BaseGUI):
         else:
             print(f"\n[WARNING] Unknown click_mode: {click_mode}")
             return {}
+
+    def wait_for_protection_complete(
+        self, input_file_path, timeout=120, check_interval=10
+    ):
+        """
+        Wait for the protection process to complete.
+
+        Args:
+            input_file_path: Path to the input file
+            timeout: Maximum seconds to wait
+            check_interval: Seconds between checks
+
+        Returns:
+            str: Path to protected file or None if timeout
+        """
+        input_path = Path(input_file_path)
+        protected_name = f"{input_path.stem}_protected{input_path.suffix}"
+        protected_path = input_path.parent / protected_name
+
+        print(f"\n[INFO] Waiting for protection to complete...")
+        print(f"[INFO] Watching for: {protected_path}")
+        print(f"[INFO] Timeout: {timeout}s")
+
+        start_time = time.time()
+        last_size = 0
+        stable_count = 0
+
+        while time.time() - start_time < timeout:
+            elapsed = int(time.time() - start_time)
+
+            if protected_path.exists():
+                current_size = protected_path.stat().st_size
+
+                if self.is_file_locked(protected_path):
+                    print(f"  [{elapsed}s] Writing... {current_size:,} bytes")
+                    last_size = current_size
+                    stable_count = 0
+                else:
+                    # File exists and is not locked - it's complete!
+                    print(f"\n[SUCCESS] Protection complete! ({elapsed}s)")
+                    print(f"[INFO] Output file: {protected_path}")
+                    print(f"[INFO] File size: {current_size:,} bytes")
+                    return str(protected_path)
+            else:
+                print(f"  [{elapsed}s] Processing...", end="\r")
+
+            time.sleep(check_interval)
+
+        # Timeout reached
+        print(f"\n[ERROR] Timeout after {timeout}s waiting for protected file")
+        return None
 
 
 def main():
