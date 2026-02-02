@@ -8,6 +8,7 @@ from pathlib import Path
 from base_gui import BaseGUI
 import pyautogui
 import pyperclip
+from screeninfo import get_monitors
 
 
 class ACProtect(BaseGUI):
@@ -177,6 +178,53 @@ class ACProtect(BaseGUI):
             print(f"[ERROR] Failed to close ACProtect: {e}")
             return False
 
+    def center_window_on_monitor(self, monitor_number=0):
+        """
+        Move and center the window on a specific monitor.
+
+        Args:
+            monitor_number: 0 for primary monitor, 1 for second monitor, etc.
+        """
+        try:
+            if not self.window_handle:
+                print("[ERROR] No window handle available")
+                return False
+
+            # Get monitor info
+            monitors = get_monitors()
+            if monitor_number >= len(monitors):
+                print(f"[WARNING] Monitor {monitor_number} not found, using primary")
+                monitor_number = 0
+
+            monitor = monitors[monitor_number]
+
+            # Get window dimensions
+            rect = win32gui.GetWindowRect(self.window_handle)
+            window_width = rect[2] - rect[0]
+            window_height = rect[3] - rect[1]
+
+            # Calculate centered position on the specified monitor
+            new_x = monitor.x + (monitor.width - window_width) // 2
+            new_y = monitor.y + (monitor.height - window_height) // 2
+
+            # Move the window
+            win32gui.SetWindowPos(
+                self.window_handle,
+                win32con.HWND_TOP,
+                new_x,
+                new_y,
+                window_width,
+                window_height,
+                win32con.SWP_SHOWWINDOW,
+            )
+
+            print(f"[SUCCESS] Window centered on monitor {monitor_number}")
+            return True
+
+        except Exception as e:
+            print(f"[ERROR] Failed to center window: {e}")
+            return False
+
     def run(self, click_mode="all", file_path=None, output_dir=None):
         """
         Main execution flow for ACProtect.
@@ -200,6 +248,10 @@ class ACProtect(BaseGUI):
                 return False
 
             print("\n[SUCCESS] ACProtect launched successfully!")
+
+            # Step 3b: Center window on primary monitor
+            time.sleep(0.3)
+            self.center_window_on_monitor(monitor_number=1)
 
             # Step 4: Enter file path (click, tab, paste)
             time.sleep(0.5)
