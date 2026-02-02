@@ -183,16 +183,14 @@ class ACProtect(BaseGUI):
     def center_window_on_monitor(self, monitor_number=0):
         """
         Move and center the window on a specific monitor.
-
-        Args:
-            monitor_number: 0 for primary monitor, 1 for second monitor, etc.
         """
         try:
-            if not self.window_handle:
-                print("[ERROR] No window handle available")
+            if not self.window:
+                print("[ERROR] No window available")
                 return False
 
-            # Get monitor info
+            hwnd = self.window._hWnd
+
             monitors = get_monitors()
             if monitor_number >= len(monitors):
                 print(f"[WARNING] Monitor {monitor_number} not found, using primary")
@@ -201,17 +199,17 @@ class ACProtect(BaseGUI):
             monitor = monitors[monitor_number]
 
             # Get window dimensions
-            rect = win32gui.GetWindowRect(self.window_handle)
+            rect = win32gui.GetWindowRect(hwnd)
             window_width = rect[2] - rect[0]
             window_height = rect[3] - rect[1]
 
-            # Calculate centered position on the specified monitor
+            # Calculate centered position
             new_x = monitor.x + (monitor.width - window_width) // 2
             new_y = monitor.y + (monitor.height - window_height) // 2
 
             # Move the window
             win32gui.SetWindowPos(
-                self.window_handle,
+                hwnd,
                 win32con.HWND_TOP,
                 new_x,
                 new_y,
