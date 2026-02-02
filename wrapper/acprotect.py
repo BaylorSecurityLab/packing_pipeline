@@ -82,6 +82,33 @@ class ACProtect(BaseGUI):
         print(f"[SUCCESS] Entered file path in both text boxes: {file_path}")
         return True
 
+    def check_for_error_popup(self):
+        """
+        Check if an error popup has appeared.
+
+        Returns:
+            Window object if popup found, None otherwise
+        """
+        try:
+            import pygetwindow as gw
+
+            # Error popup has title "Acprotect" (not "ACProtector")
+            windows = gw.getWindowsWithTitle("Acprotect")
+            for win in windows:
+                if win.visible and win.title == "Acprotect":
+                    print(f"[WARNING] Detected error popup: '{win.title}'")
+                    return win
+            return None
+
+        except Exception as e:
+            return None
+
+    def dismiss_error_popup(self):
+        """Dismiss error popup by pressing Enter."""
+        pyautogui.press("enter")
+        time.sleep(0.3)
+        print("[INFO] Dismissed error popup")
+
     def wait_for_protection_complete(self, file_path):
         """
         Wait for the protection process to complete with stability verification.
@@ -112,6 +139,11 @@ class ACProtect(BaseGUI):
 
         while time.time() - start_time < timeout:
             elapsed = int(time.time() - start_time)
+            popup = self.check_for_error_popup()
+            if popup:
+                print(f"\n[ERROR] Error popup detected! Skipping this file...")
+                self.dismiss_error_popup()
+                return None
 
             if file_path.exists():
                 current_size = file_path.stat().st_size
