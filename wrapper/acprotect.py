@@ -91,7 +91,7 @@ class ACProtect(BaseGUI):
         count = 0
         try:
             for win in gw.getAllWindows():
-                # Exact match only - "Acprotect" is the error popup
+                # Exact match only - "Acprotect" is the error popup C:\Users\bkoro\projects\automated-packing\corpus\packed_sources\acprotect\temp\Airtame_4.15.0_Machine_X86_nullsoft_en-US.exe    C:\Users\bkoro\projects\automated-packing\corpus\packed_sources\acprotect\temp\Airtame_4.15.0_Machine_X86_nullsoft_en-US.exe
                 # "ACProtector" is the main window
                 if win.title == "Acprotect" and win.visible:
                     count += 1
