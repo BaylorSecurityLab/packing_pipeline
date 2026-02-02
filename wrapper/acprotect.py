@@ -204,26 +204,30 @@ class ACProtect(BaseGUI):
         )
         return None
 
-    def force_close_acprotect(self, max_attempts=10):
+    def get_acprotect_windows(self):
         """
-        Force close ACProtect and verify it's actually closed.
-        Keeps trying until successful.
-
-        Args:
-            max_attempts: Maximum close attempts
-            wait_between: Seconds to wait between attempts
+        Get only actual ACProtect windows (exact title match).
 
         Returns:
-            bool: True if closed successfully
+            list: ACProtect window objects
         """
+        import pygetwindow as gw
 
-        wait_between = self.LONG_TIMEOUT
+        acprotect_windows = []
 
+        for win in gw.getAllWindows():
+            # Exact title match only
+            if win.title in ["ACProtector", "Acprotect"]:
+                acprotect_windows.append(win)
+
+        return acprotect_windows
+
+    def force_close_acprotect(self, max_attempts=10, wait_between=1):
+        """
+        Force close ACProtect and verify it's actually closed.
+        """
         for attempt in range(max_attempts):
-            # Check if any ACProtect windows exist
-            windows = gw.getWindowsWithTitle("ACProtector") + gw.getWindowsWithTitle(
-                "Acprotect"
-            )
+            windows = self.get_acprotect_windows()
 
             if not windows:
                 print("[SUCCESS] ACProtect is closed")
@@ -234,9 +238,9 @@ class ACProtect(BaseGUI):
             )
 
             try:
-                # Try to activate and close each window
                 for win in windows:
                     try:
+                        print(f"[DEBUG] Closing window: '{win.title}'")
                         win.activate()
                         time.sleep(0.2)
                     except:
@@ -246,21 +250,18 @@ class ACProtect(BaseGUI):
                 pyautogui.hotkey("alt", "F4")
                 time.sleep(0.3)
 
-                # Handle save project popup (Tab to 'No', then Enter)
+                # Handle save project popup
                 pyautogui.press("tab")
                 time.sleep(0.2)
                 pyautogui.press("enter")
                 time.sleep(0.5)
 
                 # Check if closed
-                windows = gw.getWindowsWithTitle(
-                    "ACProtector"
-                ) + gw.getWindowsWithTitle("Acprotect")
-                if not windows:
+                if not self.get_acprotect_windows():
                     print("[SUCCESS] ACProtect closed via Alt+F4")
                     return True
 
-                # Method 2: Taskkill (more aggressive)
+                # Method 2: Taskkill
                 print("[INFO] Trying taskkill...")
                 subprocess.run(
                     ["taskkill", "/IM", "ACProtect.exe", "/F"],
@@ -273,11 +274,7 @@ class ACProtect(BaseGUI):
                 print(f"[WARNING] Close attempt failed: {e}")
                 time.sleep(wait_between)
 
-        # Final check
-        windows = gw.getWindowsWithTitle("ACProtector") + gw.getWindowsWithTitle(
-            "Acprotect"
-        )
-        if not windows:
+        if not self.get_acprotect_windows():
             return True
 
         print(f"[ERROR] Failed to close ACProtect after {max_attempts} attempts")
@@ -286,16 +283,13 @@ class ACProtect(BaseGUI):
     def ensure_acprotect_closed(self):
         """
         Ensure no ACProtect instance is running before starting.
-        Blocks until ACProtect is fully closed.
         """
-        import pygetwindow as gw
-
-        windows = gw.getWindowsWithTitle("ACProtector") + gw.getWindowsWithTitle(
-            "Acprotect"
-        )
+        windows = self.get_acprotect_windows()
 
         if windows:
-            print("\n[WARNING] Found existing ACProtect instance(s), closing...")
+            print(
+                f"\n[WARNING] Found {len(windows)} existing ACProtect window(s), closing..."
+            )
             self.force_close_acprotect()
         else:
             print("[INFO] No existing ACProtect instance found")
