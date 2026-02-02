@@ -283,7 +283,7 @@ class ACProtect(BaseGUI):
 
             # Step 3b: Center window on primary monitor
             time.sleep(0.3)
-            self.center_window_on_monitor(monitor_number=1)
+            self.center_window_on_monitor(monitor_number=0)
 
             # Step 4: Enter file path (click, tab, paste)
             time.sleep(0.5)
