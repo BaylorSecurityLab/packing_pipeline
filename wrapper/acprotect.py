@@ -11,6 +11,8 @@ import pyperclip
 from screeninfo import get_monitors
 import win32gui
 import win32con
+import pygetwindow as gw
+import subprocess
 
 
 class ACProtect(BaseGUI):
@@ -90,8 +92,6 @@ class ACProtect(BaseGUI):
             Window object if popup found, None otherwise
         """
         try:
-            import pygetwindow as gw
-
             # Error popup has title "Acprotect" (not "ACProtector")
             windows = gw.getWindowsWithTitle("Acprotect")
             for win in windows:
@@ -141,7 +141,7 @@ class ACProtect(BaseGUI):
             elapsed = int(time.time() - start_time)
             popup = self.check_for_error_popup()
             if popup:
-                print(f"\n[ERROR] Error popup detected! Skipping this file...")
+                print("\n[ERROR] Error popup detected! Skipping this file...")
                 self.dismiss_error_popup()
                 return None
 
@@ -183,34 +183,108 @@ class ACProtect(BaseGUI):
         )
         return None
 
-    def close_acprotect(self):
+    def force_close_acprotect(self, max_attempts=10):
         """
-        Close ACProtect application and handle the save project popup.
+        Force close ACProtect and verify it's actually closed.
+        Keeps trying until successful.
 
-        Popup asks to save project - Tab to 'No' and press Enter.
+        Args:
+            max_attempts: Maximum close attempts
+            wait_between: Seconds to wait between attempts
+
+        Returns:
+            bool: True if closed successfully
         """
-        print("\n[INFO] Closing ACProtect...")
 
-        try:
-            # Send Alt+F4 to close the window
-            pyautogui.hotkey("alt", "F4")
-            time.sleep(0.5)
+        wait_between = self.LONG_TIMEOUT
 
-            # Popup appears - Tab to 'No' button
-            print("[INFO] Handling save project popup - pressing Tab then Enter...")
-            pyautogui.press("tab")
-            time.sleep(0.2)
+        for attempt in range(max_attempts):
+            # Check if any ACProtect windows exist
+            windows = gw.getWindowsWithTitle("ACProtector") + gw.getWindowsWithTitle(
+                "Acprotect"
+            )
 
-            # Press Enter to click 'No'
-            pyautogui.press("enter")
-            time.sleep(0.3)
+            if not windows:
+                print("[SUCCESS] ACProtect is closed")
+                return True
 
-            print("[SUCCESS] ACProtect closed")
+            print(
+                f"[INFO] Close attempt {attempt + 1}/{max_attempts} - Found {len(windows)} window(s)"
+            )
+
+            try:
+                # Try to activate and close each window
+                for win in windows:
+                    try:
+                        win.activate()
+                        time.sleep(0.2)
+                    except:
+                        pass
+
+                # Method 1: Alt+F4
+                pyautogui.hotkey("alt", "F4")
+                time.sleep(0.3)
+
+                # Handle save project popup (Tab to 'No', then Enter)
+                pyautogui.press("tab")
+                time.sleep(0.2)
+                pyautogui.press("enter")
+                time.sleep(0.5)
+
+                # Check if closed
+                windows = gw.getWindowsWithTitle(
+                    "ACProtector"
+                ) + gw.getWindowsWithTitle("Acprotect")
+                if not windows:
+                    print("[SUCCESS] ACProtect closed via Alt+F4")
+                    return True
+
+                # Method 2: Taskkill (more aggressive)
+                print("[INFO] Trying taskkill...")
+                subprocess.run(
+                    ["taskkill", "/IM", "ACProtect.exe", "/F"],
+                    capture_output=True,
+                    timeout=5,
+                )
+                time.sleep(wait_between)
+
+            except Exception as e:
+                print(f"[WARNING] Close attempt failed: {e}")
+                time.sleep(wait_between)
+
+        # Final check
+        windows = gw.getWindowsWithTitle("ACProtector") + gw.getWindowsWithTitle(
+            "Acprotect"
+        )
+        if not windows:
             return True
 
-        except Exception as e:
-            print(f"[ERROR] Failed to close ACProtect: {e}")
-            return False
+        print(f"[ERROR] Failed to close ACProtect after {max_attempts} attempts")
+        return False
+
+    def ensure_acprotect_closed(self):
+        """
+        Ensure no ACProtect instance is running before starting.
+        Blocks until ACProtect is fully closed.
+        """
+        import pygetwindow as gw
+
+        windows = gw.getWindowsWithTitle("ACProtector") + gw.getWindowsWithTitle(
+            "Acprotect"
+        )
+
+        if windows:
+            print("\n[WARNING] Found existing ACProtect instance(s), closing...")
+            self.force_close_acprotect()
+        else:
+            print("[INFO] No existing ACProtect instance found")
+
+    def close_acprotect(self):
+        """
+        Close ACProtect application and verify it's closed.
+        """
+        print("\n[INFO] Closing ACProtect...")
+        return self.force_close_acprotect()
 
     def center_window_on_monitor(self, monitor_number=0):
         """
@@ -264,6 +338,9 @@ class ACProtect(BaseGUI):
         input_file = None
 
         try:
+            # Step 0: Ensure no existing ACProtect is running
+            self.ensure_acprotect_closed()
+
             # Step 1: Load packer info from YAML
             if not self.load_packer_info():
                 return False
