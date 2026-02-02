@@ -9,6 +9,8 @@ from base_gui import BaseGUI
 import pyautogui
 import pyperclip
 from screeninfo import get_monitors
+import win32gui
+import win32con
 
 
 class ACProtect(BaseGUI):
