@@ -84,27 +84,45 @@ class ACProtect(BaseGUI):
         print(f"[SUCCESS] Entered file path in both text boxes: {file_path}")
         return True
 
-    def check_for_error_popup(self):
+    def count_acprotect_popups(self):
         """
-        Check if an error popup has appeared.
+        Count windows with exact title 'Acprotect' (error popups).
 
         Returns:
-            Window object if popup found, None otherwise
+            int: Number of popup windows
         """
+        count = 0
         try:
-            # Error popup has title "Acprotect" (not "ACProtector")
-            windows = gw.getWindowsWithTitle("Acprotect")
-            for win in windows:
-                if win.visible and win.title == "Acprotect":
-                    print(f"[WARNING] Detected error popup: '{win.title}'")
-                    return win
-            return None
+            for win in gw.getAllWindows():
+                # Exact match only - "Acprotect" is the error popup
+                # "ACProtector" is the main window
+                if win.title == "Acprotect" and win.visible:
+                    count += 1
+        except:
+            pass
+        return count
 
-        except Exception as e:
-            return None
+    def check_for_new_error_popup(self, baseline_count=1):
+        """
+        Check if a NEW error popup appeared (compared to baseline).
+
+        Args:
+            baseline_count: Number of 'Acprotect' windows before protection started
+
+        Returns:
+            bool: True if new popup detected
+        """
+        current_count = self.count_acprotect_popups()
+        if current_count > baseline_count:
+            print(
+                f"[WARNING] New error popup detected! (was {baseline_count}, now {current_count})"
+            )
+            return True
+        return False
 
     def dismiss_error_popup(self):
         """Dismiss error popup by pressing Enter."""
+        time.sleep(0.2)
         pyautogui.press("enter")
         time.sleep(0.3)
         print("[INFO] Dismissed error popup")
@@ -134,13 +152,16 @@ class ACProtect(BaseGUI):
 
         start_time = time.time()
 
+        baseline_popup_count = self.count_acprotect_popups()
+        print(f"[DEBUG] Baseline popup count: {baseline_popup_count}")
+
         # Initial buffer to let the packer start its work
         time.sleep(20)
 
         while time.time() - start_time < timeout:
             elapsed = int(time.time() - start_time)
-            popup = self.check_for_error_popup()
-            if popup:
+            # Check for NEW error popup (compared to baseline)
+            if self.check_for_new_error_popup(baseline_popup_count):
                 print("\n[ERROR] Error popup detected! Skipping this file...")
                 self.dismiss_error_popup()
                 return None
