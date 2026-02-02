@@ -11,11 +11,12 @@ import argparse
 
 from asm_guard import AsmGuard
 from acprotect import ACProtect
-
+from alienyze import Alienyze
 
 PACKER_FILE_SUPPORT: Dict[str, List[str]] = {
     "asm_guard": [".exe"],
     "acprotect": [".exe"],
+    "alienyze": [".exe"],
 }
 
 PACKER_OPTIONS: Dict[str, Dict[str, str]] = {
@@ -38,6 +39,7 @@ PACKER_DEFAULT_STATES: Dict[str, Dict[str, bool]] = {
         "add_different_types": False,
     },
     "acprotect": {},
+    "alienyze": {},
 }
 
 # Default packer to use
@@ -306,6 +308,41 @@ class GUIWrapperRunner:
             traceback.print_exc()
             return False
 
+    def run_alienyze(
+        self,
+        file_path: Path,
+        packer_config: Optional[Dict[str, bool]] = None,
+        output_dir: Optional[Path] = None,
+    ) -> bool:
+        """
+        Run Alienyze wrapper on a single file
+        """
+        print(f"\n{'=' * 60}")
+        print(f"PROCESSING: {file_path.name}")
+        print(f"{'=' * 60}")
+
+        try:
+            wrapper = Alienyze(str(self.yaml_path), str(self.main_dir))
+
+            if output_dir is None:
+                output_dir = self.get_output_directory("alienyze")
+
+            print(f"[INFO] Output directory: {output_dir}")
+
+            success = wrapper.run(
+                click_mode=packer_config if packer_config else "all",
+                file_path=str(file_path.resolve()),
+                output_dir=str(output_dir),
+            )
+            return success
+
+        except Exception as e:
+            print(f"[ERROR] Failed to process {file_path.name}: {e}")
+            import traceback
+
+            traceback.print_exc()
+            return False
+
     def run_packer(
         self,
         packer_name: str,
@@ -322,6 +359,7 @@ class GUIWrapperRunner:
         packer_methods = {
             "asm_guard": self.run_asm_guard,
             "acprotect": self.run_acprotect,
+            "alienyze": self.run_alienyze,
         }
 
         if packer_name not in packer_methods:

@@ -16,6 +16,8 @@ import win32process
 import shutil
 import win32file
 import pywintypes
+from screeninfo import get_monitors
+import win32con
 
 
 class BaseGUI(ABC):
@@ -222,6 +224,51 @@ class BaseGUI(ABC):
         time.sleep(2)
 
         return True
+
+    def center_window_on_monitor(self, monitor_number=0):
+        """
+        Move and center the window on a specific monitor.
+        """
+        try:
+            if not self.window:
+                print("[ERROR] No window available")
+                return False
+
+            hwnd = self.window._hWnd
+
+            monitors = get_monitors()
+            if monitor_number >= len(monitors):
+                print(f"[WARNING] Monitor {monitor_number} not found, using primary")
+                monitor_number = 0
+
+            monitor = monitors[monitor_number]
+
+            # Get window dimensions
+            rect = win32gui.GetWindowRect(hwnd)
+            window_width = rect[2] - rect[0]
+            window_height = rect[3] - rect[1]
+
+            # Calculate centered position
+            new_x = monitor.x + (monitor.width - window_width) // 2
+            new_y = monitor.y + (monitor.height - window_height) // 2
+
+            # Move the window
+            win32gui.SetWindowPos(
+                hwnd,
+                win32con.HWND_TOP,
+                new_x,
+                new_y,
+                window_width,
+                window_height,
+                win32con.SWP_SHOWWINDOW,
+            )
+
+            print(f"[SUCCESS] Window centered on monitor {monitor_number}")
+            return True
+
+        except Exception as e:
+            print(f"[ERROR] Failed to center window: {e}")
+            return False
 
     def find_window(self, window_title=None, timeout=LONG_TIMEOUT):
         """
