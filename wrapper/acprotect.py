@@ -94,7 +94,7 @@ class ACProtect(BaseGUI):
         # Stability settings
         required_stable_checks = 5
         stable_count = 0
-        check_interval = 15
+        check_interval = self.LONG_TIMEOUT
 
         print("\n[INFO] Waiting for protection to complete...")
         print(f"[INFO] Watching: {file_path}")
