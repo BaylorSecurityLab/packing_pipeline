@@ -1,6 +1,6 @@
 version: "0.1.0"
-maintainer: "Abanisenioluwa Kolawole Orojo, Banny Orojo, GitLab CI Bot"
-last_updated: "2026-02-02"
+maintainer: "Abanisenioluwa Kolawole Orojo, Abanisenioluwa_Oroj1, Banny Orojo, GitLab CI Bot"
+last_updated: "2026-02-05"
 
 # ==========================================
 # SECTION 1: PACKER DEFINITIONS (The Source of Truth)
