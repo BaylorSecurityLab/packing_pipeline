@@ -1,6 +1,3 @@
-[submodule "benign_sources"]
-	path = benign_sources
-	url = ../inputs.git
 [submodule "packers"]
 	path = packers
 	url = ../tools.git
