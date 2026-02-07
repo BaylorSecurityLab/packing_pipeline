@@ -56,9 +56,11 @@ def get_packer_settings(packer_name):
 
 def sanitize_filename(filename):
     """
-    Convert filename to ASCII-safe version.
-    Preserves ASCII chars, replaces Unicode with a short hash.
+    Convert filename to ASCII-safe version, replacing spaces with underscores.
     """
+    # 1. Replace spaces with underscores immediately
+    filename = filename.replace(" ", "_")
+
     try:
         filename.encode("ascii")
         return filename  # Already ASCII-safe
@@ -67,9 +69,10 @@ def sanitize_filename(filename):
 
     name, ext = os.path.splitext(filename)
 
-    # Extract ASCII portions and create hash for non-ASCII
+    # Extract ASCII portions
     ascii_parts = re.findall(r"[\x00-\x7F]+", name)
-    ascii_portion = "".join(ascii_parts).strip("_- ")
+    # Join and strip bad chars
+    ascii_portion = "".join(ascii_parts).strip("_-")
 
     # Create short hash of original name for uniqueness
     name_hash = hashlib.md5(name.encode("utf-8")).hexdigest()[:8]

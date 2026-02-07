@@ -13,3 +13,5 @@ venv/
 .idea/
 *.log
 /manifest/~$packer_catalog.xlsx
+packed_sources/
+benign_sources
