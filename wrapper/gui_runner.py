@@ -15,6 +15,8 @@ from alienyze import Alienyze
 from mew import Mew
 from packman import Packman
 from rlpack import RLPack
+from ped import PEDiminisher
+from shrinker import Shrinker
 
 PACKER_FILE_SUPPORT: Dict[str, List[str]] = {
     "asm_guard": [".exe"],
@@ -23,6 +25,8 @@ PACKER_FILE_SUPPORT: Dict[str, List[str]] = {
     "mew": [".exe"],
     "packman": [".exe"],
     "rlpack": [".exe"],
+    "pe_diminisher": [".exe"],
+    "shrinker": [".exe"],
 }
 
 PACKER_OPTIONS: Dict[str, Dict[str, str]] = {
@@ -49,6 +53,8 @@ PACKER_DEFAULT_STATES: Dict[str, Dict[str, bool]] = {
     "mew": {},
     "packman": {},
     "rlpack": {},
+    "pe_diminisher": {},
+    "shrinker": {},
 }
 
 # Default packer to use
@@ -457,6 +463,76 @@ class GUIWrapperRunner:
             traceback.print_exc()
             return False
 
+    def run_pe_diminisher(
+        self,
+        file_path: Path,
+        packer_config: Optional[Dict[str, bool]] = None,
+        output_dir: Optional[Path] = None,
+    ) -> bool:
+        """
+        Run PE Diminisher wrapper on a single file
+        """
+        print(f"\n{'=' * 60}")
+        print(f"PROCESSING: {file_path.name}")
+        print(f"{'=' * 60}")
+
+        try:
+            wrapper = PEDiminisher(str(self.yaml_path), str(self.main_dir))
+
+            if output_dir is None:
+                output_dir = self.get_output_directory("pe_diminisher")
+
+            print(f"[INFO] Output directory: {output_dir}")
+
+            success = wrapper.run(
+                click_mode=packer_config if packer_config else "all",
+                file_path=str(file_path.resolve()),
+                output_dir=str(output_dir),
+            )
+            return success
+
+        except Exception as e:
+            print(f"[ERROR] Failed to process {file_path.name}: {e}")
+            import traceback
+
+            traceback.print_exc()
+            return False
+
+    def run_shrinker(
+        self,
+        file_path: Path,
+        packer_config: Optional[Dict[str, bool]] = None,
+        output_dir: Optional[Path] = None,
+    ) -> bool:
+        """
+        Run shrinker wrapper on a single file
+        """
+        print(f"\n{'=' * 60}")
+        print(f"PROCESSING: {file_path.name}")
+        print(f"{'=' * 60}")
+
+        try:
+            wrapper = Shrinker(str(self.yaml_path), str(self.main_dir))
+
+            if output_dir is None:
+                output_dir = self.get_output_directory("shrinker")
+
+            print(f"[INFO] Output directory: {output_dir}")
+
+            success = wrapper.run(
+                click_mode=packer_config if packer_config else "all",
+                file_path=str(file_path.resolve()),
+                output_dir=str(output_dir),
+            )
+            return success
+
+        except Exception as e:
+            print(f"[ERROR] Failed to process {file_path.name}: {e}")
+            import traceback
+
+            traceback.print_exc()
+            return False
+
     def run_packer(
         self,
         packer_name: str,
@@ -477,6 +553,8 @@ class GUIWrapperRunner:
             "mew": self.run_mew,
             "packman": self.run_packman,
             "rlpack": self.run_rlpack,
+            "pe_diminisher": self.run_pe_diminisher,
+            "shrinker": self.run_shrinker,
         }
 
         if packer_name not in packer_methods:

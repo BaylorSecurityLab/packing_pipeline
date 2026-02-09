@@ -44,7 +44,7 @@ definitions:
       - ""
 
   - &upx_scrambler_304
-    packer_name: "UPX Scrambler"
+    packer_name: "UPX_Scrambler"
     version: "3.0.4"
     arch_origin: "x86"
     supported_input_arch: "PE32"
