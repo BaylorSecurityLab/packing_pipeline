@@ -17,6 +17,8 @@ from packman import Packman
 from rlpack import RLPack
 from ped import PEDiminisher
 from shrinker import Shrinker
+from telock import Telock
+from upx_scrambler import UpxScrambler
 
 PACKER_FILE_SUPPORT: Dict[str, List[str]] = {
     "asm_guard": [".exe"],
@@ -27,6 +29,8 @@ PACKER_FILE_SUPPORT: Dict[str, List[str]] = {
     "rlpack": [".exe"],
     "pe_diminisher": [".exe"],
     "shrinker": [".exe"],
+    "telock": [".exe"],
+    "upx_scrambler": [".exe"],
 }
 
 PACKER_OPTIONS: Dict[str, Dict[str, str]] = {
@@ -55,6 +59,8 @@ PACKER_DEFAULT_STATES: Dict[str, Dict[str, bool]] = {
     "rlpack": {},
     "pe_diminisher": {},
     "shrinker": {},
+    "telock": {},
+    "upx_scrambler": {},
 }
 
 # Default packer to use
@@ -533,6 +539,77 @@ class GUIWrapperRunner:
             traceback.print_exc()
             return False
 
+    def run_telock(
+        self,
+        file_path: Path,
+        packer_config: Optional[Dict[str, bool]] = None,
+        output_dir: Optional[Path] = None,
+    ) -> bool:
+        """
+        Run tElock wrapper on a single file
+        """
+        print(f"\n{'=' * 60}")
+        print(f"PROCESSING: {file_path.name}")
+        print(f"{'=' * 60}")
+
+        try:
+            wrapper = Telock(str(self.yaml_path), str(self.main_dir))
+
+            if output_dir is None:
+                output_dir = self.get_output_directory("telock")
+
+            print(f"[INFO] Output directory: {output_dir}")
+
+            success = wrapper.run(
+                click_mode=packer_config if packer_config else "all",
+                file_path=str(file_path.resolve()),
+                output_dir=str(output_dir),
+            )
+            return success
+
+        except Exception as e:
+            print(f"[ERROR] Failed to process {file_path.name}: {e}")
+            import traceback
+
+            traceback.print_exc()
+            return False
+
+    def run_upx_scrambler(
+        self,
+        file_path: Path,
+        packer_config: Optional[Dict[str, bool]] = None,
+        output_dir: Optional[Path] = None,
+    ) -> bool:
+        """
+        Run UPX Scrambler wrapper on a single file.
+        The wrapper handles UPX pre-packing internally via packer_runner.
+        """
+        print(f"\n{'=' * 60}")
+        print(f"PROCESSING: {file_path.name}")
+        print(f"{'=' * 60}")
+
+        try:
+            wrapper = UpxScrambler(str(self.yaml_path), str(self.main_dir))
+
+            if output_dir is None:
+                output_dir = self.get_output_directory("upx_scrambler")
+
+            print(f"[INFO] Output directory: {output_dir}")
+
+            success = wrapper.run(
+                click_mode=packer_config if packer_config else "all",
+                file_path=str(file_path.resolve()),
+                output_dir=str(output_dir),
+            )
+            return success
+
+        except Exception as e:
+            print(f"[ERROR] Failed to process {file_path.name}: {e}")
+            import traceback
+
+            traceback.print_exc()
+            return False
+
     def run_packer(
         self,
         packer_name: str,
@@ -555,6 +632,8 @@ class GUIWrapperRunner:
             "rlpack": self.run_rlpack,
             "pe_diminisher": self.run_pe_diminisher,
             "shrinker": self.run_shrinker,
+            "telock": self.run_telock,
+            "upx_scrambler": self.run_upx_scrambler,
         }
 
         if packer_name not in packer_methods:

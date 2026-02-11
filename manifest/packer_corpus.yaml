@@ -220,7 +220,7 @@ definitions:
     license: "Freeware"
     notes: "tElock (The Experimental Lock) by tE. A famous legacy protector designed to defeat debuggers and disassemblers with polymorphic encryption."
     size_kb: "54"
-    output_behavior: "explicit"
+    output_behavior: "in_place"
     known_issues:
       - ""
 
@@ -608,24 +608,6 @@ definitions:
     known_issues:
       - "In-Place Only: Tool strictly modifies the target file. Does not support an output file argument."
 
-  - &pe_packer_czs
-    packer_name: "pe_packer"
-    version: "1.0"
-    arch_origin: "x86"
-    supported_input_arch: "PE32"
-    supported_output_arch: "PE32"
-    dependencies: []
-    tags: ["CLI"]
-    binary_path: "./packers/windows-pe-packer/build/bin/PE-Packer.exe"
-    binary_sha256: "a02f586b9957803ee339bca8281bff2c6e468a0c3091e88ea60d139eeae1ea7e"
-    source_url: "https://github.com/czs108/Windows-PE-Packer"
-    license: "MIT"
-    notes: "Written in C and Intel x86 Assembly. Designed to obstruct reverse engineering."
-    size_kb: "58"
-    output_behavior: "explicit"
-    known_issues:
-      - ""
-
   - &pelock_v211
     packer_name: "pelock"
     version: "2.11 (Demo)"
@@ -839,15 +821,6 @@ test_cases:
     # Usage: theArk.exe [TARGET_PE_FILE]
     # The runner must copy the input to {out} before running this command.
     cli_template: "{bin} {out}"
-    validation:
-      allow_x64_switch: false
-
-  # --- PE-Packer (czs108) Test Group ---
-  - id: "PE_PACKER_CZS_001"
-    <<: *pe_packer_czs
-    command_label: "Default Packing"
-    # Usage: PE-Packer <input-file> <output-file>
-    cli_template: "{bin} {in} {out}"
     validation:
       allow_x64_switch: false
 
