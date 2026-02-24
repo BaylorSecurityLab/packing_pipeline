@@ -1293,3 +1293,4 @@ test_cases:
     cli_template: "{bin} {out}"
     validation:
       allow_x64_switch: false
+
