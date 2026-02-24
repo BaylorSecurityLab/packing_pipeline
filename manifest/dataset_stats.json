@@ -2,11 +2,11 @@
   "metadata": {
     "version": "0.1.0",
     "maintainer": "Abanisenioluwa Kolawole Orojo, Abanisenioluwa_Oroj1, Banny Orojo, GitLab CI Bot",
-    "last_updated": "2026-02-05"
+    "last_updated": "2026-02-09"
   },
   "basic_counts": {
-    "total_packers": 37,
-    "total_test_cases": 71
+    "total_packers": 36,
+    "total_test_cases": 70
   },
   "interface_types": {
     "gui": {
@@ -14,15 +14,15 @@
       "tests": 0
     },
     "cli": {
-      "packers": 18,
-      "tests": 71
+      "packers": 17,
+      "tests": 70
     }
   },
   "tag_distribution": {
     "GUI": 19,
     "Compressor": 3,
     "Scrambler": 1,
-    "CLI": 18,
+    "CLI": 17,
     "Header-Stripper": 1,
     "Encrypter": 1,
     "Mutator": 2,
@@ -50,18 +50,18 @@
     "GitHub-PoC": 1
   },
   "architecture_distribution": {
-    "x86": 33,
+    "x86": 32,
     "x32": 1,
     "x64": 3
   },
   "supported_input_architectures": {
-    "PE32": 37,
+    "PE32": 36,
     "PE32+": 4,
     ".NET": 1
   },
   "output_behavior_distribution": {
-    "explicit": 26,
-    "in_place": 8,
+    "explicit": 24,
+    "in_place": 9,
     "input_dir_suffix": 1,
     "suffix_packed": 1,
     "explicit_absolute": 1
@@ -74,7 +74,7 @@
     "Freeware (Basic)": 1,
     "GPL": 2,
     "Commercial (Shareware)": 1,
-    "MIT": 6,
+    "MIT": 5,
     "Commercial": 3,
     "Commercial (Demo)": 1,
     "Open Source": 1
@@ -86,7 +86,6 @@
     "upack": 5,
     "kkrunchy": 3,
     "theark": 1,
-    "pe_packer": 1,
     "exe32pack": 4,
     "upx": 15,
     "amber": 4,
