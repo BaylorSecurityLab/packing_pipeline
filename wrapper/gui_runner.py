@@ -20,7 +20,6 @@ from shrinker import Shrinker
 from telock import Telock
 from upx_scrambler import UpxScrambler
 from wupack import WinUpack
-from x86_virtualizer import X86Virtualizer
 
 PACKER_FILE_SUPPORT: Dict[str, List[str]] = {
     "asm_guard": [".exe"],
@@ -34,7 +33,6 @@ PACKER_FILE_SUPPORT: Dict[str, List[str]] = {
     "telock": [".exe"],
     "upx_scrambler": [".exe"],
     "winupack": [".exe"],
-    "x86_virtualizer": [".exe"],
 }
 
 PACKER_OPTIONS: Dict[str, Dict[str, str]] = {
@@ -66,7 +64,6 @@ PACKER_DEFAULT_STATES: Dict[str, Dict[str, bool]] = {
     "telock": {},
     "upx_scrambler": {},
     "winupack": {},
-    "x86_virtualizer": {},
 }
 
 # Default packer to use
@@ -651,41 +648,6 @@ class GUIWrapperRunner:
             traceback.print_exc()
             return False
 
-    def run_x86_virtualizer(
-        self,
-        file_path: Path,
-        packer_config: Optional[Dict[str, bool]] = None,
-        output_dir: Optional[Path] = None,
-    ) -> bool:
-        """
-        Run x86 Virtualizer wrapper on a single file
-        """
-        print(f"\n{'=' * 60}")
-        print(f"PROCESSING: {file_path.name}")
-        print(f"{'=' * 60}")
-
-        try:
-            wrapper = X86Virtualizer(str(self.yaml_path), str(self.main_dir))
-
-            if output_dir is None:
-                output_dir = self.get_output_directory("x86_virtualizer")
-
-            print(f"[INFO] Output directory: {output_dir}")
-
-            success = wrapper.run(
-                click_mode=packer_config if packer_config else "all",
-                file_path=str(file_path.resolve()),
-                output_dir=str(output_dir),
-            )
-            return success
-
-        except Exception as e:
-            print(f"[ERROR] Failed to process {file_path.name}: {e}")
-            import traceback
-
-            traceback.print_exc()
-            return False
-
     def run_packer(
         self,
         packer_name: str,
@@ -711,7 +673,6 @@ class GUIWrapperRunner:
             "telock": self.run_telock,
             "upx_scrambler": self.run_upx_scrambler,
             "winupack": self.run_winupack,
-            "x86_virtualizer": self.run_x86_virtualizer,
         }
 
         if packer_name not in packer_methods:

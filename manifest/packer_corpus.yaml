@@ -7,26 +7,6 @@ last_updated: "2026-02-25"
 # Define packers here once. Use '&name' to create a reusable anchor.
 # ==========================================
 definitions:
-  - &xpa_exe
-    packer_name: "XPA"
-    version: "0.1"
-    arch_origin: "x86"
-    supported_input_arch: "PE32"
-    supported_output_arch: "PE32"
-    dependencies: []
-    tags: ["GUI"]
-    binary_path: "./packers/xpa/XPA.EXE"
-    binary_sha256: "5b1bb60ca1898c6bd303d6e9605a54b33063ff37664cf309dee6d1dcae291593"
-    source_url: "https://defacto2.net/f/a520164?packer=upxs"
-    license: "Freeware"
-    notes: "Legacy GUI packer (likely 'Xtreme Packer' or similar acronym). Requires manual interaction."
-    size_kb: "60"
-    output_behavior: "explicit"
-    type: "Type I"
-    type_ex: "Assumed to be a simple, single-layer packer due to its legacy status and lack of available information on advanced features."
-    known_issues:
-      - ""
-
   - &packman_v10
     packer_name: "packman"
     version: "1.0"
@@ -146,26 +126,6 @@ definitions:
     type_ex: "Similar to UPX_Scrambler, it adds a layer of obfuscation on top of UPX, creating a multi-layer packer."
     known_issues:
       - ""
-
-  - &rewolf_virt_poc
-    packer_name: "x86_virtualizer"
-    version: "1.0 (PoC)"
-    arch_origin: "x86"
-    supported_input_arch: "PE32"
-    supported_output_arch: "PE32"
-    dependencies: []
-    tags: ["GUI", "Virtualizer"]
-    binary_path: "./packers/x86-virtualizer/x86.virt.exe"
-    binary_sha256: "4c189edb97c3e64277d537153ee9601c0043427d715c10f2d2f09eff2e1b2379"
-    source_url: "https://github.com/rwfpl/rewolf-x86-virtualizer"
-    license: "Open Source (MIT/BSD)"
-    notes: "Proof-of-Concept x86 machine code virtualizer by ReWolf. Translates native instructions into a custom bytecode interpreted by a polymorphic VM."
-    size_kb: "80"
-    output_behavior: "explicit"
-    type: "Type VI"
-    type_ex: "Virtualizers like this one translate native code to a custom bytecode, which is a form of 'inline packing' and one of the most complex types of packers, similar to Themida as described in the paper."
-    known_issues:
-      - "Stability: As a Proof-of-Concept (PoC), it may not handle complex modern instruction sets (SSE/AVX) or specific calling conventions correctly."
 
   - &xcomp_v097
     packer_name: "xcomp"
@@ -1293,4 +1253,3 @@ test_cases:
     cli_template: "{bin} {out}"
     validation:
       allow_x64_switch: false
-
