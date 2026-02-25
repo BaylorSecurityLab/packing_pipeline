@@ -2,15 +2,15 @@
   "metadata": {
     "version": "0.1.0",
     "maintainer": "Abanisenioluwa Kolawole Orojo, Abanisenioluwa_Oroj1, Banny Orojo, GitLab CI Bot",
-    "last_updated": "2026-02-09"
+    "last_updated": "2026-02-25"
   },
   "basic_counts": {
-    "total_packers": 36,
+    "total_packers": 34,
     "total_test_cases": 70
   },
   "interface_types": {
     "gui": {
-      "packers": 19,
+      "packers": 17,
       "tests": 0
     },
     "cli": {
@@ -19,7 +19,7 @@
     }
   },
   "tag_distribution": {
-    "GUI": 19,
+    "GUI": 17,
     "Compressor": 3,
     "Scrambler": 1,
     "CLI": 17,
@@ -28,10 +28,10 @@
     "Mutator": 2,
     "Obfuscator": 2,
     "Multi-Stage": 1,
-    "Virtualizer": 2,
     "In-Place": 1,
     "Legacy": 1,
     "Frontend": 1,
+    "Virtualizer": 1,
     "Bundler": 1,
     "Crypter": 1,
     "Polymorphism": 1,
@@ -50,26 +50,25 @@
     "GitHub-PoC": 1
   },
   "architecture_distribution": {
-    "x86": 32,
+    "x86": 30,
     "x32": 1,
     "x64": 3
   },
   "supported_input_architectures": {
-    "PE32": 36,
+    "PE32": 34,
     "PE32+": 4,
     ".NET": 1
   },
   "output_behavior_distribution": {
-    "explicit": 24,
     "in_place": 9,
+    "explicit": 22,
     "input_dir_suffix": 1,
     "suffix_packed": 1,
     "explicit_absolute": 1
   },
   "license_distribution": {
-    "Freeware": 18,
+    "Freeware": 17,
     "Shareware/Commercial": 1,
-    "Open Source (MIT/BSD)": 1,
     "Shareware": 2,
     "Freeware (Basic)": 1,
     "GPL": 2,
@@ -119,10 +118,6 @@
     }
   ],
   "packers_with_known_issues": [
-    {
-      "packer": "x86_virtualizer",
-      "issue_count": 1
-    },
     {
       "packer": "xcomp",
       "issue_count": 2
