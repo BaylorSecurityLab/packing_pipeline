@@ -67,26 +67,6 @@ definitions:
     known_issues:
       - ""
 
-  - &pepack_v10
-    packer_name: "pepack"
-    version: "1.0"
-    arch_origin: "x86"
-    supported_input_arch: "PE32"
-    supported_output_arch: "PE32"
-    dependencies: []
-    tags: ["CLI"]
-    binary_path: "./packers/pepack/pepack.exe"
-    binary_sha256: "5ce18d6d19cd249d7936e522448dfc742cbe2a33c94400c024631a2505080b37"
-    source_url: "https://web.archive.org/web/20060111104142/http://www.exetools.com/files/compressors/win/pepack10.zip"
-    license: "Freeware"
-    notes: "(C) Copyright 1998 by ANAKiN. A classic legacy packer. The `-o` flag description ('write to output.exe') implies a static output filename, so using in-place modification on a copy is safer for automation."
-    size_kb: "15"
-    output_behavior: "in_place"
-    type: "Type I"
-    type_ex: "A classic legacy packer, likely implementing a straightforward single-layer compression scheme."
-    known_issues:
-      - ""
-
   - &ped_legacy
     packer_name: "pe_diminisher"
     version: "Legacy"
@@ -248,26 +228,6 @@ definitions:
     known_issues:
       - ""
 
-  - &molebox_gpl_v4
-    packer_name: "molebox_gpl"
-    version: "4.6000"
-    arch_origin: "x86"
-    supported_input_arch: "PE32"
-    supported_output_arch: "PE32"
-    dependencies: []
-    tags: ["CLI", "Virtualizer", "Bundler"]
-    binary_path: "./packers/molebox_gpl/Molebox_GPL/MxbPack.exe"
-    binary_sha256: "a4da2297d2bb52fa343d86be9c3c4f2871bd3da644cebcebb994baac7b1d607d"
-    source_url: "https://www.github.com/sudachen/molebox"
-    license: "GPL"
-    notes: "Molebox Virtualization Solution. Packs files into a virtual file system within a single executable."
-    size_kb: "497"
-    output_behavior: "explicit"
-    type: "Type VI"
-    type_ex: "Molebox virtualizes the file system, intercepting system calls and managing resources. This is a form of inline packing at a high level of complexity."
-    known_issues:
-      - ""
-
   - &mew_v11
     packer_name: "mew"
     version: "1.1 SE"
@@ -308,26 +268,6 @@ definitions:
     known_issues:
       - "Stability: Frequent Access Violation crashes (Exit Code 0xC0000005) when parsing modern complex PE structures."
       - "Compatibility: Produces non-standard PE structures that often crash modern debuggers or static analysis tools."
-
-  - &acprotect_legacy
-    packer_name: "acprotect"
-    version: "Legacy"
-    arch_origin: "x86"
-    supported_input_arch: "PE32"
-    supported_output_arch: "PE32"
-    dependencies: []
-    tags: ["GUI"]
-    binary_path: "./packers/acprotect/ACProtect/ACProtect.exe"
-    binary_sha256: "f082359b90eed2aed56403667527e038b84204021d281e09057496aae177b058"
-    source_url: "https://archive.org/details/tucows_304741_ACProtect"
-    license: "Commercial (Shareware)"
-    notes: "Professional software protection system (formerly ultraprotect.com). Features embedded encryption (RSA), anti-debugging, and metamorphic engine."
-    size_kb: "998"
-    output_behavior: "explicit"
-    type: "Type IV"
-    type_ex: "The paper explicitly classifies ACProtect as a Type-IV packer due to its use of IAT hooking and interleaved execution of packer and application code."
-    known_issues:
-      - ""
 
   - &yoda_crypter_v13
     packer_name: "yoda_crypter"
@@ -700,51 +640,6 @@ test_cases:
   # SECTION 2: TEST CASES (The Execution Plan)
   # Reference the anchors above using '<<: *anchor_name'
   # ==========================================
-
-  # --- Molebox GPL Test Group ---
-  - id: "MOLEBOX_001_DEFAULT"
-    <<: *molebox_gpl_v4
-    command_label: "Default Virtualization"
-    # Usage: mxbpack.exe <pefile.exe> [-o out.exe]
-    cli_template: "{bin} {in} -o {out}"
-    validation:
-      allow_x64_switch: false
-
-  # --- PE-PACK Test Group ---
-  - id: "PEPACK_001_DEFAULT"
-    <<: *pepack_v10
-    command_label: "Default Packing"
-    # Usage: pepack filename [options]
-    # Runner copies target to {out}, then we run pepack on {out}.
-    cli_template: "{bin} {out}"
-    validation:
-      allow_x64_switch: false
-
-  - id: "PEPACK_002_FULL_COMPRESSION"
-    <<: *pepack_v10
-    command_label: "Pack All (Resources + Version + Icons)"
-    # -ver: pack version info
-    # -icn: pack icons
-    cli_template: "{bin} {out} -ver -icn"
-    validation:
-      allow_x64_switch: false
-
-  - id: "PEPACK_003_FAST_ALIGN"
-    <<: *pepack_v10
-    command_label: "Fast Compression + 512 Align"
-    # -spd: faster compression
-    # -aln: set file align to 512
-    cli_template: "{bin} {out} -spd -aln"
-    validation:
-      allow_x64_switch: false
-
-  - id: "PEPACK_004_NO_RESOURCES"
-    <<: *pepack_v10
-    command_label: "Skip Resources"
-    # -rs-: do not pack RESOURCES
-    cli_template: "{bin} {out} -rs-"
-    validation:
-      allow_x64_switch: false
 
   # --- XComp Test Group ---
   - id: "XCOMP_001_DEFAULT"

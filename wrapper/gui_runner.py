@@ -10,27 +10,23 @@ from typing import List, Dict, Optional, Set
 import argparse
 
 from asm_guard import AsmGuard
-from acprotect import ACProtect
 from alienyze import Alienyze
 from mew import Mew
 from packman import Packman
 from rlpack import RLPack
 from ped import PEDiminisher
 from shrinker import Shrinker
-from telock import Telock
 from upx_scrambler import UpxScrambler
 from wupack import WinUpack
 
 PACKER_FILE_SUPPORT: Dict[str, List[str]] = {
     "asm_guard": [".exe"],
-    "acprotect": [".exe"],
     "alienyze": [".exe"],
     "mew": [".exe"],
     "packman": [".exe"],
     "rlpack": [".exe"],
     "pe_diminisher": [".exe"],
     "shrinker": [".exe"],
-    "telock": [".exe"],
     "upx_scrambler": [".exe"],
     "winupack": [".exe"],
 }
@@ -54,14 +50,12 @@ PACKER_DEFAULT_STATES: Dict[str, Dict[str, bool]] = {
         "enhanced_flood_mode": False,
         "add_different_types": False,
     },
-    "acprotect": {},
     "alienyze": {},
     "mew": {},
     "packman": {},
     "rlpack": {},
     "pe_diminisher": {},
     "shrinker": {},
-    "telock": {},
     "upx_scrambler": {},
     "winupack": {},
 }
@@ -144,7 +138,7 @@ class GUIWrapperRunner:
         temp_dir = self.get_temp_directory(output_dir)
         temp_file = temp_dir / file_path.name
 
-        print(f"[INFO] Copying input file to temp directory...")
+        print("[INFO] Copying input file to temp directory...")
         print(f"[INFO]   Source: {file_path}")
         print(f"[INFO]   Dest:   {temp_file}")
 
@@ -286,41 +280,6 @@ class GUIWrapperRunner:
             success = wrapper.run(
                 click_mode=click_mode,
                 file_path=str(file_path.resolve()),  # Always use absolute path
-                output_dir=str(output_dir),
-            )
-            return success
-
-        except Exception as e:
-            print(f"[ERROR] Failed to process {file_path.name}: {e}")
-            import traceback
-
-            traceback.print_exc()
-            return False
-
-    def run_acprotect(
-        self,
-        file_path: Path,
-        packer_config: Optional[Dict[str, bool]] = None,
-        output_dir: Optional[Path] = None,
-    ) -> bool:
-        """
-        Run ACProtect wrapper on a single file
-        """
-        print(f"\n{'=' * 60}")
-        print(f"PROCESSING: {file_path.name}")
-        print(f"{'=' * 60}")
-
-        try:
-            wrapper = ACProtect(str(self.yaml_path), str(self.main_dir))
-
-            if output_dir is None:
-                output_dir = self.get_output_directory("acprotect")
-
-            print(f"[INFO] Output directory: {output_dir}")
-
-            success = wrapper.run(
-                click_mode=packer_config if packer_config else "all",
-                file_path=str(file_path.resolve()),
                 output_dir=str(output_dir),
             )
             return success
@@ -542,41 +501,6 @@ class GUIWrapperRunner:
             traceback.print_exc()
             return False
 
-    def run_telock(
-        self,
-        file_path: Path,
-        packer_config: Optional[Dict[str, bool]] = None,
-        output_dir: Optional[Path] = None,
-    ) -> bool:
-        """
-        Run tElock wrapper on a single file
-        """
-        print(f"\n{'=' * 60}")
-        print(f"PROCESSING: {file_path.name}")
-        print(f"{'=' * 60}")
-
-        try:
-            wrapper = Telock(str(self.yaml_path), str(self.main_dir))
-
-            if output_dir is None:
-                output_dir = self.get_output_directory("telock")
-
-            print(f"[INFO] Output directory: {output_dir}")
-
-            success = wrapper.run(
-                click_mode=packer_config if packer_config else "all",
-                file_path=str(file_path.resolve()),
-                output_dir=str(output_dir),
-            )
-            return success
-
-        except Exception as e:
-            print(f"[ERROR] Failed to process {file_path.name}: {e}")
-            import traceback
-
-            traceback.print_exc()
-            return False
-
     def run_upx_scrambler(
         self,
         file_path: Path,
@@ -663,14 +587,12 @@ class GUIWrapperRunner:
         """
         packer_methods = {
             "asm_guard": self.run_asm_guard,
-            "acprotect": self.run_acprotect,
             "alienyze": self.run_alienyze,
             "mew": self.run_mew,
             "packman": self.run_packman,
             "rlpack": self.run_rlpack,
             "pe_diminisher": self.run_pe_diminisher,
             "shrinker": self.run_shrinker,
-            "telock": self.run_telock,
             "upx_scrambler": self.run_upx_scrambler,
             "winupack": self.run_winupack,
         }
