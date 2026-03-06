@@ -8,7 +8,7 @@ import zipfile
 import shutil
 
 # --- CONFIGURATION ---
-LIMIT = 20
+LIMIT = 316
 BASE_DIR = "../benign_sources"
 MANIFEST_DIR = os.path.join(BASE_DIR, "manifest")
 

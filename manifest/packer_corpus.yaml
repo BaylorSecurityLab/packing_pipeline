@@ -168,46 +168,6 @@ definitions:
     known_issues:
       - ""
 
-  - &telock_v098
-    packer_name: "telock"
-    version: "0.98"
-    arch_origin: "x86"
-    supported_input_arch: "PE32"
-    supported_output_arch: "PE32"
-    dependencies: []
-    tags: ["GUI"]
-    binary_path: "./packers/telock/telock.exe"
-    binary_sha256: "5203aa4b6ad2d63fc8c7f6a05fb72b6ac75985ee8077820b47faa5a1b97c13c1"
-    source_url: "https://www.softpedia.com/get/Programming/Packers-Crypters-Protectors/Telock.shtml"
-    license: "Freeware"
-    notes: "tElock (The Experimental Lock) by tE. A famous legacy protector designed to defeat debuggers and disassemblers with polymorphic encryption."
-    size_kb: "54"
-    output_behavior: "in_place"
-    type: "Type III"
-    type_ex: "Features like polymorphic encryption suggest multi-layer or cyclic decryption routines to complicate analysis, fitting the Type III model."
-    known_issues:
-      - ""
-
-  - &pecompact_legacy
-    packer_name: "pecompact"
-    version: "Legacy"
-    arch_origin: "x86"
-    supported_input_arch: "PE32"
-    supported_output_arch: "PE32"
-    dependencies: []
-    tags: ["GUI"]
-    binary_path: "./packers/pecompact/PECompact/pecompact.exe"
-    binary_sha256: "84c09b85971d41b84dbb2238c75c8a340afce6da2a16921ae3b7596aad57ac2d"
-    source_url: "https://archive.org/details/pecompct_zip"
-    license: "Shareware"
-    notes: "PECompact by Jeremy Collake. A well-known legacy packer known for high compression ratios and anti-debug features."
-    size_kb: "34"
-    output_behavior: "explicit"
-    type: "Type III"
-    type_ex: "The paper explicitly lists PECompact as a Type-III packer. Its anti-debug features likely involve cyclic checks."
-    known_issues:
-      - ""
-
   - &rlpack_v121
     packer_name: "rlpack"
     version: "1.21 Basic"
@@ -434,46 +394,6 @@ definitions:
     known_issues:
       - ""
 
-  - &aspack
-    packer_name: "aspack"
-    version: "Legacy"
-    arch_origin: "x86"
-    supported_input_arch: "PE32"
-    supported_output_arch: "PE32"
-    dependencies: []
-    tags: ["GUI", "Commercial"]
-    binary_path: "./packers/aspack/setup.exe"
-    binary_sha256: "B1AAD17F65FBDB5FB75E13A00BD3B1DB6E5168F8E4419E57B13FB34DC48C4BA4"
-    source_url: "http://www.aspack.com/"
-    license: "Commercial"
-    notes: "Advanced solution created to provide Win32 EXE file packing and to protect them against non-professional reverse engineering."
-    size_kb: "5567"
-    output_behavior: "explicit"
-    type: "Type III"
-    type_ex: "The paper explicitly lists Aspack as a Type-III packer, which implies a cyclic transition model, likely for anti-debugging or integrity checks."
-    known_issues:
-      - ""
-
-  - &asprotect_32
-    packer_name: "asprotect_32"
-    version: "Legacy"
-    arch_origin: "x86"
-    supported_input_arch: "PE32"
-    supported_output_arch: "PE32"
-    dependencies: []
-    tags: ["GUI", "Installer", "Copy-Protection"]
-    binary_path: "./packers/asprotect32/setup.exe"
-    binary_sha256: "A73694CB69CCBCC2E14D85D08AA589D01E9A3F082CBE3A4E25A80C695C2885CA"
-    source_url: "http://www.aspack.com/"
-    license: "Commercial"
-    notes: "Multifunctional EXE packing tool designed for software developers to protect 32-bit applications with in-built application copy protection system."
-    size_kb: "9653"
-    output_behavior: "explicit"
-    type: "Type IV"
-    type_ex: "A full protection suite like ASProtect is expected to use interleaved code (for anti-debugging, copy protection), which corresponds to Type IV. The paper lists Asprotect as Type IV."
-    known_issues:
-      - ""
-
   - &astral_pe_v16
     packer_name: "astral_pe"
     version: "1.6.0.0"
@@ -574,26 +494,6 @@ definitions:
     known_issues:
       - "In-Place Only: Tool strictly modifies the target file. Does not support an output file argument."
 
-  - &pelock_v211
-    packer_name: "pelock"
-    version: "2.11 (Demo)"
-    arch_origin: "x86"
-    supported_input_arch: "PE32"
-    supported_output_arch: "PE32"
-    dependencies: []
-    tags: ["GUI", "License-Manager"]
-    binary_path: "./packers/pelock/PELock Demo/PELock.exe"
-    binary_sha256: "4543c9e8f924e66d0d0814f535b1f1ed2b90f146e85fbd29f3532c62919f8257"
-    source_url: "https://www.pelock.com/products/pelock/download"
-    license: "Commercial (Demo)"
-    notes: "Software protection system for 32-bit Windows executables. Features polymorphism, compression, and a built-in licensing system. Demo version has limitations."
-    size_kb: "2073"
-    output_behavior: "explicit"
-    type: "Type IV"
-    type_ex: "A comprehensive protection system with polymorphism and licensing is likely to use an interleaved execution model to enforce its protections."
-    known_issues:
-      - "Demo Limitations: Demo version restricts encryption macros and includes nag screens."
-
   - &petite_v24
     packer_name: "petite"
     version: "2.4"
@@ -613,27 +513,6 @@ definitions:
     type_ex: "Features a self-checking virus detection mechanism, which suggests a cyclic integrity check, fitting the Type III model."
     known_issues:
       - "Compatibility: Older packer (2015); aggressive import mangling (-m1) may break modern Windows 10/11 executables."
-
-  - &theark_v1
-    packer_name: "theark"
-    version: "1.0"
-    arch_origin: "x86"
-    supported_input_arch: "PE32"
-    supported_output_arch: "PE32"
-    dependencies: []
-    tags: ["CLI", "Protector", "GitHub-PoC"]
-    binary_path: "./packers/theark/Release/Release/theArk.exe"
-    binary_sha256: "0b25b0024efb5fa7423b2d1ba601ba981948df01bce1b4e6f40cc9d98138d999"
-    source_url: "https://github.com/aaaddress1/theArk/releases/tag/1.0"
-    license: "Open Source"
-    notes: "Proof-of-Concept PE packer by aaaddress1. Performs in-place modification of the target executable."
-    size_kb: "15"
-    output_behavior: "in_place"
-    type: "Type III"
-    type_ex: "As a proof-of-concept 'protector' with features like memory spraying, it might employ basic anti-analysis tricks that would lead to a cyclic transition model."
-    known_issues:
-      - "In-Place Only: The tool strictly modifies the target file provided as the argument."
-      - "Stability: As a v1.0 PoC, it does not handle complex PE headers or overlays correctly."
 
 test_cases:
   # ==========================================
@@ -740,16 +619,6 @@ test_cases:
     validation:
       allow_x64_switch: false
       allow_x86_switch: false
-
-  # --- theArk Test Group ---
-  - id: "THEARK_001_DEFAULT"
-    <<: *theark_v1
-    command_label: "Default Packing"
-    # Usage: theArk.exe [TARGET_PE_FILE]
-    # The runner must copy the input to {out} before running this command.
-    cli_template: "{bin} {out}"
-    validation:
-      allow_x64_switch: false
 
   # --- exe32pack Test Group ---
   - id: "EXE32PACK_001_DEFAULT"

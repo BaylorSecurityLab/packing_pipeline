@@ -18,6 +18,8 @@ from ped import PEDiminisher
 from shrinker import Shrinker
 from upx_scrambler import UpxScrambler
 from wupack import WinUpack
+from yoda_crypter import YodaCrypter
+from yoda_protector import YodaProtector
 
 PACKER_FILE_SUPPORT: Dict[str, List[str]] = {
     "asm_guard": [".exe"],
@@ -29,6 +31,8 @@ PACKER_FILE_SUPPORT: Dict[str, List[str]] = {
     "shrinker": [".exe"],
     "upx_scrambler": [".exe"],
     "winupack": [".exe"],
+    "yoda_crypter": [".exe"],
+    "yoda_protector": [".exe"],
 }
 
 PACKER_OPTIONS: Dict[str, Dict[str, str]] = {
@@ -58,10 +62,12 @@ PACKER_DEFAULT_STATES: Dict[str, Dict[str, bool]] = {
     "shrinker": {},
     "upx_scrambler": {},
     "winupack": {},
+    "yoda_crypter": {},
+    "yoda_protector": {},
 }
 
 # Default packer to use
-DEFAULT_PACKER = "asm_guard"
+DEFAULT_PACKER = "all"
 
 
 class GUIWrapperRunner:
@@ -181,7 +187,7 @@ class GUIWrapperRunner:
     # ========== SCANNING & PACKING ==========
 
     def scan_source_directory(
-        self, packer_name: str = DEFAULT_PACKER, recursive: bool = False
+        self, packer_name: str = "asm_guard", recursive: bool = False
     ) -> List[Path]:
         """
         Scan source directory for files compatible with the specified packer
@@ -572,6 +578,76 @@ class GUIWrapperRunner:
             traceback.print_exc()
             return False
 
+    def run_yoda_crypter(
+        self,
+        file_path: Path,
+        packer_config: Optional[Dict[str, bool]] = None,
+        output_dir: Optional[Path] = None,
+    ) -> bool:
+        """
+        Run Yoda's Crypter wrapper on a single file.
+        """
+        print(f"\n{'=' * 60}")
+        print(f"PROCESSING: {file_path.name}")
+        print(f"{'=' * 60}")
+
+        try:
+            wrapper = YodaCrypter(str(self.yaml_path), str(self.main_dir))
+
+            if output_dir is None:
+                output_dir = self.get_output_directory("yoda_crypter")
+
+            print(f"[INFO] Output directory: {output_dir}")
+
+            success = wrapper.run(
+                click_mode=packer_config if packer_config else "all",
+                file_path=str(file_path.resolve()),
+                output_dir=str(output_dir),
+            )
+            return success
+
+        except Exception as e:
+            print(f"[ERROR] Failed to process {file_path.name}: {e}")
+            import traceback
+
+            traceback.print_exc()
+            return False
+
+    def run_yoda_protector(
+        self,
+        file_path: Path,
+        packer_config: Optional[Dict[str, bool]] = None,
+        output_dir: Optional[Path] = None,
+    ) -> bool:
+        """
+        Run Yoda's Protector wrapper on a single file.
+        """
+        print(f"\n{'=' * 60}")
+        print(f"PROCESSING: {file_path.name}")
+        print(f"{'=' * 60}")
+
+        try:
+            wrapper = YodaProtector(str(self.yaml_path), str(self.main_dir))
+
+            if output_dir is None:
+                output_dir = self.get_output_directory("yoda_protector")
+
+            print(f"[INFO] Output directory: {output_dir}")
+
+            success = wrapper.run(
+                click_mode=packer_config if packer_config else "all",
+                file_path=str(file_path.resolve()),
+                output_dir=str(output_dir),
+            )
+            return success
+
+        except Exception as e:
+            print(f"[ERROR] Failed to process {file_path.name}: {e}")
+            import traceback
+
+            traceback.print_exc()
+            return False
+
     def run_packer(
         self,
         packer_name: str,
@@ -595,6 +671,8 @@ class GUIWrapperRunner:
             "shrinker": self.run_shrinker,
             "upx_scrambler": self.run_upx_scrambler,
             "winupack": self.run_winupack,
+            "yoda_crypter": self.run_yoda_crypter,
+            "yoda_protector": self.run_yoda_protector,
         }
 
         if packer_name not in packer_methods:
@@ -630,7 +708,7 @@ class GUIWrapperRunner:
 
     def run_batch(
         self,
-        packer_name: str = DEFAULT_PACKER,
+        packer_name: str = "asm_guard",
         packer_config: Optional[Dict[str, bool]] = None,
         output_dir: Optional[Path] = None,
         recursive: bool = False,
@@ -879,8 +957,8 @@ Examples:
         "--packer",
         type=str,
         default=DEFAULT_PACKER,
-        choices=list(PACKER_FILE_SUPPORT.keys()),
-        help=f"Packer to use (default: {DEFAULT_PACKER})",
+        choices=list(PACKER_FILE_SUPPORT.keys()) + ["all"],
+        help=f"Packer to use (default: {DEFAULT_PACKER}), or 'all' to run every GUI packer",
     )
 
     parser.add_argument(
@@ -1006,6 +1084,47 @@ Examples:
             check_options=args.check,
             uncheck_options=args.uncheck,
         )
+
+        # "all" mode — run every packer in sequence
+        if args.packer == "all":
+            all_packers = list(PACKER_FILE_SUPPORT.keys())
+            any_failed = False
+
+            if args.file:
+                file_path = Path(args.file).resolve()
+                if not file_path.exists():
+                    print(f"[ERROR] File not found: {file_path}")
+                    return 1
+                for packer_name in all_packers:
+                    print(f"\n{'#' * 60}")
+                    print(f"PACKER: {packer_name}")
+                    print(f"{'#' * 60}")
+                    success = runner.run_packer(
+                        packer_name,
+                        file_path,
+                        packer_config=None,
+                        output_dir=None,
+                    )
+                    if not success:
+                        any_failed = True
+            else:
+                for packer_name in all_packers:
+                    print(f"\n{'#' * 60}")
+                    print(f"PACKER: {packer_name}")
+                    print(f"{'#' * 60}")
+                    results = runner.run_batch(
+                        packer_name=packer_name,
+                        packer_config=None,
+                        output_dir=None,
+                        recursive=args.recursive,
+                        dry_run=args.dry_run,
+                        limit=args.limit,
+                        skip_existing=not args.no_skip,
+                    )
+                    if any(v is False for v in results.values()):
+                        any_failed = True
+
+            return 1 if any_failed else 0
 
         # Single file mode
         if args.file:
