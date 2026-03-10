@@ -4,10 +4,12 @@ Scans benign_sources/x86 directory and runs appropriate GUI packers on compatibl
 """
 
 import sys
+import re
 import shutil
 from pathlib import Path
 from typing import List, Dict, Optional, Set
 import argparse
+import yaml
 
 from asm_guard import AsmGuard
 from alienyze import Alienyze
@@ -23,7 +25,7 @@ from yoda_protector import YodaProtector
 
 PACKER_FILE_SUPPORT: Dict[str, List[str]] = {
     "asm_guard": [".exe"],
-    "alienyze": [".exe"],
+    "alienyze_protector": [".exe"],
     "mew": [".exe"],
     "packman": [".exe"],
     "rlpack": [".exe"],
@@ -54,7 +56,7 @@ PACKER_DEFAULT_STATES: Dict[str, Dict[str, bool]] = {
         "enhanced_flood_mode": False,
         "add_different_types": False,
     },
-    "alienyze": {},
+    "alienyze_protector": {},
     "mew": {},
     "packman": {},
     "rlpack": {},
@@ -90,6 +92,15 @@ class GUIWrapperRunner:
         if not self.yaml_path.exists():
             raise FileNotFoundError(f"YAML file not found: {self.yaml_path}")
 
+        # Load YAML config for version lookups
+        with open(self.yaml_path, "r") as f:
+            self._config = yaml.safe_load(f)
+        self._version_map = {}
+        for defn in self._config.get("definitions", []):
+            name = defn.get("packer_name", "").lower()
+            version = defn.get("version", "unknown")
+            self._version_map[name] = version
+
     def get_supported_extensions(self, packer_name: str) -> List[str]:
         """Get list of supported file extensions for a packer"""
         return PACKER_FILE_SUPPORT.get(packer_name, ["*"])
@@ -110,9 +121,13 @@ class GUIWrapperRunner:
             packer_name: Name of the packer
 
         Returns:
-            Path: Output directory (e.g., main_dir/packed_sources/asm_guard)
+            Path: Output directory (e.g., main_dir/packed_sources/asm_guard_2.9.4)
         """
-        output_dir = self.main_dir / "packed_sources" / packer_name
+        version = self._version_map.get(packer_name.lower(), "unknown")
+        # Sanitize version for filesystem (replace spaces, parens, etc.)
+        safe_version = re.sub(r'[^\w\.\-]', '_', version).strip('_')
+        dir_name = f"{packer_name}_{safe_version}"
+        output_dir = self.main_dir / "packed_sources" / dir_name
         output_dir.mkdir(parents=True, exist_ok=True)
         return output_dir
 
@@ -297,14 +312,14 @@ class GUIWrapperRunner:
             traceback.print_exc()
             return False
 
-    def run_alienyze(
+    def run_alienyze_protector(
         self,
         file_path: Path,
         packer_config: Optional[Dict[str, bool]] = None,
         output_dir: Optional[Path] = None,
     ) -> bool:
         """
-        Run Alienyze wrapper on a single file
+        Run Alienyze Protector wrapper on a single file
         """
         print(f"\n{'=' * 60}")
         print(f"PROCESSING: {file_path.name}")
@@ -314,7 +329,7 @@ class GUIWrapperRunner:
             wrapper = Alienyze(str(self.yaml_path), str(self.main_dir))
 
             if output_dir is None:
-                output_dir = self.get_output_directory("alienyze")
+                output_dir = self.get_output_directory("alienyze_protector")
 
             print(f"[INFO] Output directory: {output_dir}")
 
@@ -663,7 +678,7 @@ class GUIWrapperRunner:
         """
         packer_methods = {
             "asm_guard": self.run_asm_guard,
-            "alienyze": self.run_alienyze,
+            "alienyze_protector": self.run_alienyze_protector,
             "mew": self.run_mew,
             "packman": self.run_packman,
             "rlpack": self.run_rlpack,

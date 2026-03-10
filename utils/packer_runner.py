@@ -575,7 +575,12 @@ def run_packing(packer_name_input, max_size_kb=0, config=None, workers=1):
                 print(f"    [!] Error: Packer binary not found at: {packer_bin}")
                 continue
 
-            output_dir = os.path.join(PACKED_OUTPUT_DIR, packer_name_input, test_id)
+            # Include version in directory name (e.g., upx_5.1.0/TEST_ID)
+            version = packer_def.get("version", "unknown")
+            # Sanitize version for filesystem (replace spaces, parens, etc.)
+            safe_version = re.sub(r'[^\w\.\-]', '_', version).strip('_')
+            packer_dir_name = f"{packer_name_input}_{safe_version}"
+            output_dir = os.path.join(PACKED_OUTPUT_DIR, packer_dir_name, test_id)
             os.makedirs(output_dir, exist_ok=True)
 
             targets = get_targets(test_case.get("supported_input_arch", "PE32"))
