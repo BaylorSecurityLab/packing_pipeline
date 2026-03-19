@@ -661,6 +661,16 @@ if __name__ == "__main__":
         default=default_workers,
         help=f"Number of parallel threads (default: {default_workers})",
     )
+    parser.add_argument(
+        "--verify",
+        action="store_true",
+        help="Run pack verification after packing to delete unverified samples.",
+    )
+    parser.add_argument(
+        "--verify-dry-run",
+        action="store_true",
+        help="Run pack verification in dry-run mode (report only, no deletes).",
+    )
 
     args = parser.parse_args()
     main_config = load_yaml(YAML_CONFIG_FILE)
@@ -676,3 +686,15 @@ if __name__ == "__main__":
             print("=" * 40)
     else:
         run_packing(args.packer_name, args.max_size_kb, main_config, args.workers)
+
+    # Post-packing verification
+    if args.verify or args.verify_dry_run:
+        print("\n" + "=" * 50)
+        print("POST-PACKING VERIFICATION")
+        print("=" * 50)
+        from pack_verifier import verify_directory
+        packed_dir = os.path.abspath(PACKED_OUTPUT_DIR)
+        if os.path.exists(packed_dir):
+            verify_directory(packed_dir, dry_run=args.verify_dry_run)
+        else:
+            print(f"[!] No packed output directory found at: {packed_dir}")
