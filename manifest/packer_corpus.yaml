@@ -69,7 +69,7 @@ definitions:
 
   - &ped_legacy
     packer_name: "pe_diminisher"
-    version: "Legacy"
+    version: "0.1"
     arch_origin: "x86"
     supported_input_arch: "PE32"
     supported_output_arch: "PE32"
