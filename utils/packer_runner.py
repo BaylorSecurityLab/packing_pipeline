@@ -42,6 +42,10 @@ PACKER_SETTINGS = {
         "use_dialog_killer": False,
         "timeout": 60,
     },
+    "pezor": {
+        "use_dialog_killer": False,
+        "timeout": 300,
+    },
     # Default for unknown packers
     "_default": {
         "use_dialog_killer": False,
@@ -634,6 +638,14 @@ def run_packing(packer_name_input, max_size_kb=0, config=None, workers=1):
                         pbar.update(1)
 
             print(f"    Result: {success_count}/{len(targets)} packed.")
+
+            # Clean up _temp_build directory
+            temp_build_dir = os.path.join(output_dir, "_temp_build")
+            if os.path.exists(temp_build_dir):
+                try:
+                    shutil.rmtree(temp_build_dir)
+                except Exception as e:
+                    print(f"    [!] Warning: Could not remove temp dir: {e}")
 
     finally:
         if stop_event:

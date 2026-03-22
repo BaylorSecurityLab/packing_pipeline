@@ -1096,8 +1096,8 @@ Examples:
         # Build packer-specific config from args
         packer_config = runner.build_packer_config(
             args.packer,
-            check_options=args.check,
-            uncheck_options=args.uncheck,
+            check_options=getattr(args, "check", None),
+            uncheck_options=getattr(args, "uncheck", None),
         )
 
         # "all" mode — run every packer in sequence

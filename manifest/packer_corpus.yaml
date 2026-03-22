@@ -271,8 +271,50 @@ definitions:
       - "Large Files: Fails on files with large overlays (like installers/SFX) or files > 80KB due to trial limit."
       - "Automation: Trial version has a 'nag screen' popup that may freeze scripts if no timeout is set."
 
+  - &upx_v396
+    packer_name: "upx_v3.96"
+    version: "3.96"
+    arch_origin: "x64"
+    supported_input_arch: ["PE32", "PE32+"]
+    supported_output_arch: ["PE32", "PE32+"]
+    dependencies: []
+    tags: ["CLI", "Multi-Platform"]
+    binary_path: "./packers/upx/v3.96/upx.exe"
+    binary_sha256: "24624a9d3786d7ba93575383edf694505453af59b39b0463260a75c6344d0ae7"
+    source_url: "https://github.com/upx/upx/releases/tag/v3.96"
+    license: "GPL"
+    notes: "The Ultimate Packer for eXecutables v3.96 (2020). Last v3.x release. Handles PE, ELF, Mach-O."
+    size_kb: "403"
+    output_behavior: "explicit"
+    type: "Type I"
+    type_ex: "The paper explicitly mentions UPX as a notable example of a Type-I packer, which uses a single unpacking routine."
+    known_issues:
+      - "Antivirus: Files packed with UPX are frequently flagged as false positives by AV engines."
+      - "Overlays: Default behavior copies overlays, but --overlay=strip might be needed for some specific targets."
+
+  - &upx_v424
+    packer_name: "upx_v4.2.4"
+    version: "4.2.4"
+    arch_origin: "x64"
+    supported_input_arch: ["PE32", "PE32+"]
+    supported_output_arch: ["PE32", "PE32+"]
+    dependencies: []
+    tags: ["CLI", "Multi-Platform"]
+    binary_path: "./packers/upx/v4.2.4/upx.exe"
+    binary_sha256: "b84ec2578a0a202aa84d3c41b4549dddb6dded096baa8d732b1c0cb0518c66f8"
+    source_url: "https://github.com/upx/upx/releases/tag/v4.2.4"
+    license: "GPL"
+    notes: "The Ultimate Packer for eXecutables v4.2.4 (2024). Major v4 rewrite with improved PE support."
+    size_kb: "552"
+    output_behavior: "explicit"
+    type: "Type I"
+    type_ex: "The paper explicitly mentions UPX as a notable example of a Type-I packer, which uses a single unpacking routine."
+    known_issues:
+      - "Antivirus: Files packed with UPX are frequently flagged as false positives by AV engines."
+      - "Overlays: Default behavior copies overlays, but --overlay=strip might be needed for some specific targets."
+
   - &upx_v510
-    packer_name: "upx"
+    packer_name: "upx_v5.1.0"
     version: "5.1.0"
     arch_origin: "x64"
     supported_input_arch: ["PE32", "PE32+"]
@@ -312,8 +354,51 @@ definitions:
     known_issues:
       - ""
 
+  - &alushpacker
+    packer_name: "alushpacker"
+    version: "1.0.0"
+    arch_origin: "x86/x64"
+    supported_input_arch: ["PE32", "PE64"]
+    supported_output_arch: ["PE32", "PE64"]
+    dependencies: []
+    tags: ["CLI", "Reflective", "Open Source", "Security"]
+    binary_path: "./packers/alush_packer/packer.exe"
+    binary_sha256: "56458d9ffd7e11e329a5962cd5cde279f7ad635c1673e6657a51195bc8ef02fe"
+    source_url: "https://github.com/Alon-Alush/AlushPacker"
+    license: "MIT"
+    notes: "Open-source reflective PE packer written in C. Features manual loading, LZAV compression, XTEA encryption, and full TLS/SEH support."
+    size_kb: "52.50"
+    output_behavior: "input_dir_suffix"
+    type: "Type V"
+    type_ex: "It manually maps, decrypts, and decompresses the payload directly into memory at runtime, fitting the Type V incremental/staged execution definition."
+    known_issues:
+      - "Heuristics: High entropy in the newly created '.packed' section can trigger static AV/EDR detections (though this can be mitigated by moving the packed data into a header payload)."
+      - "Usability: The project currently requires you to compile the CLI builder from source before use."
+      - "CLI: The -o flag is documented but broken (exits 1 with 'Invalid input path!'). Use positional input only; output is always <input>_packed.exe."
+
+  - &amber_v20
+    packer_name: "amber_v2.0"
+    version: "2.0"
+    arch_origin: "x64"
+    supported_input_arch: ["PE32", "PE32+"]
+    supported_output_arch: ["PE32", "PE32+"]
+    dependencies: []
+    tags: ["CLI", "Reflective", "Security"]
+    binary_path: "./packers/amber/v2.0/amber.exe"
+    binary_sha256: "9920a8f9828eb4d850e50030a6f15bf7be68da936d99bda2b9a4f4f4a8b8489a"
+    source_url: "https://github.com/EgeBalci/amber/releases/tag/2.0"
+    license: "MIT"
+    notes: "Reflective PE Packer v2.0. First version with x64 support. Generates reflective payloads and EXE stubs."
+    size_kb: "4458"
+    output_behavior: "input_dir_suffix"
+    type: "Type V"
+    type_ex: "Reflective loading is a form of incremental unpacking where the program loads itself in stages, fitting the Type V definition."
+    known_issues:
+      - "Heuristics: High detection rate by AV due to reflective loading techniques."
+      - "Legacy: Older version with fewer features compared to v3.1."
+
   - &amber_v31
-    packer_name: "amber"
+    packer_name: "amber_v3.1"
     version: "3.1"
     arch_origin: "x64"
     supported_input_arch: ["PE32", "PE32+"]
@@ -454,8 +539,28 @@ definitions:
     known_issues:
       - "Pathing: The help menu explicitly requests 'Absolute Path' for inputs and outputs"
 
+  - &hyperion_v12
+    packer_name: "hyperion_v1.2"
+    version: "1.2"
+    arch_origin: "x86"
+    supported_input_arch: "PE32"
+    supported_output_arch: "PE32"
+    dependencies: []
+    tags: ["CLI"]
+    binary_path: "./packers/hyperion/v1.2/hyperion.exe"
+    binary_sha256: "9dc8c6c4c206b854bf2350a006936ef90f2ae080d0aa1a9a60f2ff41abdfb0e2"
+    source_url: "https://github.com/cyberisltd/hyperion_1.2_compiled/releases/tag/1.2"
+    license: "MIT"
+    notes: "Runtime Encrypter for 32-bit PE. Older v1.2 compiled release."
+    size_kb: "134"
+    output_behavior: "explicit"
+    type: "Type I"
+    type_ex: "A runtime encrypter that decrypts itself upon execution in a single stage, with no indication of advanced anti-analysis features."
+    known_issues:
+      - "File Size Limit: Fails on large files 'error: out of memory' or 'illegal instruction' because FASM cannot compile the massive source file generated."
+
   - &hyperion_v231
-    packer_name: "hyperion"
+    packer_name: "hyperion_v2.3.1"
     version: "2.3.1"
     arch_origin: "x86"
     supported_input_arch: "PE32"
@@ -474,8 +579,29 @@ definitions:
     known_issues:
       - "File Size Limit: Fails on large files 'error: out of memory' or 'illegal instruction' because FASM cannot compile the massive source file generated."
 
+  - &mpress_v127
+    packer_name: "mpress_v1.27"
+    version: "1.27"
+    arch_origin: "x86"
+    supported_input_arch: ["PE32", "PE32+"]
+    supported_output_arch: ["PE32", "PE32+"]
+    dependencies: []
+    tags: ["CLI"]
+    binary_path: "./packers/mpress/v1.27/mpress.exe"
+    binary_sha256: "19421f158c066a50b113683f5e83eee248dd004ac49bad14b8d0e9ee404f356f"
+    source_url: "https://web.archive.org/web/20150506065200/http://www.matcode.com/mpress.127.zip"
+    license: "Freeware"
+    notes: "MATCODE comPRESSor v1.27 (2008). Early version with basic in-place compression. Lacks LZMA/LZMAT options of later versions."
+    size_kb: "67"
+    output_behavior: "in_place"
+    type: "Type I"
+    type_ex: "A high-performance compressor that is likely a single-layer packer, similar to UPX."
+    known_issues:
+      - "In-Place Only: Tool strictly modifies the target file. Does not support an output file argument."
+      - "Limited Options: Fewer compression tuning flags compared to v2.19."
+
   - &mpress_v219
-    packer_name: "mpress"
+    packer_name: "mpress_v2.19"
     version: "2.19"
     arch_origin: "x86"
     supported_input_arch: ["PE32", "PE32+", ".NET"]
@@ -493,6 +619,27 @@ definitions:
     type_ex: "A high-performance compressor that is likely a single-layer packer, similar to UPX."
     known_issues:
       - "In-Place Only: Tool strictly modifies the target file. Does not support an output file argument."
+
+  - &pezor_v330
+    packer_name: "pezor"
+    version: "3.3.0"
+    arch_origin: "x86/x64"
+    supported_input_arch: "PE32"
+    supported_output_arch: "PE32"
+    dependencies: []
+    tags: ["CLI", "WSL", "Shellcode", "Evasion", "Open Source"]
+    binary_path: "./wrapper/pezor_wrap.sh"
+    binary_sha256: "520d485c2a9831dcb79d0416d9d8207d22f3c76990611feb01eaf233e2a74bce"
+    source_url: "https://github.com/phra/PEzor"
+    license: "MIT"
+    notes: "Open-source PE packer that converts executables to shellcode via Donut, then repackages them with anti-debug, unhooking, syscalls, SGN encoding, and fluctuation support. Runs via WSL on Windows."
+    size_kb: "28"
+    output_behavior: "explicit"
+    type: "Type V"
+    type_ex: "Uses Donut to convert PE to position-independent shellcode, then wraps it in a new loader with optional encryption, encoding, and evasion techniques. Multi-stage: shellcode generation -> encoding -> loader compilation."
+    known_issues:
+      - "WSL Required: Must run inside WSL (Ubuntu). Cannot run natively on Windows."
+      - "32-bit Limitations: -syscalls flag is 64-bit only. -self with -sgn is incompatible."
 
   - &petite_v24
     packer_name: "petite"
@@ -650,7 +797,137 @@ test_cases:
     validation:
       allow_x64_switch: false
 
-  # --- UPX Test Group ---
+  # --- UPX v3.96 Test Group ---
+
+  - id: "UPX_V396_001_DEFAULT"
+    <<: *upx_v396
+    command_label: "Default Compression"
+    cli_template: "{bin} -o {out} {in}"
+    validation:
+      allow_x64_switch: false
+
+  - id: "UPX_V396_002_BEST"
+    <<: *upx_v396
+    command_label: "Best Compression (Level 9)"
+    cli_template: "{bin} --best -o {out} {in}"
+    validation:
+      allow_x64_switch: false
+
+  - id: "UPX_V396_003_LZMA"
+    <<: *upx_v396
+    command_label: "Force LZMA Algorithm"
+    cli_template: "{bin} --lzma -o {out} {in}"
+    validation:
+      allow_x64_switch: false
+
+  - id: "UPX_V396_004_BRUTE"
+    <<: *upx_v396
+    command_label: "Brute Force"
+    cli_template: "{bin} --brute -o {out} {in}"
+    validation:
+      allow_x64_switch: false
+
+  - id: "UPX_V396_005_ULTRA_BRUTE"
+    <<: *upx_v396
+    command_label: "Ultra Brute"
+    cli_template: "{bin} --ultra-brute -o {out} {in}"
+    validation:
+      allow_x64_switch: false
+
+  - id: "UPX_V396_006_STRIP_RELOCS"
+    <<: *upx_v396
+    command_label: "Strip Relocations"
+    cli_template: "{bin} --strip-relocs=1 -o {out} {in}"
+    validation:
+      allow_x64_switch: false
+
+  - id: "UPX_V396_007_NO_COMPRESS_RESOURCES"
+    <<: *upx_v396
+    command_label: "Do Not Compress Resources"
+    cli_template: "{bin} --compress-resources=0 -o {out} {in}"
+    validation:
+      allow_x64_switch: false
+
+  - id: "UPX_V396_008_COMPRESS_ALL_ICONS"
+    <<: *upx_v396
+    command_label: "Compress All Icons"
+    cli_template: "{bin} --compress-icons=3 -o {out} {in}"
+    validation:
+      allow_x64_switch: false
+
+  - id: "UPX_V396_009_FORCE"
+    <<: *upx_v396
+    command_label: "Force Compression"
+    cli_template: "{bin} --force -o {out} {in}"
+    validation:
+      allow_x64_switch: false
+
+  # --- UPX v4.2.4 Test Group ---
+
+  - id: "UPX_V424_001_DEFAULT"
+    <<: *upx_v424
+    command_label: "Default Compression"
+    cli_template: "{bin} -o {out} {in}"
+    validation:
+      allow_x64_switch: false
+
+  - id: "UPX_V424_002_BEST"
+    <<: *upx_v424
+    command_label: "Best Compression (Level 9)"
+    cli_template: "{bin} --best -o {out} {in}"
+    validation:
+      allow_x64_switch: false
+
+  - id: "UPX_V424_003_LZMA"
+    <<: *upx_v424
+    command_label: "Force LZMA Algorithm"
+    cli_template: "{bin} --lzma -o {out} {in}"
+    validation:
+      allow_x64_switch: false
+
+  - id: "UPX_V424_004_BRUTE"
+    <<: *upx_v424
+    command_label: "Brute Force"
+    cli_template: "{bin} --brute -o {out} {in}"
+    validation:
+      allow_x64_switch: false
+
+  - id: "UPX_V424_005_ULTRA_BRUTE"
+    <<: *upx_v424
+    command_label: "Ultra Brute"
+    cli_template: "{bin} --ultra-brute -o {out} {in}"
+    validation:
+      allow_x64_switch: false
+
+  - id: "UPX_V424_006_STRIP_RELOCS"
+    <<: *upx_v424
+    command_label: "Strip Relocations"
+    cli_template: "{bin} --strip-relocs=1 -o {out} {in}"
+    validation:
+      allow_x64_switch: false
+
+  - id: "UPX_V424_007_NO_COMPRESS_RESOURCES"
+    <<: *upx_v424
+    command_label: "Do Not Compress Resources"
+    cli_template: "{bin} --compress-resources=0 -o {out} {in}"
+    validation:
+      allow_x64_switch: false
+
+  - id: "UPX_V424_008_COMPRESS_ALL_ICONS"
+    <<: *upx_v424
+    command_label: "Compress All Icons"
+    cli_template: "{bin} --compress-icons=3 -o {out} {in}"
+    validation:
+      allow_x64_switch: false
+
+  - id: "UPX_V424_009_FORCE"
+    <<: *upx_v424
+    command_label: "Force Compression"
+    cli_template: "{bin} --force -o {out} {in}"
+    validation:
+      allow_x64_switch: false
+
+  # --- UPX v5.1.0 Test Group ---
 
   # 1. Basic Compression Levels
   - id: "UPX_001_DEFAULT"
@@ -763,7 +1040,51 @@ test_cases:
     validation:
       allow_x64_switch: false
 
-  # --- Amber Test Group ---
+  # --- Amber v2.0 Test Group ---
+
+  - id: "AMBER_V2_001_DEFAULT_BUILD"
+    <<: *amber_v20
+    command_label: "Default EXE Build"
+    cli_template: "{bin} {in}"
+    validation:
+      allow_x64_switch: false
+
+  - id: "AMBER_V2_002_REFLECTIVE"
+    <<: *amber_v20
+    command_label: "Reflective Payload Build"
+    cli_template: "{bin} -r {in}"
+    validation:
+      allow_x64_switch: false
+
+  - id: "AMBER_V2_003_IAT_RESOLVER"
+    <<: *amber_v20
+    command_label: "Build with IAT API Resolver"
+    cli_template: "{bin} -iat {in}"
+    validation:
+      allow_x64_switch: false
+
+  - id: "AMBER_V2_004_ANTI_ANALYSIS"
+    <<: *amber_v20
+    command_label: "Build with Anti-Analysis"
+    cli_template: "{bin} -a {in}"
+    validation:
+      allow_x64_switch: false
+
+  - id: "AMBER_V2_005_SCRAPE_HEADER"
+    <<: *amber_v20
+    command_label: "Build with Header Scraping"
+    cli_template: "{bin} -s {in}"
+    validation:
+      allow_x64_switch: false
+
+  - id: "AMBER_V2_006_CUSTOM_KEYSIZE"
+    <<: *amber_v20
+    command_label: "Build with Custom Key Size"
+    cli_template: "{bin} -k 32 {in}"
+    validation:
+      allow_x64_switch: false
+
+  # --- Amber v3.1 Test Group ---
 
   - id: "AMBER_001_DEFAULT_BUILD"
     <<: *amber_v31
@@ -922,7 +1243,15 @@ test_cases:
     validation:
       allow_x64_switch: false
 
-  # --- Hyperion Test Group ---
+  # --- Hyperion v1.2 Test Group ---
+  - id: "HYPERION_V12_001_DEFAULT"
+    <<: *hyperion_v12
+    command_label: "Default Encryption"
+    cli_template: "{bin} {in} {out}"
+    validation:
+      allow_x64_switch: false
+
+  # --- Hyperion v2.3.1 Test Group ---
   - id: "HYPERION_001_DEFAULT"
     <<: *hyperion_v231
     command_label: "Default Encryption"
@@ -930,7 +1259,29 @@ test_cases:
     validation:
       allow_x64_switch: false
 
-  # --- MPRESS Test Group ---
+  # --- MPRESS v1.27 Test Group ---
+  - id: "MPRESS_V127_001_DEFAULT"
+    <<: *mpress_v127
+    command_label: "Default Compression"
+    cli_template: "{bin} {out}"
+    validation:
+      allow_x64_switch: false
+
+  - id: "MPRESS_V127_002_NO_NET_PATCH"
+    <<: *mpress_v127
+    command_label: "No .NET Signature Patching"
+    cli_template: "{bin} -S {out}"
+    validation:
+      allow_x64_switch: false
+
+  - id: "MPRESS_V127_003_NO_EXCEPTIONS"
+    <<: *mpress_v127
+    command_label: "Do Not Manage Exceptions"
+    cli_template: "{bin} -x {out}"
+    validation:
+      allow_x64_switch: false
+
+  # --- MPRESS v2.19 Test Group ---
   - id: "MPRESS_001_DEFAULT"
     <<: *mpress_v219
     command_label: "Default Compression"
@@ -1017,3 +1368,68 @@ test_cases:
     cli_template: "{bin} {out}"
     validation:
       allow_x64_switch: false
+
+  # --- AlushPacker Test Group ---
+  - id: "ALUSHPACKER_001_DEFAULT"
+    <<: *alushpacker
+    command_label: "Default Packing"
+    cli_template: "{bin} {in}"
+    validation:
+      allow_x64_switch: false
+
+  # --- PEzor Test Group (PE32 focused) ---
+  - id: "PEZOR_001_DEFAULT_32"
+    <<: *pezor_v330
+    command_label: "Default 32-bit Packing"
+    cli_template: "wsl -d Ubuntu -- bash {bin} -32 {in} {out}"
+    validation:
+      allow_x64_switch: false
+      allow_x86_switch: false
+
+  - id: "PEZOR_002_SELF_INJECT_32"
+    <<: *pezor_v330
+    command_label: "32-bit Self-Inject"
+    cli_template: "wsl -d Ubuntu -- bash {bin} -32 -self -text {in} {out}"
+    validation:
+      allow_x64_switch: false
+      allow_x86_switch: false
+
+  - id: "PEZOR_003_UNHOOK_32"
+    <<: *pezor_v330
+    command_label: "32-bit Unhook"
+    cli_template: "wsl -d Ubuntu -- bash {bin} -32 -unhook {in} {out}"
+    validation:
+      allow_x64_switch: false
+      allow_x86_switch: false
+
+  - id: "PEZOR_004_SGN_32"
+    <<: *pezor_v330
+    command_label: "32-bit SGN Encoded"
+    cli_template: "wsl -d Ubuntu -- bash {bin} -32 -sgn {in} {out}"
+    validation:
+      allow_x64_switch: false
+      allow_x86_switch: false
+
+  - id: "PEZOR_005_ANTIDEBUG_32"
+    <<: *pezor_v330
+    command_label: "32-bit Anti-Debug"
+    cli_template: "wsl -d Ubuntu -- bash {bin} -32 -antidebug {in} {out}"
+    validation:
+      allow_x64_switch: false
+      allow_x86_switch: false
+
+  - id: "PEZOR_006_FULL_EVASION_32"
+    <<: *pezor_v330
+    command_label: "32-bit Full Evasion (Unhook + Anti-Debug + SGN)"
+    cli_template: "wsl -d Ubuntu -- bash {bin} -32 -sgn -unhook -antidebug -text {in} {out}"
+    validation:
+      allow_x64_switch: false
+      allow_x86_switch: false
+
+  - id: "PEZOR_007_SLEEP_32"
+    <<: *pezor_v330
+    command_label: "32-bit with Sleep Delay"
+    cli_template: "wsl -d Ubuntu -- bash {bin} -32 -sleep=10 {in} {out}"
+    validation:
+      allow_x64_switch: false
+      allow_x86_switch: false
