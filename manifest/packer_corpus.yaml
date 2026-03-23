@@ -8,6 +8,7 @@ last_updated: "2026-02-25"
 # ==========================================
 definitions:
   - &packman_v10
+    packer_family: "packman"
     packer_name: "packman"
     version: "1.0"
     arch_origin: "x86"
@@ -28,6 +29,7 @@ definitions:
       - ""
 
   - &upx_scrambler_304
+    packer_family: "UPX_Scrambler"
     packer_name: "UPX_Scrambler"
     version: "3.0.4"
     arch_origin: "x86"
@@ -48,6 +50,7 @@ definitions:
       - ""
 
   - &shrink32_exe
+    packer_family: "Shrinker"
     packer_name: "Shrinker"
     version: "0.1"
     arch_origin: "x86"
@@ -68,6 +71,7 @@ definitions:
       - ""
 
   - &ped_legacy
+    packer_family: "pe_diminisher"
     packer_name: "pe_diminisher"
     version: "0.1"
     arch_origin: "x86"
@@ -88,6 +92,7 @@ definitions:
       - ""
 
   - &hackupx_v100
+    packer_family: "hackupx"
     packer_name: "hackupx"
     version: "1.00"
     arch_origin: "x86"
@@ -108,6 +113,7 @@ definitions:
       - ""
 
   - &xcomp_v097
+    packer_family: "xcomp"
     packer_name: "xcomp"
     version: "0.97"
     arch_origin: "x86"
@@ -129,6 +135,7 @@ definitions:
       - "Legacy Constraints: As a 2007 tool, it may fail on executables with extensive Overlay data or non-standard Section alignments."
 
   - &winupack_v039
+    packer_family: "winupack"
     packer_name: "winupack"
     version: "0.39"
     arch_origin: "x86"
@@ -149,6 +156,7 @@ definitions:
       - ""
 
   - &upack_v399
+    packer_family: "upack"
     packer_name: "upack"
     version: "0.399 (Brute)"
     arch_origin: "x86"
@@ -169,6 +177,7 @@ definitions:
       - ""
 
   - &rlpack_v121
+    packer_family: "rlpack"
     packer_name: "rlpack"
     version: "1.21 Basic"
     arch_origin: "x86"
@@ -189,6 +198,7 @@ definitions:
       - ""
 
   - &mew_v11
+    packer_family: "mew"
     packer_name: "mew"
     version: "1.1 SE"
     arch_origin: "x86"
@@ -209,7 +219,8 @@ definitions:
       - ""
 
   - &kkrunchy_v023
-    packer_name: "kkrunchy"
+    packer_family: "kkrunchy"
+    packer_name: "kkrunchy_v0.23a"
     version: "0.23 alpha"
     arch_origin: "x86"
     supported_input_arch: "PE32"
@@ -229,7 +240,51 @@ definitions:
       - "Stability: Frequent Access Violation crashes (Exit Code 0xC0000005) when parsing modern complex PE structures."
       - "Compatibility: Produces non-standard PE structures that often crash modern debuggers or static analysis tools."
 
+  - &kkrunchy_v023a2
+    packer_family: "kkrunchy"
+    packer_name: "kkrunchy_v0.23a2"
+    version: "0.23 alpha 2"
+    arch_origin: "x86"
+    supported_input_arch: "PE32"
+    supported_output_arch: "PE32"
+    dependencies: []
+    tags: ["CLI"]
+    binary_path: "./packers/kkrunchy/v0.23a2/kkrunchy_k7.exe"
+    binary_sha256: "4863ce4a96b3a9ebd0b2928eeaf3aed3cf107531ff0be08604dfb2a6a69c06db"
+    source_url: "https://www.farbrausch.de/~fg/kkrunchy/"
+    license: "Freeware"
+    notes: "A radical EXE packer designed for 64k and 4k intros. Alpha 2 version (2006) with K7-optimized depacker."
+    size_kb: "32"
+    output_behavior: "explicit"
+    type: "Type I"
+    type_ex: "A highly specialized packer for demoscene intros. Despite using advanced compression, it's fundamentally a single-layer compressor."
+    known_issues:
+      - "Stability: Frequent Access Violation crashes (Exit Code 0xC0000005) when parsing modern complex PE structures."
+      - "Compatibility: Produces non-standard PE structures that often crash modern debuggers or static analysis tools."
+
+  - &yoda_crypter_v12
+    packer_family: "yoda_crypter"
+    packer_name: "yoda_crypter_v1.2"
+    version: "1.2"
+    arch_origin: "x86"
+    supported_input_arch: "PE32"
+    supported_output_arch: "PE32"
+    dependencies: []
+    tags: ["GUI", "Crypter", "Polymorphism"]
+    binary_path: "./packers/yoda_crypter/v1.2/yc.exe"
+    binary_sha256: "a0f83c7f388bd5fafc112a1ce76eacce8313eefa07d2ba0c4e053d355ed7826b"
+    source_url: "https://sourceforge.net/projects/yodap/"
+    license: "Freeware"
+    notes: "Yoda's Crypter v1.2 (2005). A polymorphic encryptor designed for signature evasion. Distinct from Yoda's Protector."
+    size_kb: "10"
+    output_behavior: "explicit"
+    type: "Type IV"
+    type_ex: "Crypters with anti-debugging features like Yoda's often use interleaved execution to check for analysis tools at runtime."
+    known_issues:
+      - ""
+
   - &yoda_crypter_v13
+    packer_family: "yoda_crypter"
     packer_name: "yoda_crypter"
     version: "1.3"
     arch_origin: "x86"
@@ -250,6 +305,7 @@ definitions:
       - ""
 
   - &exe32pack_v142
+    packer_family: "exe32pack"
     packer_name: "exe32pack"
     version: "1.42"
     arch_origin: "x32"
@@ -272,6 +328,7 @@ definitions:
       - "Automation: Trial version has a 'nag screen' popup that may freeze scripts if no timeout is set."
 
   - &upx_v396
+    packer_family: "UPX"
     packer_name: "upx_v3.96"
     version: "3.96"
     arch_origin: "x64"
@@ -292,7 +349,206 @@ definitions:
       - "Antivirus: Files packed with UPX are frequently flagged as false positives by AV engines."
       - "Overlays: Default behavior copies overlays, but --overlay=strip might be needed for some specific targets."
 
+  - &upx_v395
+    packer_family: "UPX"
+    packer_name: "upx_v3.95"
+    version: "3.95"
+    arch_origin: "x64"
+    supported_input_arch: ["PE32", "PE32+"]
+    supported_output_arch: ["PE32", "PE32+"]
+    dependencies: []
+    tags: ["CLI", "Multi-Platform"]
+    binary_path: "./packers/upx/v3.95/upx.exe"
+    binary_sha256: "3660fa3c1e91917e8388c85e222bf3973edebf89f5898b2908111c981481dd40"
+    source_url: "https://github.com/upx/upx/releases/tag/v3.95"
+    license: "GPL"
+    notes: "The Ultimate Packer for eXecutables v3.95 (2018). Stable v3.x release."
+    size_kb: "397"
+    output_behavior: "explicit"
+    type: "Type I"
+    type_ex: "The paper explicitly mentions UPX as a notable example of a Type-I packer, which uses a single unpacking routine."
+    known_issues:
+      - "Antivirus: Files packed with UPX are frequently flagged as false positives by AV engines."
+      - "Overlays: Default behavior copies overlays, but --overlay=strip might be needed for some specific targets."
+
+  - &upx_v400
+    packer_family: "UPX"
+    packer_name: "upx_v4.0.0"
+    version: "4.0.0"
+    arch_origin: "x64"
+    supported_input_arch: ["PE32", "PE32+"]
+    supported_output_arch: ["PE32", "PE32+"]
+    dependencies: []
+    tags: ["CLI", "Multi-Platform"]
+    binary_path: "./packers/upx/v4.0.0/upx.exe"
+    binary_sha256: "7cb6c4659dc3bc5ce10b5e18499cf14322c66f310d7d623143881a7e884a3467"
+    source_url: "https://github.com/upx/upx/releases/tag/v4.0.0"
+    license: "GPL"
+    notes: "The Ultimate Packer for eXecutables v4.0.0 (2023). First v4.x release with major rewrite."
+    size_kb: "468"
+    output_behavior: "explicit"
+    type: "Type I"
+    type_ex: "The paper explicitly mentions UPX as a notable example of a Type-I packer, which uses a single unpacking routine."
+    known_issues:
+      - "Antivirus: Files packed with UPX are frequently flagged as false positives by AV engines."
+      - "Overlays: Default behavior copies overlays, but --overlay=strip might be needed for some specific targets."
+
+  - &upx_v401
+    packer_family: "UPX"
+    packer_name: "upx_v4.0.1"
+    version: "4.0.1"
+    arch_origin: "x64"
+    supported_input_arch: ["PE32", "PE32+"]
+    supported_output_arch: ["PE32", "PE32+"]
+    dependencies: []
+    tags: ["CLI", "Multi-Platform"]
+    binary_path: "./packers/upx/v4.0.1/upx.exe"
+    binary_sha256: "3aa7d4d9a8c14bbc573b7e57074eccd08fb9bbbfeabd0466795073e13064aa85"
+    source_url: "https://github.com/upx/upx/releases/tag/v4.0.1"
+    license: "GPL"
+    notes: "The Ultimate Packer for eXecutables v4.0.1 (2023). Bug-fix release for v4.0.x."
+    size_kb: "527"
+    output_behavior: "explicit"
+    type: "Type I"
+    type_ex: "The paper explicitly mentions UPX as a notable example of a Type-I packer, which uses a single unpacking routine."
+    known_issues:
+      - "Antivirus: Files packed with UPX are frequently flagged as false positives by AV engines."
+      - "Overlays: Default behavior copies overlays, but --overlay=strip might be needed for some specific targets."
+
+  - &upx_v402
+    packer_family: "UPX"
+    packer_name: "upx_v4.0.2"
+    version: "4.0.2"
+    arch_origin: "x64"
+    supported_input_arch: ["PE32", "PE32+"]
+    supported_output_arch: ["PE32", "PE32+"]
+    dependencies: []
+    tags: ["CLI", "Multi-Platform"]
+    binary_path: "./packers/upx/v4.0.2/upx.exe"
+    binary_sha256: "a4240ea0e8a916d15f8391edef9705ab4de1f516dd360f0a336c5358686d434b"
+    source_url: "https://github.com/upx/upx/releases/tag/v4.0.2"
+    license: "GPL"
+    notes: "The Ultimate Packer for eXecutables v4.0.2 (2023). Bug-fix release for v4.0.x."
+    size_kb: "525"
+    output_behavior: "explicit"
+    type: "Type I"
+    type_ex: "The paper explicitly mentions UPX as a notable example of a Type-I packer, which uses a single unpacking routine."
+    known_issues:
+      - "Antivirus: Files packed with UPX are frequently flagged as false positives by AV engines."
+      - "Overlays: Default behavior copies overlays, but --overlay=strip might be needed for some specific targets."
+
+  - &upx_v410
+    packer_family: "UPX"
+    packer_name: "upx_v4.1.0"
+    version: "4.1.0"
+    arch_origin: "x64"
+    supported_input_arch: ["PE32", "PE32+"]
+    supported_output_arch: ["PE32", "PE32+"]
+    dependencies: []
+    tags: ["CLI", "Multi-Platform"]
+    binary_path: "./packers/upx/v4.1.0/upx.exe"
+    binary_sha256: "ac3a0048c6d70095339029887bf242d0e004c2aaf3fce0d1e0cbe4b62ce7e187"
+    source_url: "https://github.com/upx/upx/releases/tag/v4.1.0"
+    license: "GPL"
+    notes: "The Ultimate Packer for eXecutables v4.1.0 (2023). Feature release in v4.x series."
+    size_kb: "545"
+    output_behavior: "explicit"
+    type: "Type I"
+    type_ex: "The paper explicitly mentions UPX as a notable example of a Type-I packer, which uses a single unpacking routine."
+    known_issues:
+      - "Antivirus: Files packed with UPX are frequently flagged as false positives by AV engines."
+      - "Overlays: Default behavior copies overlays, but --overlay=strip might be needed for some specific targets."
+
+  - &upx_v420
+    packer_family: "UPX"
+    packer_name: "upx_v4.2.0"
+    version: "4.2.0"
+    arch_origin: "x64"
+    supported_input_arch: ["PE32", "PE32+"]
+    supported_output_arch: ["PE32", "PE32+"]
+    dependencies: []
+    tags: ["CLI", "Multi-Platform"]
+    binary_path: "./packers/upx/v4.2.0/upx.exe"
+    binary_sha256: "1ea92da93eeaf4d456114b847b9bddfb47ef854e7c24143f290d5e3f44973e91"
+    source_url: "https://github.com/upx/upx/releases/tag/v4.2.0"
+    license: "GPL"
+    notes: "The Ultimate Packer for eXecutables v4.2.0 (2024). Improved PE support in v4.2.x."
+    size_kb: "550"
+    output_behavior: "explicit"
+    type: "Type I"
+    type_ex: "The paper explicitly mentions UPX as a notable example of a Type-I packer, which uses a single unpacking routine."
+    known_issues:
+      - "Antivirus: Files packed with UPX are frequently flagged as false positives by AV engines."
+      - "Overlays: Default behavior copies overlays, but --overlay=strip might be needed for some specific targets."
+
+  - &upx_v421
+    packer_family: "UPX"
+    packer_name: "upx_v4.2.1"
+    version: "4.2.1"
+    arch_origin: "x64"
+    supported_input_arch: ["PE32", "PE32+"]
+    supported_output_arch: ["PE32", "PE32+"]
+    dependencies: []
+    tags: ["CLI", "Multi-Platform"]
+    binary_path: "./packers/upx/v4.2.1/upx.exe"
+    binary_sha256: "c6dd0a6cac2d2153e4666aacf43d487c1b6e2bc16cb7f956514ab02883ef2a42"
+    source_url: "https://github.com/upx/upx/releases/tag/v4.2.1"
+    license: "GPL"
+    notes: "The Ultimate Packer for eXecutables v4.2.1 (2024). Bug-fix release for v4.2.x."
+    size_kb: "550"
+    output_behavior: "explicit"
+    type: "Type I"
+    type_ex: "The paper explicitly mentions UPX as a notable example of a Type-I packer, which uses a single unpacking routine."
+    known_issues:
+      - "Antivirus: Files packed with UPX are frequently flagged as false positives by AV engines."
+      - "Overlays: Default behavior copies overlays, but --overlay=strip might be needed for some specific targets."
+
+  - &upx_v422
+    packer_family: "UPX"
+    packer_name: "upx_v4.2.2"
+    version: "4.2.2"
+    arch_origin: "x64"
+    supported_input_arch: ["PE32", "PE32+"]
+    supported_output_arch: ["PE32", "PE32+"]
+    dependencies: []
+    tags: ["CLI", "Multi-Platform"]
+    binary_path: "./packers/upx/v4.2.2/upx.exe"
+    binary_sha256: "94d77389b86a248c0428ad196aa66eb93e5d2d97795ce96a35014c1f0febaabd"
+    source_url: "https://github.com/upx/upx/releases/tag/v4.2.2"
+    license: "GPL"
+    notes: "The Ultimate Packer for eXecutables v4.2.2 (2024). Bug-fix release for v4.2.x."
+    size_kb: "550"
+    output_behavior: "explicit"
+    type: "Type I"
+    type_ex: "The paper explicitly mentions UPX as a notable example of a Type-I packer, which uses a single unpacking routine."
+    known_issues:
+      - "Antivirus: Files packed with UPX are frequently flagged as false positives by AV engines."
+      - "Overlays: Default behavior copies overlays, but --overlay=strip might be needed for some specific targets."
+
+  - &upx_v423
+    packer_family: "UPX"
+    packer_name: "upx_v4.2.3"
+    version: "4.2.3"
+    arch_origin: "x64"
+    supported_input_arch: ["PE32", "PE32+"]
+    supported_output_arch: ["PE32", "PE32+"]
+    dependencies: []
+    tags: ["CLI", "Multi-Platform"]
+    binary_path: "./packers/upx/v4.2.3/upx.exe"
+    binary_sha256: "902e597a5eb89f345901280eb396394146b3937d4c84b880e8ee1300c901ec9b"
+    source_url: "https://github.com/upx/upx/releases/tag/v4.2.3"
+    license: "GPL"
+    notes: "The Ultimate Packer for eXecutables v4.2.3 (2024). Bug-fix release for v4.2.x."
+    size_kb: "551"
+    output_behavior: "explicit"
+    type: "Type I"
+    type_ex: "The paper explicitly mentions UPX as a notable example of a Type-I packer, which uses a single unpacking routine."
+    known_issues:
+      - "Antivirus: Files packed with UPX are frequently flagged as false positives by AV engines."
+      - "Overlays: Default behavior copies overlays, but --overlay=strip might be needed for some specific targets."
+
   - &upx_v424
+    packer_family: "UPX"
     packer_name: "upx_v4.2.4"
     version: "4.2.4"
     arch_origin: "x64"
@@ -313,7 +569,74 @@ definitions:
       - "Antivirus: Files packed with UPX are frequently flagged as false positives by AV engines."
       - "Overlays: Default behavior copies overlays, but --overlay=strip might be needed for some specific targets."
 
+  - &upx_v500
+    packer_family: "UPX"
+    packer_name: "upx_v5.0.0"
+    version: "5.0.0"
+    arch_origin: "x64"
+    supported_input_arch: ["PE32", "PE32+"]
+    supported_output_arch: ["PE32", "PE32+"]
+    dependencies: []
+    tags: ["CLI", "Multi-Platform"]
+    binary_path: "./packers/upx/v5.0.0/upx.exe"
+    binary_sha256: "a84ecdbedcc87cf03858812fc68ed025b53bbc2c88e76931bf65d24666833ac5"
+    source_url: "https://github.com/upx/upx/releases/tag/v5.0.0"
+    license: "GPL"
+    notes: "The Ultimate Packer for eXecutables v5.0.0 (2025). First v5.x release with new features."
+    size_kb: "584"
+    output_behavior: "explicit"
+    type: "Type I"
+    type_ex: "The paper explicitly mentions UPX as a notable example of a Type-I packer, which uses a single unpacking routine."
+    known_issues:
+      - "Antivirus: Files packed with UPX are frequently flagged as false positives by AV engines."
+      - "Overlays: Default behavior copies overlays, but --overlay=strip might be needed for some specific targets."
+
+  - &upx_v501
+    packer_family: "UPX"
+    packer_name: "upx_v5.0.1"
+    version: "5.0.1"
+    arch_origin: "x64"
+    supported_input_arch: ["PE32", "PE32+"]
+    supported_output_arch: ["PE32", "PE32+"]
+    dependencies: []
+    tags: ["CLI", "Multi-Platform"]
+    binary_path: "./packers/upx/v5.0.1/upx.exe"
+    binary_sha256: "8def9daba0817636962e60878e117ee1dcba6c3f64fb4bc13449d447385f1b5b"
+    source_url: "https://github.com/upx/upx/releases/tag/v5.0.1"
+    license: "GPL"
+    notes: "The Ultimate Packer for eXecutables v5.0.1 (2025). Bug-fix release for v5.0.x."
+    size_kb: "585"
+    output_behavior: "explicit"
+    type: "Type I"
+    type_ex: "The paper explicitly mentions UPX as a notable example of a Type-I packer, which uses a single unpacking routine."
+    known_issues:
+      - "Antivirus: Files packed with UPX are frequently flagged as false positives by AV engines."
+      - "Overlays: Default behavior copies overlays, but --overlay=strip might be needed for some specific targets."
+
+  - &upx_v502
+    packer_family: "UPX"
+    packer_name: "upx_v5.0.2"
+    version: "5.0.2"
+    arch_origin: "x64"
+    supported_input_arch: ["PE32", "PE32+"]
+    supported_output_arch: ["PE32", "PE32+"]
+    dependencies: []
+    tags: ["CLI", "Multi-Platform"]
+    binary_path: "./packers/upx/v5.0.2/upx.exe"
+    binary_sha256: "3638bfe45ee552b57dc8c5af39c5e0f317ff83748dbf6326a0cdcccb2fd52da4"
+    source_url: "https://github.com/upx/upx/releases/tag/v5.0.2"
+    license: "GPL"
+    notes: "The Ultimate Packer for eXecutables v5.0.2 (2025). Bug-fix release for v5.0.x."
+    size_kb: "585"
+    output_behavior: "explicit"
+    type: "Type I"
+    type_ex: "The paper explicitly mentions UPX as a notable example of a Type-I packer, which uses a single unpacking routine."
+    known_issues:
+      - "Antivirus: Files packed with UPX are frequently flagged as false positives by AV engines."
+      - "Overlays: Default behavior copies overlays, but --overlay=strip might be needed for some specific targets."
+
   - &upx_v510
+    packer_family: "UPX"
     packer_name: "upx_v5.1.0"
     version: "5.1.0"
     arch_origin: "x64"
@@ -334,19 +657,42 @@ definitions:
       - "Antivirus: Files packed with UPX are frequently flagged as false positives by AV engines."
       - "Overlays: Default behavior copies overlays, but --overlay=strip might be needed for some specific targets."
 
-  - &yoda_v103
-    packer_name: "yoda_protector"
-    version: "1.03.2"
+  - &upx_v511
+    packer_family: "UPX"
+    packer_name: "upx_v5.1.1"
+    version: "5.1.1"
+    arch_origin: "x64"
+    supported_input_arch: ["PE32", "PE32+"]
+    supported_output_arch: ["PE32", "PE32+"]
+    dependencies: []
+    tags: ["CLI", "Multi-Platform"]
+    binary_path: "./packers/upx/v5.1.1/upx.exe"
+    binary_sha256: "16a29adbdf3b6fde74c290205e24cceb7bef1a216941922aa73d2d808a699bbb"
+    source_url: "https://github.com/upx/upx/releases/tag/v5.1.1"
+    license: "GPL"
+    notes: "The Ultimate Packer for eXecutables v5.1.1 (2026). Latest stable release."
+    size_kb: "609"
+    output_behavior: "explicit"
+    type: "Type I"
+    type_ex: "The paper explicitly mentions UPX as a notable example of a Type-I packer, which uses a single unpacking routine."
+    known_issues:
+      - "Antivirus: Files packed with UPX are frequently flagged as false positives by AV engines."
+      - "Overlays: Default behavior copies overlays, but --overlay=strip might be needed for some specific targets."
+
+  - &yoda_v10
+    packer_family: "yoda_protector"
+    packer_name: "yoda_protector_v1.0"
+    version: "1.0"
     arch_origin: "x86"
     supported_input_arch: "PE32"
     supported_output_arch: "PE32"
     dependencies: []
     tags: ["GUI"]
-    binary_path: "./packers/yoda_protect/yp.exe"
-    binary_sha256: "a48ae6f9abd8e767b5fa25727959b9fd7cf1ef601c520e0bf0e0e4544479cc89"
+    binary_path: "./packers/yoda_protect/v1.0/yp.exe"
+    binary_sha256: "bb4634147d801aa33a95a365450f9bb53a6c2d0804af0f25d3cdbbee6d4478e1"
     source_url: "https://sourceforge.net/projects/yodap/"
     license: "Freeware"
-    notes: ""
+    notes: "Yoda's Protector v1.0 (2005). GUI-based PE protector with anti-debugging features."
     size_kb: "120"
     output_behavior: "explicit"
     type: "Type IV"
@@ -354,7 +700,113 @@ definitions:
     known_issues:
       - ""
 
+  - &yoda_v101
+    packer_family: "yoda_protector"
+    packer_name: "yoda_protector_v1.01"
+    version: "1.01"
+    arch_origin: "x86"
+    supported_input_arch: "PE32"
+    supported_output_arch: "PE32"
+    dependencies: []
+    tags: ["GUI"]
+    binary_path: "./packers/yoda_protect/v1.01/yp.exe"
+    binary_sha256: "a3835c35912e1b9a57ae674f1ef9c2e9d5219041cec5c5224a335e6998850044"
+    source_url: "https://sourceforge.net/projects/yodap/"
+    license: "Freeware"
+    notes: "Yoda's Protector v1.01 (2005). GUI-based PE protector with anti-debugging features."
+    size_kb: "86"
+    output_behavior: "explicit"
+    type: "Type IV"
+    type_ex: "As a 'protector' with anti-debugging features (inferred from its sibling 'crypter'), it likely uses interleaved execution."
+    known_issues:
+      - ""
+
+  - &yoda_v1012
+    packer_family: "yoda_protector"
+    packer_name: "yoda_protector_v1.01.2"
+    version: "1.01.2"
+    arch_origin: "x86"
+    supported_input_arch: "PE32"
+    supported_output_arch: "PE32"
+    dependencies: []
+    tags: ["GUI"]
+    binary_path: "./packers/yoda_protect/v1.01.2/yp.exe"
+    binary_sha256: "3b08e5d613748808ccce5b8b34ab524f97fac77a55b992a196dfa8faac97cc08"
+    source_url: "https://sourceforge.net/projects/yodap/"
+    license: "Freeware"
+    notes: "Yoda's Protector v1.01.2 (2005). GUI-based PE protector with anti-debugging features."
+    size_kb: "82"
+    output_behavior: "explicit"
+    type: "Type IV"
+    type_ex: "As a 'protector' with anti-debugging features (inferred from its sibling 'crypter'), it likely uses interleaved execution."
+    known_issues:
+      - ""
+
+  - &yoda_v102
+    packer_family: "yoda_protector"
+    packer_name: "yoda_protector_v1.02"
+    version: "1.02"
+    arch_origin: "x86"
+    supported_input_arch: "PE32"
+    supported_output_arch: "PE32"
+    dependencies: []
+    tags: ["GUI"]
+    binary_path: "./packers/yoda_protect/v1.02/yp.exe"
+    binary_sha256: "f657590e7d861efed4b17bb77d4c7f4cb5a49fded6176193623da19265bb37ba"
+    source_url: "https://sourceforge.net/projects/yodap/"
+    license: "Freeware"
+    notes: "Yoda's Protector v1.02 (2005). GUI-based PE protector with anti-debugging features."
+    size_kb: "98"
+    output_behavior: "explicit"
+    type: "Type IV"
+    type_ex: "As a 'protector' with anti-debugging features (inferred from its sibling 'crypter'), it likely uses interleaved execution."
+    known_issues:
+      - ""
+
+  - &yoda_v103
+    packer_family: "yoda_protector"
+    packer_name: "yoda_protector_v1.03"
+    version: "1.03"
+    arch_origin: "x86"
+    supported_input_arch: "PE32"
+    supported_output_arch: "PE32"
+    dependencies: []
+    tags: ["GUI"]
+    binary_path: "./packers/yoda_protect/v1.03/yp.exe"
+    binary_sha256: "a48ae6f9abd8e767b5fa25727959b9fd7cf1ef601c520e0bf0e0e4544479cc89"
+    source_url: "https://sourceforge.net/projects/yodap/"
+    license: "Freeware"
+    notes: "Yoda's Protector v1.03 (2005). GUI-based PE protector with anti-debugging features."
+    size_kb: "120"
+    output_behavior: "explicit"
+    type: "Type IV"
+    type_ex: "As a 'protector' with anti-debugging features (inferred from its sibling 'crypter'), it likely uses interleaved execution."
+    known_issues:
+      - ""
+
+  - &yoda_v1033
+    packer_family: "yoda_protector"
+    packer_name: "yoda_protector_v1.03.3"
+    version: "1.03.3"
+    arch_origin: "x86"
+    supported_input_arch: "PE32"
+    supported_output_arch: "PE32"
+    dependencies: []
+    tags: ["GUI"]
+    binary_path: "./packers/yoda_protect/v1.03.3/yp.exe"
+    binary_sha256: "8cfd5f5c0bec0d0d3e7d141f386b13a3cb9e1d4ca9bc07ea30663698a38df0eb"
+    source_url: "https://sourceforge.net/projects/yodap/"
+    license: "Freeware"
+    notes: "Yoda's Protector v1.03.3 (2005). GUI-based PE protector with anti-debugging features. Latest SourceForge release."
+    size_kb: "112"
+    output_behavior: "explicit"
+    type: "Type IV"
+    type_ex: "As a 'protector' with anti-debugging features (inferred from its sibling 'crypter'), it likely uses interleaved execution."
+    known_issues:
+      - ""
+
   - &alushpacker
+    packer_family: "alushpacker"
     packer_name: "alushpacker"
     version: "1.0.0"
     arch_origin: "x86/x64"
@@ -377,6 +829,7 @@ definitions:
       - "CLI: The -o flag is documented but broken (exits 1 with 'Invalid input path!'). Use positional input only; output is always <input>_packed.exe."
 
   - &amber_v20
+    packer_family: "amber"
     packer_name: "amber_v2.0"
     version: "2.0"
     arch_origin: "x64"
@@ -395,9 +848,32 @@ definitions:
     type_ex: "Reflective loading is a form of incremental unpacking where the program loads itself in stages, fitting the Type V definition."
     known_issues:
       - "Heuristics: High detection rate by AV due to reflective loading techniques."
-      - "Legacy: Older version with fewer features compared to v3.1."
+      - "Legacy: Older version with fewer features compared to v3.x."
+
+  - &amber_v30
+    packer_family: "amber"
+    packer_name: "amber_v3.0"
+    version: "3.0"
+    arch_origin: "x64"
+    supported_input_arch: ["PE32", "PE32+"]
+    supported_output_arch: ["PE32", "PE32+"]
+    dependencies: []
+    tags: ["CLI", "Reflective", "Security"]
+    binary_path: "./packers/amber/v3.0/amber.exe"
+    binary_sha256: "391e23652d9d04236fe3426eab22dee5dd1d8a49a3a6a9da281e2f057c9217b6"
+    source_url: "https://github.com/EgeBalci/amber/releases/tag/v3.0"
+    license: "MIT"
+    notes: "Reflective PE Packer v3.0. First v3.x release with IAT resolver, encoding, and custom stub support."
+    size_kb: "3271"
+    output_behavior: "input_dir_suffix"
+    type: "Type V"
+    type_ex: "Reflective loading is a form of incremental unpacking where the program loads itself in stages, fitting the Type V definition."
+    known_issues:
+      - "Heuristics: High detection rate by AV due to reflective loading techniques."
+      - "Stability: Custom stubs are marked as experimental."
 
   - &amber_v31
+    packer_family: "amber"
     packer_name: "amber_v3.1"
     version: "3.1"
     arch_origin: "x64"
@@ -419,6 +895,7 @@ definitions:
       - "Stability: Custom stubs are marked as experimental."
 
   - &bero_v100
+    packer_family: "beroexepacker"
     packer_name: "beroexepacker"
     version: "1.00.2017.01.27"
     arch_origin: "x86"
@@ -440,6 +917,7 @@ definitions:
       -
 
   - &alienyze_v14
+    packer_family: "alienyze_protector"
     packer_name: "alienyze_protector"
     version: "1.4"
     arch_origin: "x86"
@@ -460,6 +938,7 @@ definitions:
       - ""
 
   - &asm_guard_v294
+    packer_family: "asm_guard"
     packer_name: "asm_guard"
     version: "2.9.4"
     arch_origin: "x86"
@@ -480,6 +959,7 @@ definitions:
       - ""
 
   - &astral_pe_v16
+    packer_family: "astral_pe"
     packer_name: "astral_pe"
     version: "1.6.0.0"
     arch_origin: "x64"
@@ -500,6 +980,7 @@ definitions:
       - ""
 
   - &eronona_v1
+    packer_family: "eronona"
     packer_name: "eronona"
     version: "1.0"
     arch_origin: "x86"
@@ -520,6 +1001,7 @@ definitions:
       - "Output Naming: Does not appear to support custom output filenames via CLI; auto-generates 'filename.packed.exe'."
 
   - &hxor_v01
+    packer_family: "hxor_packer"
     packer_name: "hxor_packer"
     version: "0.1"
     arch_origin: "x86"
@@ -540,6 +1022,7 @@ definitions:
       - "Pathing: The help menu explicitly requests 'Absolute Path' for inputs and outputs"
 
   - &hyperion_v12
+    packer_family: "hyperion"
     packer_name: "hyperion_v1.2"
     version: "1.2"
     arch_origin: "x86"
@@ -560,6 +1043,7 @@ definitions:
       - "File Size Limit: Fails on large files 'error: out of memory' or 'illegal instruction' because FASM cannot compile the massive source file generated."
 
   - &hyperion_v231
+    packer_family: "hyperion"
     packer_name: "hyperion_v2.3.1"
     version: "2.3.1"
     arch_origin: "x86"
@@ -580,6 +1064,7 @@ definitions:
       - "File Size Limit: Fails on large files 'error: out of memory' or 'illegal instruction' because FASM cannot compile the massive source file generated."
 
   - &mpress_v127
+    packer_family: "mpress"
     packer_name: "mpress_v1.27"
     version: "1.27"
     arch_origin: "x86"
@@ -601,6 +1086,7 @@ definitions:
       - "Limited Options: Fewer compression tuning flags compared to v2.19."
 
   - &mpress_v219
+    packer_family: "mpress"
     packer_name: "mpress_v2.19"
     version: "2.19"
     arch_origin: "x86"
@@ -621,6 +1107,7 @@ definitions:
       - "In-Place Only: Tool strictly modifies the target file. Does not support an output file argument."
 
   - &pezor_v330
+    packer_family: "pezor"
     packer_name: "pezor"
     version: "3.3.0"
     arch_origin: "x86/x64"
@@ -641,8 +1128,52 @@ definitions:
       - "WSL Required: Must run inside WSL (Ubuntu). Cannot run natively on Windows."
       - "32-bit Limitations: -syscalls flag is 64-bit only. -self with -sgn is incompatible."
 
+  - &petite_v22
+    packer_family: "petite"
+    packer_name: "petite_v2.2"
+    version: "2.2"
+    arch_origin: "x86"
+    supported_input_arch: "PE32"
+    supported_output_arch: "PE32"
+    dependencies: []
+    tags: ["CLI", "Compressor"]
+    binary_path: "./packers/petite/v2.2/PETITE.EXE"
+    binary_sha256: "ff22fe8631ba1c8d3cfd530c2015ad9d37b167ab6295f5979a0915e4d361d5c4"
+    source_url: "http://www.un4seen.com/petite/"
+    license: "Shareware"
+    notes: "Classic Win32 executable compressor v2.2 (1999) by Ian Luck. Shareware version with registration prompt."
+    size_kb: "46"
+    output_behavior: "explicit"
+    type: "Type III"
+    type_ex: "Features a self-checking virus detection mechanism, which suggests a cyclic integrity check, fitting the Type III model."
+    known_issues:
+      - "Shareware: Displays registration nag screen."
+      - "Compatibility: Older packer (1999); aggressive import mangling (-m1) may break modern executables."
+
+  - &petite_v23
+    packer_family: "petite"
+    packer_name: "petite_v2.3"
+    version: "2.3"
+    arch_origin: "x86"
+    supported_input_arch: "PE32"
+    supported_output_arch: "PE32"
+    dependencies: []
+    tags: ["CLI", "Compressor"]
+    binary_path: "./packers/petite/v2.3/petite.exe"
+    binary_sha256: "e7f74dfb376ccf5133efb606a4bc8e032078f1b288a6814dd10caf519eab1be7"
+    source_url: "http://www.un4seen.com/petite/"
+    license: "Freeware"
+    notes: "Classic Win32 executable compressor v2.3 (2005) by Ian Luck. Features resource compression and import table mangling."
+    size_kb: "47"
+    output_behavior: "explicit"
+    type: "Type III"
+    type_ex: "Features a self-checking virus detection mechanism, which suggests a cyclic integrity check, fitting the Type III model."
+    known_issues:
+      - "Compatibility: Older packer (2005); aggressive import mangling (-m1) may break modern executables."
+
   - &petite_v24
-    packer_name: "petite"
+    packer_family: "petite"
+    packer_name: "petite_v2.4"
     version: "2.4"
     arch_origin: "x86"
     supported_input_arch: "PE32"
@@ -742,7 +1273,16 @@ test_cases:
       allow_x64_switch: false
       allow_x86_switch: false
 
-  # --- kkrunchy Test Group ---
+  # --- kkrunchy v0.23a2 Test Group ---
+  - id: "KKRUNCHY_V023A2_001_DEFAULT"
+    <<: *kkrunchy_v023a2
+    command_label: "Default Compression"
+    cli_template: "{bin} --out {out} {in}"
+    validation:
+      allow_x64_switch: false
+      allow_x86_switch: false
+
+  # --- kkrunchy v0.23a Test Group ---
   - id: "KKRUNCHY_001_DEFAULT"
     <<: *kkrunchy_v023
     command_label: "Default Compression (Good)"
@@ -794,6 +1334,71 @@ test_cases:
     <<: *exe32pack_v142
     command_label: "Realign Only (No Compression)"
     cli_template: "{bin} /R {in} {out}"
+    validation:
+      allow_x64_switch: false
+
+  # --- UPX v3.95 Test Group ---
+
+  - id: "UPX_V395_001_DEFAULT"
+    <<: *upx_v395
+    command_label: "Default Compression"
+    cli_template: "{bin} -o {out} {in}"
+    validation:
+      allow_x64_switch: false
+
+  - id: "UPX_V395_002_BEST"
+    <<: *upx_v395
+    command_label: "Best Compression (Level 9)"
+    cli_template: "{bin} --best -o {out} {in}"
+    validation:
+      allow_x64_switch: false
+
+  - id: "UPX_V395_003_LZMA"
+    <<: *upx_v395
+    command_label: "Force LZMA Algorithm"
+    cli_template: "{bin} --lzma -o {out} {in}"
+    validation:
+      allow_x64_switch: false
+
+  - id: "UPX_V395_004_BRUTE"
+    <<: *upx_v395
+    command_label: "Brute Force"
+    cli_template: "{bin} --brute -o {out} {in}"
+    validation:
+      allow_x64_switch: false
+
+  - id: "UPX_V395_005_ULTRA_BRUTE"
+    <<: *upx_v395
+    command_label: "Ultra Brute"
+    cli_template: "{bin} --ultra-brute -o {out} {in}"
+    validation:
+      allow_x64_switch: false
+
+  - id: "UPX_V395_006_STRIP_RELOCS"
+    <<: *upx_v395
+    command_label: "Strip Relocations"
+    cli_template: "{bin} --strip-relocs=1 -o {out} {in}"
+    validation:
+      allow_x64_switch: false
+
+  - id: "UPX_V395_007_NO_COMPRESS_RESOURCES"
+    <<: *upx_v395
+    command_label: "Do Not Compress Resources"
+    cli_template: "{bin} --compress-resources=0 -o {out} {in}"
+    validation:
+      allow_x64_switch: false
+
+  - id: "UPX_V395_008_COMPRESS_ALL_ICONS"
+    <<: *upx_v395
+    command_label: "Compress All Icons"
+    cli_template: "{bin} --compress-icons=3 -o {out} {in}"
+    validation:
+      allow_x64_switch: false
+
+  - id: "UPX_V395_009_FORCE"
+    <<: *upx_v395
+    command_label: "Force Compression"
+    cli_template: "{bin} --force -o {out} {in}"
     validation:
       allow_x64_switch: false
 
@@ -1318,7 +1923,65 @@ test_cases:
     validation:
       allow_x64_switch: false
 
-  # --- Petite Test Group ---
+  # --- Petite v2.2 Test Group ---
+  - id: "PETITE_V22_001_DEFAULT"
+    <<: *petite_v22
+    command_label: "Default Compression"
+    cli_template: "{bin} -y -b0 -o{out} {in}"
+    validation:
+      allow_x64_switch: false
+
+  - id: "PETITE_V22_002_MAX_COMPRESSION"
+    <<: *petite_v22
+    command_label: "Max Compression (Level 9)"
+    cli_template: "{bin} -9 -y -b0 -o{out} {in}"
+    validation:
+      allow_x64_switch: false
+
+  - id: "PETITE_V22_003_RESOURCE_OPT"
+    <<: *petite_v22
+    command_label: "Compress Non-Version/Icon Resources"
+    cli_template: "{bin} -r* -y -b0 -o{out} {in}"
+    validation:
+      allow_x64_switch: false
+
+  - id: "PETITE_V22_004_MANGLE_IMPORTS"
+    <<: *petite_v22
+    command_label: "Mangle Imports & Strip Relocs"
+    cli_template: "{bin} -m1 -s1 -e1 -y -b0 -o{out} {in}"
+    validation:
+      allow_x64_switch: false
+
+  # --- Petite v2.3 Test Group ---
+  - id: "PETITE_V23_001_DEFAULT"
+    <<: *petite_v23
+    command_label: "Default Compression"
+    cli_template: "{bin} -y -b0 -o{out} {in}"
+    validation:
+      allow_x64_switch: false
+
+  - id: "PETITE_V23_002_MAX_COMPRESSION"
+    <<: *petite_v23
+    command_label: "Max Compression (Level 9)"
+    cli_template: "{bin} -9 -y -b0 -o{out} {in}"
+    validation:
+      allow_x64_switch: false
+
+  - id: "PETITE_V23_003_RESOURCE_OPT"
+    <<: *petite_v23
+    command_label: "Compress Non-Version/Icon Resources"
+    cli_template: "{bin} -r* -y -b0 -o{out} {in}"
+    validation:
+      allow_x64_switch: false
+
+  - id: "PETITE_V23_004_MANGLE_IMPORTS"
+    <<: *petite_v23
+    command_label: "Mangle Imports & Strip Relocs"
+    cli_template: "{bin} -m1 -s1 -e1 -y -b0 -o{out} {in}"
+    validation:
+      allow_x64_switch: false
+
+  # --- Petite v2.4 Test Group ---
   - id: "PETITE_001_DEFAULT"
     <<: *petite_v24
     command_label: "Default Compression (Level 1)"
