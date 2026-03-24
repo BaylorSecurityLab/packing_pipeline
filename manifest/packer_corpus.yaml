@@ -1,6 +1,6 @@
 version: "0.1.0"
 maintainer: "Abanisenioluwa Kolawole Orojo, Abanisenioluwa_Oroj1, Banny Orojo, GitLab CI Bot"
-last_updated: "2026-02-25"
+last_updated: "2026-03-24"
 
 # ==========================================
 # SECTION 1: PACKER DEFINITIONS (The Source of Truth)
@@ -1289,7 +1289,7 @@ definitions:
     supported_input_arch: "PE32"
     supported_output_arch: "PE32"
     dependencies: []
-    tags: ["CLI", "Compressor"]
+    tags: ["GUI", "Compressor"]
     binary_path: "./packers/nspack/NSPack.exe"
     binary_sha256: ""
     source_url: "https://webscene.ir/tools/show/NsPack-and-crack-3.7"
@@ -1366,28 +1366,6 @@ definitions:
     known_issues:
       - "Automation: GUI-only; cannot be scripted via CLI."
 
-  - &pespin_v132
-    packer_family: "pespin"
-    packer_name: "pespin_v1.32"
-    version: "1.32"
-    arch_origin: "x86"
-    supported_input_arch: "PE32"
-    supported_output_arch: "PE32"
-    dependencies: []
-    tags: ["GUI", "Compressor", "Protector", "Anti-Debug"]
-    binary_path: "./packers/pespin/PESpin.exe"
-    binary_sha256: ""
-    source_url: "http://downloads.fyxm.net/PESpin-95477.html"
-    license: "Freeware"
-    notes: "PESpin v1.32 coded in pure Win32ASM/MASM. A GUI-only PE protector and compressor with anti-patching and anti-disassembly features. Primary source is offline (fyxm.net). BINARY NOT YET ACQUIRED — locate from RE community archives, extract PESpin.exe to ./packers/pespin/, then run binary_info.py."
-    size_kb: ""
-    output_behavior: "in_place"
-    type: "Type III"
-    type_ex: "PESpin compresses the entire executable and adds anti-patching, anti-debug stubs. The runtime stub is interleaved with protection checks."
-    known_issues:
-      - "Binary not yet downloaded. Primary source (fyxm.net) is offline."
-      - "Automation: GUI-only; cannot be scripted via CLI."
-
   - &acprotect_std
     packer_family: "acprotect"
     packer_name: "acprotect_std"
@@ -1455,7 +1433,7 @@ definitions:
         "libwx3_32r10.dll",
         "zlib_32r10.dll",
       ]
-    tags: ["CLI", "GUI", "Virtualizer", "Bundler", "GPL"]
+    tags: ["GUI", "Virtualizer", "Bundler", "GPL"]
     binary_path: "./packers/molebox/MxbPack.exe"
     binary_sha256: "a4da2297d2bb52fa343d86be9c3c4f2871bd3da644cebcebb994baac7b1d607d"
     source_url: "https://github.com/sudachen/Molebox/releases/download/6000/molebox_gpl.zip"
@@ -1469,69 +1447,6 @@ definitions:
       - "MxbPack.exe requires all bundled DLLs (libwx3_32r10.dll etc.) in the same directory to run."
       - "Automation: GUI-only."
 
-  - &fishpacker_placeholder
-    packer_family: "fishpacker"
-    packer_name: "fishpacker"
-    version: "UNKNOWN"
-    arch_origin: "x86"
-    supported_input_arch: "PE32"
-    supported_output_arch: "PE32"
-    dependencies: []
-    tags: ["CLI", "Compressor"]
-    binary_path: "./packers/fishpacker/FishPacker.exe"
-    binary_sha256: ""
-    source_url: ""
-    license: "Freeware"
-    notes: "FishPacker. An older PE compressor. BINARY NOT ACQUIRED — no confirmed public download source found. Locate from RE community archives, place at binary_path, then run binary_info.py."
-    size_kb: ""
-    output_behavior: "in_place"
-    type: "Type I"
-    type_ex: "FishPacker is described as a standard single-layer PE compressor."
-    known_issues:
-      - "Binary not acquired. No confirmed public download source."
-
-  - &kbys_placeholder
-    packer_family: "kbys"
-    packer_name: "kbys"
-    version: "UNKNOWN"
-    arch_origin: "x86"
-    supported_input_arch: "PE32"
-    supported_output_arch: "PE32"
-    dependencies: []
-    tags: ["CLI", "Compressor"]
-    binary_path: "./packers/kbys/kbys.exe"
-    binary_sha256: ""
-    source_url: ""
-    license: "Freeware"
-    notes: "KBys PE packer. A rare older PE compressor. BINARY NOT ACQUIRED — no confirmed public download source found. Locate from RE community archives, place at binary_path, then run binary_info.py."
-    size_kb: ""
-    output_behavior: "in_place"
-    type: "Type I"
-    type_ex: "KBys is described as a simple PE compressor."
-    known_issues:
-      - "Binary not acquired. No confirmed public download source."
-
-  - &orien_placeholder
-    packer_family: "orien"
-    packer_name: "orien"
-    version: "UNKNOWN"
-    arch_origin: "x86"
-    supported_input_arch: "PE32"
-    supported_output_arch: "PE32"
-    dependencies: []
-    tags: ["CLI", "Compressor"]
-    binary_path: "./packers/orien/ORIEN.exe"
-    binary_sha256: ""
-    source_url: ""
-    license: "Freeware"
-    notes: "ORIEN PE packer. A rare older PE compressor. BINARY NOT ACQUIRED — no confirmed public download source found. Locate from RE community archives, place at binary_path, then run binary_info.py."
-    size_kb: ""
-    output_behavior: "in_place"
-    type: "Type I"
-    type_ex: "ORIEN is described as a simple PE compressor."
-    known_issues:
-      - "Binary not acquired. No confirmed public download source."
-
   - &pep_placeholder
     packer_family: "pep"
     packer_name: "pep"
@@ -1540,7 +1455,7 @@ definitions:
     supported_input_arch: "PE32"
     supported_output_arch: "PE32"
     dependencies: []
-    tags: ["CLI", "Compressor"]
+    tags: ["GUI", "Compressor"]
     binary_path: "./packers/pep/PEP.exe"
     binary_sha256: ""
     source_url: ""
@@ -1574,7 +1489,6 @@ definitions:
       ]
     tags:
       [
-        "CLI",
         "GUI",
         "Protector",
         "Virtualizer",
@@ -1639,28 +1553,6 @@ definitions:
     type_ex: "Obsidium uses code virtualization and runtime integrity checks throughout program execution, consistent with full interleaved execution."
     known_issues:
       - "Binary not acquired. Commercial license required."
-      - "Automation: GUI-only."
-
-  - &softwarepassport_placeholder
-    packer_family: "softwarepassport"
-    packer_name: "softwarepassport"
-    version: "UNKNOWN"
-    arch_origin: "x86"
-    supported_input_arch: "PE32"
-    supported_output_arch: "PE32"
-    dependencies: []
-    tags: ["GUI", "Protector", "Anti-Debug", "Commercial"]
-    binary_path: "./packers/softwarepassport/SoftwarePassport.exe"
-    binary_sha256: ""
-    source_url: "https://www.siliconrealms.com"
-    license: "Commercial (discontinued)"
-    notes: "Software Passport (formerly Armadillo) by Silicon Realms Toolworks. A commercial PE protector widely used in the 2000s. Now discontinued. BINARY NOT ACQUIRED — no official download; may be found in RE community archives."
-    size_kb: ""
-    output_behavior: "explicit"
-    type: "Type IV"
-    type_ex: "Armadillo/Software Passport uses code splitting, IAT encryption, anti-debugging, and nanomite protection — full interleaved execution."
-    known_issues:
-      - "Binary not acquired. Software is discontinued; no official download."
       - "Automation: GUI-only."
 
   - &pelock_v240
@@ -1744,7 +1636,7 @@ definitions:
     supported_output_arch: ["PE32", "PE32+"]
     dependencies: []
     tags: ["CLI", "Multi-Platform"]
-    binary_path: "./upx/v0.60/upx.exe"
+    binary_path: "./packers/upx/v0.60/upx.exe"
     binary_sha256: "6af916c5548023f1ec1dc8a46411d1011f05c98cf04f307a142a8df8b9d34dea"
     source_url: "https://github.com/upx/upx/releases"
     license: "GPL"
@@ -1765,7 +1657,7 @@ definitions:
     supported_output_arch: ["PE32", "PE32+"]
     dependencies: []
     tags: ["CLI", "Multi-Platform"]
-    binary_path: "./upx/v0.61/upx.exe"
+    binary_path: "./packers/upx/v0.61/upx.exe"
     binary_sha256: "ac6d672edb7ab1fc2d086f4379dd6c2be67383afb930ffd04ee85288f95477e7"
     source_url: "https://github.com/upx/upx/releases"
     license: "GPL"
@@ -1786,7 +1678,7 @@ definitions:
     supported_output_arch: ["PE32", "PE32+"]
     dependencies: []
     tags: ["CLI", "Multi-Platform"]
-    binary_path: "./upx/v0.62/upx.exe"
+    binary_path: "./packers/upx/v0.62/upx.exe"
     binary_sha256: "98dab48c812235f125fea350bb79d963ce8a693b003c4b4445caed1e863aadf1"
     source_url: "https://github.com/upx/upx/releases"
     license: "GPL"
@@ -1807,7 +1699,7 @@ definitions:
     supported_output_arch: ["PE32", "PE32+"]
     dependencies: []
     tags: ["CLI", "Multi-Platform"]
-    binary_path: "./upx/v0.70/upx.exe"
+    binary_path: "./packers/upx/v0.70/upx.exe"
     binary_sha256: "158804febe82f7dee10ddf08d57415f81fc5d520ff5fa507d0320f1b23e35dce"
     source_url: "https://github.com/upx/upx/releases"
     license: "GPL"
@@ -1828,7 +1720,7 @@ definitions:
     supported_output_arch: ["PE32", "PE32+"]
     dependencies: []
     tags: ["CLI", "Multi-Platform"]
-    binary_path: "./upx/v0.71/upx.exe"
+    binary_path: "./packers/upx/v0.71/upx.exe"
     binary_sha256: "8e8a2fdd9f6ba93783891b23775fba7d69634c78c4b38a81bdfc8f03aceaf3eb"
     source_url: "https://github.com/upx/upx/releases"
     license: "GPL"
@@ -1849,7 +1741,7 @@ definitions:
     supported_output_arch: ["PE32", "PE32+"]
     dependencies: []
     tags: ["CLI", "Multi-Platform"]
-    binary_path: "./upx/v0.72/upx.exe"
+    binary_path: "./packers/upx/v0.72/upx.exe"
     binary_sha256: "d217e0a9a65be36a71a2961c2164f67ae88300e37aef2a41df4de45e11bd64df"
     source_url: "https://github.com/upx/upx/releases"
     license: "GPL"
@@ -1870,7 +1762,7 @@ definitions:
     supported_output_arch: ["PE32", "PE32+"]
     dependencies: []
     tags: ["CLI", "Multi-Platform"]
-    binary_path: "./upx/v0.762b/upx.exe"
+    binary_path: "./packers/upx/v0.762b/upx.exe"
     binary_sha256: "d47eb123b5601a5f1481d121a6b939eb1238d15c6bdc764739f9b347e2748458"
     source_url: "https://github.com/upx/upx/releases"
     license: "GPL"
@@ -1891,7 +1783,7 @@ definitions:
     supported_output_arch: ["PE32", "PE32+"]
     dependencies: []
     tags: ["CLI", "Multi-Platform"]
-    binary_path: "./upx/v0.763b/upx.exe"
+    binary_path: "./packers/upx/v0.763b/upx.exe"
     binary_sha256: "9b2cfecefaa6577b8443b67db50e6a8da6a339fa3a5b3bb1b65900b08339b4e8"
     source_url: "https://github.com/upx/upx/releases"
     license: "GPL"
@@ -1912,7 +1804,7 @@ definitions:
     supported_output_arch: ["PE32", "PE32+"]
     dependencies: []
     tags: ["CLI", "Multi-Platform"]
-    binary_path: "./upx/v0.80/upx.exe"
+    binary_path: "./packers/upx/v0.80/upx.exe"
     binary_sha256: "6eb3ddac2e20c4d9f15d6a70a4993be225bc7ae22a47a4677ba9ec013ae18932"
     source_url: "https://github.com/upx/upx/releases"
     license: "GPL"
@@ -1933,7 +1825,7 @@ definitions:
     supported_output_arch: ["PE32", "PE32+"]
     dependencies: []
     tags: ["CLI", "Multi-Platform"]
-    binary_path: "./upx/v0.81/upx.exe"
+    binary_path: "./packers/upx/v0.81/upx.exe"
     binary_sha256: "e05d65544983fe1a5946ac4a062ef11e0bf72b25bb3c63ca8c79428552da7bf2"
     source_url: "https://github.com/upx/upx/releases"
     license: "GPL"
@@ -1954,7 +1846,7 @@ definitions:
     supported_output_arch: ["PE32", "PE32+"]
     dependencies: []
     tags: ["CLI", "Multi-Platform"]
-    binary_path: "./upx/v0.82/upx.exe"
+    binary_path: "./packers/upx/v0.82/upx.exe"
     binary_sha256: "67bed57167a9314bc0993d6872eb33b412d1ca61dbf54e6796ab93a07283662a"
     source_url: "https://github.com/upx/upx/releases"
     license: "GPL"
@@ -1975,7 +1867,7 @@ definitions:
     supported_output_arch: ["PE32", "PE32+"]
     dependencies: []
     tags: ["CLI", "Multi-Platform"]
-    binary_path: "./upx/v0.83/upx.exe"
+    binary_path: "./packers/upx/v0.83/upx.exe"
     binary_sha256: "fcaeb6ffd10755bfe034b43d72f29159099df050af35ba7f6baa1fc41079ac53"
     source_url: "https://github.com/upx/upx/releases"
     license: "GPL"
@@ -1996,7 +1888,7 @@ definitions:
     supported_output_arch: ["PE32", "PE32+"]
     dependencies: []
     tags: ["CLI", "Multi-Platform"]
-    binary_path: "./upx/v0.84/upx.exe"
+    binary_path: "./packers/upx/v0.84/upx.exe"
     binary_sha256: "5b61ab75e83d366fc3a7ab3acd7516c91f03175a6b252d160d8a6df72f9435c9"
     source_url: "https://github.com/upx/upx/releases"
     license: "GPL"
@@ -2017,7 +1909,7 @@ definitions:
     supported_output_arch: ["PE32", "PE32+"]
     dependencies: []
     tags: ["CLI", "Multi-Platform"]
-    binary_path: "./upx/v0.896b/upx.exe"
+    binary_path: "./packers/upx/v0.896b/upx.exe"
     binary_sha256: "866ed929ca5d5ddd699bd56bdaf58874e19a5d8478548190d6407a540a120e1f"
     source_url: "https://github.com/upx/upx/releases"
     license: "GPL"
@@ -2038,7 +1930,7 @@ definitions:
     supported_output_arch: ["PE32", "PE32+"]
     dependencies: []
     tags: ["CLI", "Multi-Platform"]
-    binary_path: "./upx/v0.90/upx.exe"
+    binary_path: "./packers/upx/v0.90/upx.exe"
     binary_sha256: "ff82a1d5d20e5659e164ca5fdc921184a7fd69bc0dbcf52fbd53e21663f9bfd2"
     source_url: "https://github.com/upx/upx/releases"
     license: "GPL"
@@ -2059,7 +1951,7 @@ definitions:
     supported_output_arch: ["PE32", "PE32+"]
     dependencies: []
     tags: ["CLI", "Multi-Platform"]
-    binary_path: "./upx/v0.92/upx.exe"
+    binary_path: "./packers/upx/v0.92/upx.exe"
     binary_sha256: "5d2c955fa2754c94fb1d9147dc60ab0cc884f667b8ca4fca3e8f9eca9c8979ca"
     source_url: "https://github.com/upx/upx/releases"
     license: "GPL"
@@ -2080,7 +1972,7 @@ definitions:
     supported_output_arch: ["PE32", "PE32+"]
     dependencies: []
     tags: ["CLI", "Multi-Platform"]
-    binary_path: "./upx/v0.93/upx.exe"
+    binary_path: "./packers/upx/v0.93/upx.exe"
     binary_sha256: "fb74d97f80287e70a970cff95af10f01aa6f3d35e56756d1944ae31804752642"
     source_url: "https://github.com/upx/upx/releases"
     license: "GPL"
@@ -2101,7 +1993,7 @@ definitions:
     supported_output_arch: ["PE32", "PE32+"]
     dependencies: []
     tags: ["CLI", "Multi-Platform"]
-    binary_path: "./upx/v0.94/upx.exe"
+    binary_path: "./packers/upx/v0.94/upx.exe"
     binary_sha256: "10f40cdb6c8e7ee87368dca3e8e380f7bd52aac00a124410b63ca8c9a4fe6ac1"
     source_url: "https://github.com/upx/upx/releases"
     license: "GPL"
@@ -2122,7 +2014,7 @@ definitions:
     supported_output_arch: ["PE32", "PE32+"]
     dependencies: []
     tags: ["CLI", "Multi-Platform"]
-    binary_path: "./upx/v0.99/upx.exe"
+    binary_path: "./packers/upx/v0.99/upx.exe"
     binary_sha256: "21f1fb752ee148d4d20058b8bb3294748d9ba03b653f38b37680019bdbc3dbff"
     source_url: "https://github.com/upx/upx/releases"
     license: "GPL"
@@ -2143,7 +2035,7 @@ definitions:
     supported_output_arch: ["PE32", "PE32+"]
     dependencies: []
     tags: ["CLI", "Multi-Platform"]
-    binary_path: "./upx/v0.991/upx.exe"
+    binary_path: "./packers/upx/v0.991/upx.exe"
     binary_sha256: "081e9d3bb617084db86d550e70619e0e4e5b81926fd45eff3da812ac43281149"
     source_url: "https://github.com/upx/upx/releases"
     license: "GPL"
@@ -2164,7 +2056,7 @@ definitions:
     supported_output_arch: ["PE32", "PE32+"]
     dependencies: []
     tags: ["CLI", "Multi-Platform"]
-    binary_path: "./upx/v0.992/upx.exe"
+    binary_path: "./packers/upx/v0.992/upx.exe"
     binary_sha256: "311979c3cd0527ddf3ae72ab786b6750d8d2ed9c45f470708f3597e3987dd8f5"
     source_url: "https://github.com/upx/upx/releases"
     license: "GPL"
@@ -2185,7 +2077,7 @@ definitions:
     supported_output_arch: ["PE32", "PE32+"]
     dependencies: []
     tags: ["CLI", "Multi-Platform"]
-    binary_path: "./upx/v0.993/upx.exe"
+    binary_path: "./packers/upx/v0.993/upx.exe"
     binary_sha256: "fb12ba18cf2801d8649162a11941821d28202d474aceb5fccfe127027e58b024"
     source_url: "https://github.com/upx/upx/releases"
     license: "GPL"
@@ -2206,7 +2098,7 @@ definitions:
     supported_output_arch: ["PE32", "PE32+"]
     dependencies: []
     tags: ["CLI", "Multi-Platform"]
-    binary_path: "./upx/v1.00/upx.exe"
+    binary_path: "./packers/upx/v1.00/upx.exe"
     binary_sha256: "2a3818aa46f5512b3c4f26cf9676c70302293fd7519786e1df48ceba1aed9a39"
     source_url: "https://github.com/upx/upx/releases"
     license: "GPL"
@@ -2227,7 +2119,7 @@ definitions:
     supported_output_arch: ["PE32", "PE32+"]
     dependencies: []
     tags: ["CLI", "Multi-Platform"]
-    binary_path: "./upx/v1.01/upx.exe"
+    binary_path: "./packers/upx/v1.01/upx.exe"
     binary_sha256: "75695b264da5d3ff904b470c7221bc163887ef3dcfed26e70550a587a70ee684"
     source_url: "https://github.com/upx/upx/releases"
     license: "GPL"
@@ -2248,7 +2140,7 @@ definitions:
     supported_output_arch: ["PE32", "PE32+"]
     dependencies: []
     tags: ["CLI", "Multi-Platform"]
-    binary_path: "./upx/v1.02/upx.exe"
+    binary_path: "./packers/upx/v1.02/upx.exe"
     binary_sha256: "a7167e237c4889b27d9cd02063476e451c13f1ca17fe8fb908305f9818c01a20"
     source_url: "https://github.com/upx/upx/releases"
     license: "GPL"
@@ -2269,7 +2161,7 @@ definitions:
     supported_output_arch: ["PE32", "PE32+"]
     dependencies: []
     tags: ["CLI", "Multi-Platform"]
-    binary_path: "./upx/v1.03/upx.exe"
+    binary_path: "./packers/upx/v1.03/upx.exe"
     binary_sha256: "4f34f5bf4b5225d5b02f3332eebeb49bb39a74339da7da50c730c62918079278"
     source_url: "https://github.com/upx/upx/releases"
     license: "GPL"
@@ -2290,7 +2182,7 @@ definitions:
     supported_output_arch: ["PE32", "PE32+"]
     dependencies: []
     tags: ["CLI", "Multi-Platform"]
-    binary_path: "./upx/v1.04/upx.exe"
+    binary_path: "./packers/upx/v1.04/upx.exe"
     binary_sha256: "bfb5886b9fc002726e4c637922bc10b7bf4a3bea633331f4c323dba5b1867725"
     source_url: "https://github.com/upx/upx/releases"
     license: "GPL"
@@ -2311,7 +2203,7 @@ definitions:
     supported_output_arch: ["PE32", "PE32+"]
     dependencies: []
     tags: ["CLI", "Multi-Platform"]
-    binary_path: "./upx/v1.05/upx.exe"
+    binary_path: "./packers/upx/v1.05/upx.exe"
     binary_sha256: "be75c0cb3a3aaa15ff882fc77b7ae05390375fe5d65936b3f8723743eb26ded2"
     source_url: "https://github.com/upx/upx/releases"
     license: "GPL"
@@ -2332,7 +2224,7 @@ definitions:
     supported_output_arch: ["PE32", "PE32+"]
     dependencies: []
     tags: ["CLI", "Multi-Platform"]
-    binary_path: "./upx/v1.06/upx.exe"
+    binary_path: "./packers/upx/v1.06/upx.exe"
     binary_sha256: "339842741012138608d3640f809fde53547f8115a91c1205d22598a4b831399b"
     source_url: "https://github.com/upx/upx/releases"
     license: "GPL"
@@ -2353,7 +2245,7 @@ definitions:
     supported_output_arch: ["PE32", "PE32+"]
     dependencies: []
     tags: ["CLI", "Multi-Platform"]
-    binary_path: "./upx/v1.07/upx.exe"
+    binary_path: "./packers/upx/v1.07/upx.exe"
     binary_sha256: "f8bab05cf44e2304a7604abca06ea556de7ac550beb493ea9019639492e0b787"
     source_url: "https://github.com/upx/upx/releases"
     license: "GPL"
@@ -2374,7 +2266,7 @@ definitions:
     supported_output_arch: ["PE32", "PE32+"]
     dependencies: []
     tags: ["CLI", "Multi-Platform"]
-    binary_path: "./upx/v1.08/upx.exe"
+    binary_path: "./packers/upx/v1.08/upx.exe"
     binary_sha256: "6ffdebf1d6d6884bfb3b0085526007364dcdc3d8902e86a3fb5ab91ce6bd989f"
     source_url: "https://github.com/upx/upx/releases"
     license: "GPL"
@@ -2395,7 +2287,7 @@ definitions:
     supported_output_arch: ["PE32", "PE32+"]
     dependencies: []
     tags: ["CLI", "Multi-Platform"]
-    binary_path: "./upx/v1.20/upx.exe"
+    binary_path: "./packers/upx/v1.20/upx.exe"
     binary_sha256: "6e8b43f3e3287e95a7e9debd065e5915d9a557b1c8191d388939fb1169c79041"
     source_url: "https://github.com/upx/upx/releases"
     license: "GPL"
@@ -2416,7 +2308,7 @@ definitions:
     supported_output_arch: ["PE32", "PE32+"]
     dependencies: []
     tags: ["CLI", "Multi-Platform"]
-    binary_path: "./upx/v1.21/upx.exe"
+    binary_path: "./packers/upx/v1.21/upx.exe"
     binary_sha256: "4e8c74ef668218698f6ea7570815b35f61a38e15a5de9a5395b8dba6a72cd177"
     source_url: "https://github.com/upx/upx/releases"
     license: "GPL"
@@ -2437,7 +2329,7 @@ definitions:
     supported_output_arch: ["PE32", "PE32+"]
     dependencies: []
     tags: ["CLI", "Multi-Platform"]
-    binary_path: "./upx/v1.22/upx.exe"
+    binary_path: "./packers/upx/v1.22/upx.exe"
     binary_sha256: "28bdab0a10f79cf8c07687555af0be3522ba51cdd6a7bb3d7bce32d375019915"
     source_url: "https://github.com/upx/upx/releases"
     license: "GPL"
@@ -2462,7 +2354,7 @@ definitions:
     supported_output_arch: "PE32"
     dependencies: ["upx"]
     tags: ["GUI", "Scrambler"]
-    binary_path: "./upx_scrambler/v306/upxs306.exe"
+    binary_path: "./packers/upx_scrambler/v306/upxs306.exe"
     binary_sha256: "302d6144d1610587228725b463f0de04daea909e9ccbdcfa34889681f020eed7"
     source_url: "https://defacto2.net/f/a520164?packer=upxs"
     license: "Freeware"
@@ -2483,7 +2375,7 @@ definitions:
     supported_output_arch: "PE32"
     dependencies: ["upx"]
     tags: ["GUI", "Scrambler"]
-    binary_path: "./upx_scrambler/vrc1/upxsrc1.exe"
+    binary_path: "./packers/upx_scrambler/vrc1/upxsrc1.exe"
     binary_sha256: "d6ec2c139095d11e08f7853d58824ca76eca7ca0949f37d690f3c4c19c8c40b6"
     source_url: "https://defacto2.net/f/a520164?packer=upxs"
     license: "Freeware"
@@ -2504,7 +2396,7 @@ definitions:
     supported_output_arch: "PE32"
     dependencies: ["upx"]
     tags: ["GUI", "Scrambler"]
-    binary_path: "./upx_scrambler/vrc103/upxsrc103.exe"
+    binary_path: "./packers/upx_scrambler/vrc103/upxsrc103.exe"
     binary_sha256: "354252d58926b88075226d5ba55cf531c270b4d50792d9ab4993ac2082fd2d15"
     source_url: "https://defacto2.net/f/a520164?packer=upxs"
     license: "Freeware"
@@ -2525,7 +2417,7 @@ definitions:
     supported_output_arch: "PE32"
     dependencies: ["upx"]
     tags: ["GUI", "Scrambler"]
-    binary_path: "./upx_scrambler/vrc105/upxsrc105.exe"
+    binary_path: "./packers/upx_scrambler/vrc105/upxsrc105.exe"
     binary_sha256: "813deb740cf10a58d3331b235c855c238eeb91740620651df8fa3e716393dfdd"
     source_url: "https://defacto2.net/f/a520164?packer=upxs"
     license: "Freeware"
@@ -2546,7 +2438,7 @@ definitions:
     supported_output_arch: "PE32"
     dependencies: ["upx"]
     tags: ["GUI", "Scrambler"]
-    binary_path: "./upx_scrambler/vrc1b10/upxsrc1b10.exe"
+    binary_path: "./packers/upx_scrambler/vrc1b10/upxsrc1b10.exe"
     binary_sha256: "dd3a5dca36309f2fa4058a3a47b7810f58af17f2fbf4fab13f9d8028a82796d7"
     source_url: "https://defacto2.net/f/a520164?packer=upxs"
     license: "Freeware"
@@ -2578,6 +2470,90 @@ definitions:
     type_ex: "XPA is a single-layer PE compressor that prepends a decompression stub, consistent with Type I."
     known_issues:
       - "GUI-only; cannot be scripted via CLI."
+
+  - &aspack_v241
+    packer_family: "aspack"
+    packer_name: "aspack_v2.41"
+    version: "2.41"
+    arch_origin: "x86"
+    supported_input_arch: "PE32"
+    supported_output_arch: "PE32"
+    dependencies: []
+    tags: ["CLI", "Compressor", "Commercial"]
+    binary_path: "./packers/aspack/2.41/aspack.x86"
+    binary_sha256: "c0612e96a7256271df20ff2c3cf05adcadce73f0815286be7805652072ca5ea7"
+    source_url: "http://www.aspack.com"
+    license: "Commercial"
+    notes: "ASPack v2.41 by Alexey Solodovnikov. A professional PE compressor featuring compression, encryption, and anti-debugging. CLI capable via aspack.x86 command-line interface."
+    size_kb: "73"
+    output_behavior: "explicit"
+    type: "Type I"
+    type_ex: "ASPack applies compression and encryption with a runtime decompression stub prepended to the PE, consistent with single-layer packing."
+    known_issues:
+      - ""
+
+  - &aspack_v212
+    packer_family: "aspack"
+    packer_name: "aspack_v2.12"
+    version: "2.12"
+    arch_origin: "x86"
+    supported_input_arch: "PE32"
+    supported_output_arch: "PE32"
+    dependencies: []
+    tags: ["GUI", "Compressor", "Commercial"]
+    binary_path: "./packers/aspack/2.12/ASPack.exe"
+    binary_sha256: ""
+    source_url: "http://www.aspack.com"
+    license: "Commercial"
+    notes: "ASPack v2.12 by Alexey Solodovnikov. An earlier version of the ASPack compressor with GUI interface."
+    size_kb: "203"
+    output_behavior: "explicit"
+    type: "Type I"
+    type_ex: "ASPack applies compression and encryption with a runtime decompression stub, consistent with single-layer packing."
+    known_issues:
+      - "Automation: GUI-only; cannot be scripted via CLI."
+
+  - &jdpack_v100
+    packer_family: "jdpack"
+    packer_name: "jdpack_v1.00"
+    version: "1.00"
+    arch_origin: "x86"
+    supported_input_arch: "PE32"
+    supported_output_arch: "PE32"
+    dependencies: []
+    tags: ["GUI", "Compressor"]
+    binary_path: "./packers/jdpack/jdpack.exe"
+    binary_sha256: "784b159e2ef2af20e29c43425fcafcc18c5e816d66b3693b362f375f6350be6c"
+    source_url: "https://www.sac.sk/files.php?d=7&l"
+    license: "Freeware"
+    notes: "JDPack v1.00. A Win32 PE executable compressor from the demoscene archive (ftp.elf.stuba.sk). GUI-only; cannot be scripted via CLI."
+    size_kb: "95"
+    output_behavior: "in_place"
+    type: "Type I"
+    type_ex: "JDPack is a single-layer PE compressor that prepends a decompression stub, consistent with Type I."
+    known_issues:
+      - "Automation: GUI-only; cannot be scripted via CLI."
+
+  - &simpledpack_v053
+    packer_family: "simpledpack"
+    packer_name: "simpledpack_v0.5.3"
+    version: "0.5.3"
+    arch_origin: "x86"
+    supported_input_arch: "PE32"
+    supported_output_arch: "PE32"
+    dependencies: []
+    tags: ["CLI", "Compressor", "Educational"]
+    binary_path: "./packers/SimpleDpack/SimpleDpack.exe"
+    binary_sha256: "dc30566e9ea708cfbdd4b92f746853fbfd4135531857ef330c1bbd0d60dc5f9c"
+    source_url: "https://www.sac.sk/files.php?d=7&l"
+    license: "Freeware"
+    notes: "SimpleDpack v0.5.3 by devseed. A lightweight Win32 PE executable compressor designed for learning and investigating PE structure. Supports both CLI drag-and-drop and command-line execution."
+    size_kb: "28"
+    output_behavior: "explicit"
+    type: "Type I"
+    type_ex: "SimpleDpack is a single-layer PE compressor that prepends a decompression stub, consistent with Type I."
+    known_issues:
+      - ""
 
 test_cases:
   # ==========================================
@@ -3492,38 +3468,6 @@ test_cases:
       allow_x64_switch: false
       allow_x86_switch: false
 
-  # --- ASPack Test Group ---
-  # NOTE: ASPack is GUI-only. No CLI test cases applicable.
-
-  # --- PECompact Test Group ---
-  # NOTE: PECompact v1.84 is GUI-only. No CLI test cases applicable.
-
-  # --- NsPack Test Group (CLI) ---
-  # NOTE: Binary not yet acquired. Uncomment after placing NSPack.exe at binary_path.
-  # - id: "NSPACK_001_DEFAULT"
-  #   <<: *nspack_v37
-  #   command_label: "Default Compression"
-  #   cli_template: "{bin} {in}"
-  #   validation:
-  #     allow_x64_switch: false
-  #     allow_x86_switch: false
-
-  # --- nPack Test Group (CLI) ---
-  # NOTE: Binary not yet acquired. Uncomment after placing npack.exe at binary_path.
-  # - id: "NPACK_001_DEFAULT"
-  #   <<: *npack_v11
-  #   command_label: "Default Compression"
-  #   cli_template: "{bin} {in}"
-  #   validation:
-  #     allow_x64_switch: false
-  #     allow_x86_switch: false
-
-  # --- FSG, tElock, PESpin, ACProtect, eXPressor, MoleBox, FishPacker, KBys, ORIEN, PEP ---
-  # NOTE: All GUI-only. No CLI test cases applicable.
-
-  # --- Enigma, ZProtect, Obsidium, SoftwarePassport, Armadillo, PELock, Themida ---
-  # NOTE: Commercial/unavailable. No test cases until binaries are acquired.
-
   # --- UPX early versions (0.60-1.22) Test Groups ---
 
   - id: "UPX_V060_001_DEFAULT"
@@ -4070,5 +4014,257 @@ test_cases:
       allow_x64_switch: false
       allow_x86_switch: false
 
-  # --- UPX Scrambler extra versions (3.06, RC1, RC1.03, RC1.05, RC1b10) ---
-  # NOTE: All GUI-only. No CLI test cases applicable.
+  # --- ASPack Test Group ---
+  - id: "ASPACK_V241_001_DEFAULT"
+    <<: *aspack_v241
+    command_label: "Default Compression"
+    cli_template: "{bin} {in} {out}"
+    validation:
+      allow_x64_switch: false
+      allow_x86_switch: false
+
+  - id: "ASPACK_V241_002_COMPRESSION"
+    <<: *aspack_v241
+    command_label: "Maximum Compression"
+    cli_template: "{bin} -b {in} {out}"
+    validation:
+      allow_x64_switch: false
+      allow_x86_switch: false
+
+  # --- SimpleDpack Test Group ---
+  - id: "SIMPLEDPACK_V053_001_DEFAULT"
+    <<: *simpledpack_v053
+    command_label: "Default Compression"
+    cli_template: "{bin} {in} {out}"
+    validation:
+      allow_x64_switch: false
+      allow_x86_switch: false
+
+  # --- Amber v3.0 Test Group ---
+  - id: "AMBER_V30_001_DEFAULT"
+    <<: *amber_v30
+    command_label: "Default (CRC resolver)"
+    cli_template: "{bin} -f {in} -build -o {out}"
+    validation:
+      allow_x64_switch: false
+      allow_x86_switch: false
+
+  - id: "AMBER_V30_002_IAT"
+    <<: *amber_v30
+    command_label: "IAT Resolver"
+    cli_template: "{bin} -f {in} -iat -build -o {out}"
+    validation:
+      allow_x64_switch: false
+      allow_x86_switch: false
+
+  - id: "AMBER_V30_003_ENCODED"
+    <<: *amber_v30
+    command_label: "Encoded (1x)"
+    cli_template: "{bin} -f {in} -e 1 -build -o {out}"
+    validation:
+      allow_x64_switch: false
+      allow_x86_switch: false
+
+  # --- UPX v4.0.0 Test Group ---
+  - id: "UPX_V400_001_DEFAULT"
+    <<: *upx_v400
+    command_label: "Default Compression"
+    cli_template: "{bin} {in} -o {out}"
+    validation:
+      allow_x64_switch: false
+      allow_x86_switch: false
+
+  - id: "UPX_V400_002_MAX"
+    <<: *upx_v400
+    command_label: "Max Compression (Level 9)"
+    cli_template: "{bin} -9 {in} -o {out}"
+    validation:
+      allow_x64_switch: false
+      allow_x86_switch: false
+
+  # --- UPX v4.0.1 Test Group ---
+  - id: "UPX_V401_001_DEFAULT"
+    <<: *upx_v401
+    command_label: "Default Compression"
+    cli_template: "{bin} {in} -o {out}"
+    validation:
+      allow_x64_switch: false
+      allow_x86_switch: false
+
+  - id: "UPX_V401_002_MAX"
+    <<: *upx_v401
+    command_label: "Max Compression (Level 9)"
+    cli_template: "{bin} -9 {in} -o {out}"
+    validation:
+      allow_x64_switch: false
+      allow_x86_switch: false
+
+  # --- UPX v4.0.2 Test Group ---
+  - id: "UPX_V402_001_DEFAULT"
+    <<: *upx_v402
+    command_label: "Default Compression"
+    cli_template: "{bin} {in} -o {out}"
+    validation:
+      allow_x64_switch: false
+      allow_x86_switch: false
+
+  - id: "UPX_V402_002_MAX"
+    <<: *upx_v402
+    command_label: "Max Compression (Level 9)"
+    cli_template: "{bin} -9 {in} -o {out}"
+    validation:
+      allow_x64_switch: false
+      allow_x86_switch: false
+
+  # --- UPX v4.1.0 Test Group ---
+  - id: "UPX_V410_001_DEFAULT"
+    <<: *upx_v410
+    command_label: "Default Compression"
+    cli_template: "{bin} {in} -o {out}"
+    validation:
+      allow_x64_switch: false
+      allow_x86_switch: false
+
+  - id: "UPX_V410_002_MAX"
+    <<: *upx_v410
+    command_label: "Max Compression (Level 9)"
+    cli_template: "{bin} -9 {in} -o {out}"
+    validation:
+      allow_x64_switch: false
+      allow_x86_switch: false
+
+  # --- UPX v4.2.0 Test Group ---
+  - id: "UPX_V420_001_DEFAULT"
+    <<: *upx_v420
+    command_label: "Default Compression"
+    cli_template: "{bin} {in} -o {out}"
+    validation:
+      allow_x64_switch: false
+      allow_x86_switch: false
+
+  - id: "UPX_V420_002_MAX"
+    <<: *upx_v420
+    command_label: "Max Compression (Level 9)"
+    cli_template: "{bin} -9 {in} -o {out}"
+    validation:
+      allow_x64_switch: false
+      allow_x86_switch: false
+
+  # --- UPX v4.2.1 Test Group ---
+  - id: "UPX_V421_001_DEFAULT"
+    <<: *upx_v421
+    command_label: "Default Compression"
+    cli_template: "{bin} {in} -o {out}"
+    validation:
+      allow_x64_switch: false
+      allow_x86_switch: false
+
+  - id: "UPX_V421_002_MAX"
+    <<: *upx_v421
+    command_label: "Max Compression (Level 9)"
+    cli_template: "{bin} -9 {in} -o {out}"
+    validation:
+      allow_x64_switch: false
+      allow_x86_switch: false
+
+  # --- UPX v4.2.2 Test Group ---
+  - id: "UPX_V422_001_DEFAULT"
+    <<: *upx_v422
+    command_label: "Default Compression"
+    cli_template: "{bin} {in} -o {out}"
+    validation:
+      allow_x64_switch: false
+      allow_x86_switch: false
+
+  - id: "UPX_V422_002_MAX"
+    <<: *upx_v422
+    command_label: "Max Compression (Level 9)"
+    cli_template: "{bin} -9 {in} -o {out}"
+    validation:
+      allow_x64_switch: false
+      allow_x86_switch: false
+
+  # --- UPX v4.2.3 Test Group ---
+  - id: "UPX_V423_001_DEFAULT"
+    <<: *upx_v423
+    command_label: "Default Compression"
+    cli_template: "{bin} {in} -o {out}"
+    validation:
+      allow_x64_switch: false
+      allow_x86_switch: false
+
+  - id: "UPX_V423_002_MAX"
+    <<: *upx_v423
+    command_label: "Max Compression (Level 9)"
+    cli_template: "{bin} -9 {in} -o {out}"
+    validation:
+      allow_x64_switch: false
+      allow_x86_switch: false
+
+  # --- UPX v5.0.0 Test Group ---
+  - id: "UPX_V500_001_DEFAULT"
+    <<: *upx_v500
+    command_label: "Default Compression"
+    cli_template: "{bin} {in} -o {out}"
+    validation:
+      allow_x64_switch: false
+      allow_x86_switch: false
+
+  - id: "UPX_V500_002_MAX"
+    <<: *upx_v500
+    command_label: "Max Compression (Level 9)"
+    cli_template: "{bin} -9 {in} -o {out}"
+    validation:
+      allow_x64_switch: false
+      allow_x86_switch: false
+
+  # --- UPX v5.0.1 Test Group ---
+  - id: "UPX_V501_001_DEFAULT"
+    <<: *upx_v501
+    command_label: "Default Compression"
+    cli_template: "{bin} {in} -o {out}"
+    validation:
+      allow_x64_switch: false
+      allow_x86_switch: false
+
+  - id: "UPX_V501_002_MAX"
+    <<: *upx_v501
+    command_label: "Max Compression (Level 9)"
+    cli_template: "{bin} -9 {in} -o {out}"
+    validation:
+      allow_x64_switch: false
+      allow_x86_switch: false
+
+  # --- UPX v5.0.2 Test Group ---
+  - id: "UPX_V502_001_DEFAULT"
+    <<: *upx_v502
+    command_label: "Default Compression"
+    cli_template: "{bin} {in} -o {out}"
+    validation:
+      allow_x64_switch: false
+      allow_x86_switch: false
+
+  - id: "UPX_V502_002_MAX"
+    <<: *upx_v502
+    command_label: "Max Compression (Level 9)"
+    cli_template: "{bin} -9 {in} -o {out}"
+    validation:
+      allow_x64_switch: false
+      allow_x86_switch: false
+
+  # --- UPX v5.1.1 Test Group ---
+  - id: "UPX_V511_001_DEFAULT"
+    <<: *upx_v511
+    command_label: "Default Compression"
+    cli_template: "{bin} {in} -o {out}"
+    validation:
+      allow_x64_switch: false
+      allow_x86_switch: false
+
+  - id: "UPX_V511_002_MAX"
+    <<: *upx_v511
+    command_label: "Max Compression (Level 9)"
+    cli_template: "{bin} -9 {in} -o {out}"
+    validation:
+      allow_x64_switch: false
+      allow_x86_switch: false
