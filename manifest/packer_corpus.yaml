@@ -1290,7 +1290,7 @@ definitions:
     supported_output_arch: "PE32"
     dependencies: []
     tags: ["GUI", "Compressor"]
-    binary_path: "./packers/nspack/NSPack.exe"
+    binary_path: "./packers/nspack/nSpack.exe"
     binary_sha256: ""
     source_url: "https://webscene.ir/tools/show/NsPack-and-crack-3.7"
     license: "Freeware"
@@ -2552,6 +2552,27 @@ definitions:
     output_behavior: "explicit"
     type: "Type I"
     type_ex: "SimpleDpack is a single-layer PE compressor that prepends a decompression stub, consistent with Type I."
+    known_issues:
+      - ""
+
+  - &molebox_v46
+    packer_family: "molebox"
+    packer_name: "molebox"
+    version: "4.6000"
+    arch_origin: "x86"
+    supported_input_arch: "PE32"
+    supported_output_arch: "PE32"
+    dependencies: []
+    tags: ["CLI", "Virtualizer", "Protector"]
+    binary_path: "./packers/molebox/MxbPack.exe"
+    binary_sha256: ""
+    source_url: "https://www.github.com/sudachen/molebox"
+    license: "Freeware"
+    notes: "MoleBox Virtualization Solution 4.6 by sudachen. A PE virtualizer/protector that wraps executables in a virtual filesystem environment. Uses MxbPack.exe as its CLI packing tool."
+    size_kb: ""
+    output_behavior: "explicit"
+    type: "Type II"
+    type_ex: "MoleBox wraps the target PE in a virtual environment with its own VFS layer, classifying it as a multi-layer virtualizer/protector."
     known_issues:
       - ""
 
@@ -4265,6 +4286,39 @@ test_cases:
     <<: *upx_v511
     command_label: "Max Compression (Level 9)"
     cli_template: "{bin} -9 {in} -o {out}"
+    validation:
+      allow_x64_switch: false
+      allow_x86_switch: false
+
+  # --- MoleBox Test Group ---
+  - id: "MOLEBOX_001_DEFAULT"
+    <<: *molebox_v46
+    command_label: "Default Virtualization"
+    cli_template: "{bin} {in} -o {out}"
+    validation:
+      allow_x64_switch: false
+      allow_x86_switch: false
+
+  - id: "MOLEBOX_002_AUTO_BUNDLE"
+    <<: *molebox_v46
+    command_label: "Auto-Bundle Non-System Dependencies"
+    cli_template: "{bin} -B {in} -o {out}"
+    validation:
+      allow_x64_switch: false
+      allow_x86_switch: false
+
+  - id: "MOLEBOX_003_HIDE_FILES"
+    <<: *molebox_v46
+    command_label: "Hide Embedded Files"
+    cli_template: "{bin} -H {in} -o {out}"
+    validation:
+      allow_x64_switch: false
+      allow_x86_switch: false
+
+  - id: "MOLEBOX_004_VIRTUAL_REGISTRY"
+    <<: *molebox_v46
+    command_label: "Build Virtual Registry"
+    cli_template: "{bin} -O {in} -o {out}"
     validation:
       allow_x64_switch: false
       allow_x86_switch: false

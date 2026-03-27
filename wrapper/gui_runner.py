@@ -11,19 +11,34 @@ from typing import List, Dict, Optional, Set
 import argparse
 import yaml
 
+from fsg import FSG
 from asm_guard import AsmGuard
-from alienyze import Alienyze
+from alienyze_protector import AlienyzeProtector
 from mew import Mew
 from packman import Packman
 from rlpack import RLPack
 from ped import PEDiminisher
 from shrinker import Shrinker
-from upx_scrambler import UpxScrambler
+from upx_scrambler import (
+    UpxScrambler304,
+    UpxScrambler306,
+    UpxScramblerRC1,
+    UpxScramblerRC103,
+    UpxScramblerRC105,
+    UpxScramblerRC1b10,
+)
+from jdpack import JDPack
+from npack import NPack
+from nspack import NSpack
 from wupack import WinUpack
 from yoda_crypter import YodaCrypter
 from yoda_protector import YodaProtector
 
 PACKER_FILE_SUPPORT: Dict[str, List[str]] = {
+    "npack_v1.1": [".exe"],
+    "nspack_v3.7": [".exe"],
+    "jdpack_v1.00": [".exe"],
+    "fsg_v1.0": [".exe"],
     "asm_guard": [".exe"],
     "alienyze_protector": [".exe"],
     "mew": [".exe"],
@@ -32,6 +47,11 @@ PACKER_FILE_SUPPORT: Dict[str, List[str]] = {
     "pe_diminisher": [".exe"],
     "shrinker": [".exe"],
     "upx_scrambler": [".exe"],
+    "upx_scrambler_306": [".exe"],
+    "upx_scrambler_rc1": [".exe"],
+    "upx_scrambler_rc103": [".exe"],
+    "upx_scrambler_rc105": [".exe"],
+    "upx_scrambler_rc1b10": [".exe"],
     "winupack": [".exe"],
     "yoda_crypter": [".exe"],
     "yoda_protector": [".exe"],
@@ -56,6 +76,10 @@ PACKER_DEFAULT_STATES: Dict[str, Dict[str, bool]] = {
         "enhanced_flood_mode": False,
         "add_different_types": False,
     },
+    "npack_v1.1": {},
+    "nspack_v3.7": {},
+    "jdpack_v1.00": {},
+    "fsg_v1.0": {},
     "alienyze_protector": {},
     "mew": {},
     "packman": {},
@@ -63,6 +87,11 @@ PACKER_DEFAULT_STATES: Dict[str, Dict[str, bool]] = {
     "pe_diminisher": {},
     "shrinker": {},
     "upx_scrambler": {},
+    "upx_scrambler_306": {},
+    "upx_scrambler_rc1": {},
+    "upx_scrambler_rc103": {},
+    "upx_scrambler_rc105": {},
+    "upx_scrambler_rc1b10": {},
     "winupack": {},
     "yoda_crypter": {},
     "yoda_protector": {},
@@ -163,7 +192,19 @@ class GUIWrapperRunner:
         print(f"[INFO]   Source: {file_path}")
         print(f"[INFO]   Dest:   {temp_file}")
 
-        shutil.copy2(file_path, temp_file)
+        try:
+            shutil.copy2(file_path, temp_file)
+        except OSError as e:
+            if e.winerror == 1224:
+                # WinError 1224: file has a user-mapped section open (memory-mapped by OS).
+                # Fall back to raw binary copy which bypasses this restriction.
+                print("[WARNING] shutil.copy2 blocked (user-mapped section); using raw binary copy.")
+                with open(file_path, "rb") as src, open(temp_file, "wb") as dst:
+                    shutil.copyfileobj(src, dst)
+                shutil.copystat(file_path, temp_file)
+            else:
+                raise
+
         return temp_file
 
     def is_file_supported(self, file_path: Path, packer_name: str) -> bool:
@@ -273,6 +314,143 @@ class GUIWrapperRunner:
 
         return config if config else None
 
+    def run_npack(
+        self,
+        file_path: Path,
+        packer_config: Optional[Dict[str, bool]] = None,
+        output_dir: Optional[Path] = None,
+    ) -> bool:
+        """
+        Run nPack wrapper on a single file
+        """
+        print(f"\n{'=' * 60}")
+        print(f"PROCESSING: {file_path.name}")
+        print(f"{'=' * 60}")
+
+        try:
+            wrapper = NPack(str(self.yaml_path), str(self.main_dir))
+
+            if output_dir is None:
+                output_dir = self.get_output_directory("npack_v1.1")
+
+            print(f"[INFO] Output directory: {output_dir}")
+
+            success = wrapper.run(
+                click_mode=packer_config if packer_config else "all",
+                file_path=str(file_path.resolve()),
+                output_dir=str(output_dir),
+            )
+            return success
+
+        except Exception as e:
+            print(f"[ERROR] Failed to process {file_path.name}: {e}")
+            import traceback
+            traceback.print_exc()
+            return False
+
+    def run_nspack(
+        self,
+        file_path: Path,
+        packer_config: Optional[Dict[str, bool]] = None,
+        output_dir: Optional[Path] = None,
+    ) -> bool:
+        """
+        Run NSpack wrapper on a single file
+        """
+        print(f"\n{'=' * 60}")
+        print(f"PROCESSING: {file_path.name}")
+        print(f"{'=' * 60}")
+
+        try:
+            wrapper = NSpack(str(self.yaml_path), str(self.main_dir))
+
+            if output_dir is None:
+                output_dir = self.get_output_directory("nspack_v3.7")
+
+            print(f"[INFO] Output directory: {output_dir}")
+
+            success = wrapper.run(
+                click_mode=packer_config if packer_config else "all",
+                file_path=str(file_path.resolve()),
+                output_dir=str(output_dir),
+            )
+            return success
+
+        except Exception as e:
+            print(f"[ERROR] Failed to process {file_path.name}: {e}")
+            import traceback
+            traceback.print_exc()
+            return False
+
+    def run_jdpack(
+        self,
+        file_path: Path,
+        packer_config: Optional[Dict[str, bool]] = None,
+        output_dir: Optional[Path] = None,
+    ) -> bool:
+        """
+        Run JDPack wrapper on a single file
+        """
+        print(f"\n{'=' * 60}")
+        print(f"PROCESSING: {file_path.name}")
+        print(f"{'=' * 60}")
+
+        try:
+            wrapper = JDPack(str(self.yaml_path), str(self.main_dir))
+
+            if output_dir is None:
+                output_dir = self.get_output_directory("jdpack_v1.00")
+
+            print(f"[INFO] Output directory: {output_dir}")
+
+            success = wrapper.run(
+                click_mode=packer_config if packer_config else "all",
+                file_path=str(file_path.resolve()),
+                output_dir=str(output_dir),
+            )
+            return success
+
+        except Exception as e:
+            print(f"[ERROR] Failed to process {file_path.name}: {e}")
+            import traceback
+            traceback.print_exc()
+            return False
+
+    def run_fsg(
+        self,
+        file_path: Path,
+        packer_config: Optional[Dict[str, bool]] = None,
+        output_dir: Optional[Path] = None,
+    ) -> bool:
+        """
+        Run FSG wrapper on a single file
+        """
+        print(f"\n{'=' * 60}")
+        print(f"PROCESSING: {file_path.name}")
+        print(f"{'=' * 60}")
+
+        try:
+            wrapper = FSG(str(self.yaml_path), str(self.main_dir))
+
+            if output_dir is None:
+                output_dir = self.get_output_directory("fsg_v1.0")
+
+            print(f"[INFO] Output directory: {output_dir}")
+
+            success = wrapper.run(
+                click_mode=packer_config if packer_config else "all",
+                file_path=str(file_path.resolve()),
+                output_dir=str(output_dir),
+            )
+            return success
+
+        except Exception as e:
+            print(f"[ERROR] Failed to process {file_path.name}: {e}")
+            import traceback
+
+            traceback.print_exc()
+            return False
+
     def run_asm_guard(
         self,
         file_path: Path,
@@ -326,7 +504,7 @@ class GUIWrapperRunner:
         print(f"{'=' * 60}")
 
         try:
-            wrapper = Alienyze(str(self.yaml_path), str(self.main_dir))
+            wrapper = AlienyzeProtector(str(self.yaml_path), str(self.main_dir))
 
             if output_dir is None:
                 output_dir = self.get_output_directory("alienyze_protector")
@@ -537,10 +715,175 @@ class GUIWrapperRunner:
         print(f"{'=' * 60}")
 
         try:
-            wrapper = UpxScrambler(str(self.yaml_path), str(self.main_dir))
+            wrapper = UpxScrambler304(str(self.yaml_path), str(self.main_dir))
 
             if output_dir is None:
                 output_dir = self.get_output_directory("upx_scrambler")
+
+            print(f"[INFO] Output directory: {output_dir}")
+
+            success = wrapper.run(
+                click_mode=packer_config if packer_config else "all",
+                file_path=str(file_path.resolve()),
+                output_dir=str(output_dir),
+            )
+            return success
+
+        except Exception as e:
+            print(f"[ERROR] Failed to process {file_path.name}: {e}")
+            import traceback
+
+            traceback.print_exc()
+            return False
+
+    def run_upx_scrambler_306(
+        self,
+        file_path: Path,
+        packer_config: Optional[Dict[str, bool]] = None,
+        output_dir: Optional[Path] = None,
+    ) -> bool:
+        """Run UPX Scrambler 3.06 wrapper on a single file."""
+        print(f"\n{'=' * 60}")
+        print(f"PROCESSING: {file_path.name}")
+        print(f"{'=' * 60}")
+
+        try:
+            wrapper = UpxScrambler306(str(self.yaml_path), str(self.main_dir))
+
+            if output_dir is None:
+                output_dir = self.get_output_directory("upx_scrambler_306")
+
+            print(f"[INFO] Output directory: {output_dir}")
+
+            success = wrapper.run(
+                click_mode=packer_config if packer_config else "all",
+                file_path=str(file_path.resolve()),
+                output_dir=str(output_dir),
+            )
+            return success
+
+        except Exception as e:
+            print(f"[ERROR] Failed to process {file_path.name}: {e}")
+            import traceback
+
+            traceback.print_exc()
+            return False
+
+    def run_upx_scrambler_rc1(
+        self,
+        file_path: Path,
+        packer_config: Optional[Dict[str, bool]] = None,
+        output_dir: Optional[Path] = None,
+    ) -> bool:
+        """Run UPX Scrambler RC1 wrapper on a single file."""
+        print(f"\n{'=' * 60}")
+        print(f"PROCESSING: {file_path.name}")
+        print(f"{'=' * 60}")
+
+        try:
+            wrapper = UpxScramblerRC1(str(self.yaml_path), str(self.main_dir))
+
+            if output_dir is None:
+                output_dir = self.get_output_directory("upx_scrambler_rc1")
+
+            print(f"[INFO] Output directory: {output_dir}")
+
+            success = wrapper.run(
+                click_mode=packer_config if packer_config else "all",
+                file_path=str(file_path.resolve()),
+                output_dir=str(output_dir),
+            )
+            return success
+
+        except Exception as e:
+            print(f"[ERROR] Failed to process {file_path.name}: {e}")
+            import traceback
+
+            traceback.print_exc()
+            return False
+
+    def run_upx_scrambler_rc103(
+        self,
+        file_path: Path,
+        packer_config: Optional[Dict[str, bool]] = None,
+        output_dir: Optional[Path] = None,
+    ) -> bool:
+        """Run UPX Scrambler RC1.03 wrapper on a single file."""
+        print(f"\n{'=' * 60}")
+        print(f"PROCESSING: {file_path.name}")
+        print(f"{'=' * 60}")
+
+        try:
+            wrapper = UpxScramblerRC103(str(self.yaml_path), str(self.main_dir))
+
+            if output_dir is None:
+                output_dir = self.get_output_directory("upx_scrambler_rc103")
+
+            print(f"[INFO] Output directory: {output_dir}")
+
+            success = wrapper.run(
+                click_mode=packer_config if packer_config else "all",
+                file_path=str(file_path.resolve()),
+                output_dir=str(output_dir),
+            )
+            return success
+
+        except Exception as e:
+            print(f"[ERROR] Failed to process {file_path.name}: {e}")
+            import traceback
+
+            traceback.print_exc()
+            return False
+
+    def run_upx_scrambler_rc105(
+        self,
+        file_path: Path,
+        packer_config: Optional[Dict[str, bool]] = None,
+        output_dir: Optional[Path] = None,
+    ) -> bool:
+        """Run UPX Scrambler RC1.05 wrapper on a single file."""
+        print(f"\n{'=' * 60}")
+        print(f"PROCESSING: {file_path.name}")
+        print(f"{'=' * 60}")
+
+        try:
+            wrapper = UpxScramblerRC105(str(self.yaml_path), str(self.main_dir))
+
+            if output_dir is None:
+                output_dir = self.get_output_directory("upx_scrambler_rc105")
+
+            print(f"[INFO] Output directory: {output_dir}")
+
+            success = wrapper.run(
+                click_mode=packer_config if packer_config else "all",
+                file_path=str(file_path.resolve()),
+                output_dir=str(output_dir),
+            )
+            return success
+
+        except Exception as e:
+            print(f"[ERROR] Failed to process {file_path.name}: {e}")
+            import traceback
+
+            traceback.print_exc()
+            return False
+
+    def run_upx_scrambler_rc1b10(
+        self,
+        file_path: Path,
+        packer_config: Optional[Dict[str, bool]] = None,
+        output_dir: Optional[Path] = None,
+    ) -> bool:
+        """Run UPX Scrambler RC1b10 wrapper on a single file."""
+        print(f"\n{'=' * 60}")
+        print(f"PROCESSING: {file_path.name}")
+        print(f"{'=' * 60}")
+
+        try:
+            wrapper = UpxScramblerRC1b10(str(self.yaml_path), str(self.main_dir))
+
+            if output_dir is None:
+                output_dir = self.get_output_directory("upx_scrambler_rc1b10")
 
             print(f"[INFO] Output directory: {output_dir}")
 
@@ -677,6 +1020,10 @@ class GUIWrapperRunner:
         directory, and the packer operates on that copy.
         """
         packer_methods = {
+            "npack_v1.1": self.run_npack,
+            "nspack_v3.7": self.run_nspack,
+            "jdpack_v1.00": self.run_jdpack,
+            "fsg_v1.0": self.run_fsg,
             "asm_guard": self.run_asm_guard,
             "alienyze_protector": self.run_alienyze_protector,
             "mew": self.run_mew,
@@ -685,6 +1032,11 @@ class GUIWrapperRunner:
             "pe_diminisher": self.run_pe_diminisher,
             "shrinker": self.run_shrinker,
             "upx_scrambler": self.run_upx_scrambler,
+            "upx_scrambler_306": self.run_upx_scrambler_306,
+            "upx_scrambler_rc1": self.run_upx_scrambler_rc1,
+            "upx_scrambler_rc103": self.run_upx_scrambler_rc103,
+            "upx_scrambler_rc105": self.run_upx_scrambler_rc105,
+            "upx_scrambler_rc1b10": self.run_upx_scrambler_rc1b10,
             "winupack": self.run_winupack,
             "yoda_crypter": self.run_yoda_crypter,
             "yoda_protector": self.run_yoda_protector,

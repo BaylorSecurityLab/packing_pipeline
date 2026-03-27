@@ -1,9 +1,8 @@
 """
 UPX Scrambler GUI Automation Wrapper - Using Base GUI Wrapper
 
-UPX Scrambler scrambles the headers of UPX-packed executables to prevent
-easy unpacking. This wrapper first packs the input file with UPX using
-packer_runner, then launches the UPX Scrambler GUI to scramble it.
+Covers all UPX Scrambler versions (3.0.4, 3.06, RC1, RC1.03, RC1.05, RC1b10).
+The UI is identical across versions; only the packer name (YAML key) differs.
 """
 
 import sys
@@ -21,9 +20,9 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "utils"))
 from packer_runner import pack_single_file, load_yaml, sanitize_filename
 
 
-class UpxScrambler(BaseGUI):
+class UpxScramblerBase(BaseGUI):
     """
-    Wrapper for UPX Scrambler 3.0.4 GUI automation using the BaseGUIWrapper.
+    Base wrapper for UPX Scrambler GUI automation.
 
     UPX Scrambler scrambles headers of UPX-packed executables to prevent
     automatic unpacking. Requires the input file to be UPX-packed first.
@@ -32,20 +31,20 @@ class UpxScrambler(BaseGUI):
 
     Flow:
         1. Pack input file with UPX (via packer_runner)
-        2. Launch UPX Scrambler GUI (upxs304.exe)
+        2. Launch UPX Scrambler GUI
         3. Load the UPX-packed file via file picker
         4. Click "Scramble!" button
         5. Wait for file lock to release (in-place modification)
         6. Move scrambled file to output directory
     """
 
-    def __init__(self, yaml_path, main_dir):
-        """Initialize UPX Scrambler wrapper"""
+    def __init__(self, yaml_path, main_dir, packer_name="UPX_Scrambler"):
         super().__init__(yaml_path, main_dir)
+        self._packer_name = packer_name
 
     def get_packer_name(self):
         """Return the packer name for YAML lookup"""
-        return "UPX_Scrambler"
+        return self._packer_name
 
     def find_file_picker_window(self, timeout=10):
         """
@@ -114,7 +113,7 @@ class UpxScrambler(BaseGUI):
         # Find UPX DEFAULT test case from YAML
         upx_test = None
         for case in config.get("test_cases", []):
-            if case.get("packer_name", "").lower() == "upx" and "DEFAULT" in case["id"]:
+            if case.get("packer_family", "").upper() == "UPX" and "DEFAULT" in case["id"]:
                 upx_test = case
                 break
 
@@ -250,7 +249,7 @@ class UpxScrambler(BaseGUI):
         try:
             # Step 1: Load packer info from YAML
             print("\n" + "=" * 60)
-            print("UPX SCRAMBLER GUI AUTOMATION")
+            print(f"UPX SCRAMBLER GUI AUTOMATION ({self._packer_name})")
             print("=" * 60)
 
             if not self.load_packer_info():
@@ -366,15 +365,47 @@ class UpxScrambler(BaseGUI):
             return False
 
 
+# Version-specific subclasses — UI is identical across all versions;
+# only the packer_name (YAML key) differs.
+
+class UpxScrambler304(UpxScramblerBase):
+    def __init__(self, yaml_path, main_dir):
+        super().__init__(yaml_path, main_dir, "UPX_Scrambler")
+
+
+class UpxScrambler306(UpxScramblerBase):
+    def __init__(self, yaml_path, main_dir):
+        super().__init__(yaml_path, main_dir, "UPX_Scrambler_3.06")
+
+
+class UpxScramblerRC1(UpxScramblerBase):
+    def __init__(self, yaml_path, main_dir):
+        super().__init__(yaml_path, main_dir, "UPX_Scrambler_RC1")
+
+
+class UpxScramblerRC103(UpxScramblerBase):
+    def __init__(self, yaml_path, main_dir):
+        super().__init__(yaml_path, main_dir, "UPX_Scrambler_RC1.03")
+
+
+class UpxScramblerRC105(UpxScramblerBase):
+    def __init__(self, yaml_path, main_dir):
+        super().__init__(yaml_path, main_dir, "UPX_Scrambler_RC1.05")
+
+
+class UpxScramblerRC1b10(UpxScramblerBase):
+    def __init__(self, yaml_path, main_dir):
+        super().__init__(yaml_path, main_dir, "UPX_Scrambler_RC1b10")
+
+
 def main():
-    """Entry point"""
+    """Entry point — defaults to UPX Scrambler 3.0.4"""
     import argparse
 
     parser = argparse.ArgumentParser(
         description="UPX Scrambler GUI Automation Wrapper",
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
-
     parser.add_argument(
         "--file-path", type=str, default=None, help="Full path to the file to process"
     )
@@ -387,7 +418,6 @@ def main():
 
     args = parser.parse_args()
 
-    # Determine paths
     script_dir = Path(__file__).parent
     main_dir = script_dir.parent
     yaml_path = main_dir / "manifest" / "packer_corpus.yaml"
@@ -400,7 +430,7 @@ def main():
         print(f"\n[ERROR] YAML file not found at: {yaml_path}")
         return 1
 
-    wrapper = UpxScrambler(yaml_path, main_dir)
+    wrapper = UpxScrambler304(yaml_path, main_dir)
     success = wrapper.run(file_path=args.file_path, output_dir=args.output_dir)
 
     return 0 if success else 1

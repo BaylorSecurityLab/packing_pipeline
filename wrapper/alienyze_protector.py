@@ -13,7 +13,7 @@ import pygetwindow as gw
 import traceback
 
 
-class Alienyze(BaseGUI):
+class AlienyzeProtector(BaseGUI):
     """
     Wrapper for Alienyze GUI automation using the BaseGUIWrapper.
     """
