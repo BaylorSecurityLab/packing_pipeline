@@ -286,7 +286,7 @@ definitions:
 
   - &yoda_crypter_v13
     packer_family: "yoda_crypter"
-    packer_name: "yoda_crypter"
+    packer_name: "yoda_crypter_v1.3"
     version: "1.3"
     arch_origin: "x86"
     supported_input_arch: "PE32"
@@ -1488,14 +1488,7 @@ definitions:
         "zydis.dll",
       ]
     tags:
-      [
-        "GUI",
-        "Protector",
-        "Virtualizer",
-        "Anti-Debug",
-        "Commercial",
-        "Demo",
-      ]
+      ["GUI", "Protector", "Virtualizer", "Anti-Debug", "Commercial", "Demo"]
     binary_path: "./packers/The Enigma Protector/enigma64.exe"
     binary_sha256: "c393a08a7259c053ef9eff48fac64051422144bda6a5f7c8927113f50960fd30"
     source_url: "https://www.enigmaprotector.com"

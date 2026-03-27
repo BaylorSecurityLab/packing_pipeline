@@ -1,5 +1,5 @@
 """
-Yoda's Crypter GUI Automation Wrapper
+tElock GUI Automation Wrapper - Using Base GUI Wrapper
 """
 
 import sys
@@ -7,31 +7,108 @@ import time
 from pathlib import Path
 from base_gui import BaseGUI
 import pyautogui
+import pyperclip
+import pygetwindow as gw
 import traceback
 
 
-class YodaCrypter(BaseGUI):
+class Telock(BaseGUI):
     """
-    Wrapper for Yoda's Crypter (yC) v1.3 GUI automation.
+    Wrapper for tElock 0.98 GUI automation using the BaseGUIWrapper.
 
-    In-place packer: output file replaces the input file (same name/path).
+    tElock (The Experimental Lock) is a legacy PE protector with polymorphic encryption.
+    Output behavior is in-place (modifies the input file directly).
+
+    UI Flow:
+        1. Launch tElock.exe
+        2. Select file via browse button and file picker
+        3. Click "tElock it!" button
+        4. Wait for input file lock to release (in-place modification)
     """
 
     def __init__(self, yaml_path, main_dir):
-        """Initialize YodaCrypter wrapper"""
+        """Initialize Telock wrapper"""
         super().__init__(yaml_path, main_dir)
 
     def get_packer_name(self):
         """Return the packer name for YAML lookup"""
-        return "yoda_crypter_v1.3"
+        return "telock_v0.98"
+
+    def find_file_picker_window(self, timeout=10):
+        """
+        Find the file picker window opened by tElock.
+
+        Overrides base class to log all visible window titles for debugging
+        and use a broader set of patterns to catch tElock's dialog.
+        """
+        print("\n[INFO] Searching for file picker window...")
+        start_time = time.time()
+
+        # Broader patterns including the base ones
+        patterns = self.FILE_PICKER_PATTERNS + [
+            "telock",
+            "Ouvrir",       # French
+            "Abrir",        # Spanish
+            "Öffnen",       # German
+            "Save",
+            "File",
+        ]
+
+        while time.time() - start_time < timeout:
+            try:
+                all_titles = [t for t in gw.getAllTitles() if t.strip()]
+
+                for title in all_titles:
+                    if any(p.lower() in title.lower() for p in patterns):
+                        print(f"[SUCCESS] Found file picker: '{title}'")
+                        return gw.getWindowsWithTitle(title)[0]
+
+            except Exception as e:
+                print(f"[DEBUG] Error during file picker search: {e}")
+
+            time.sleep(0.3)
+
+        # If we get here, print all titles for debugging
+        print("[DEBUG] All visible window titles:")
+        try:
+            for title in gw.getAllTitles():
+                if title.strip():
+                    print(f"  - '{title}'")
+        except Exception:
+            pass
+
+        print("[ERROR] File picker window not found within timeout")
+        return None
+
+    def check_for_error_dialog(self):
+        """
+        Check if tElock has opened an error dialog (title exactly "Error").
+
+        Returns:
+            bool: True if an error dialog is detected
+        """
+        try:
+            for win in gw.getAllWindows():
+                if win.title.strip() == "Error" and win.visible:
+                    print(f"[WARNING] Error dialog detected: '{win.title}'")
+                    try:
+                        win.activate()
+                        time.sleep(0.2)
+                        pyautogui.press("enter")
+                        time.sleep(0.2)
+                    except Exception:
+                        pass
+                    return True
+        except Exception as e:
+            print(f"[DEBUG] Error dialog check failed: {e}")
+        return False
 
     def wait_for_packing_complete(self, input_file_path):
         """
-        Wait for in-place packing to complete with stability verification.
+        Wait for the in-place packing to complete with stability verification.
 
-        Yoda's Crypter modifies the input file in-place, so we watch the
-        input file itself for lock release. Requires N consecutive unlocked
-        checks to confirm completion.
+        tElock modifies the input file in-place, so we watch the input file itself
+        for lock release. Requires N consecutive unlocked checks to confirm completion.
 
         Args:
             input_file_path: Path to the file being packed
@@ -60,6 +137,10 @@ class YodaCrypter(BaseGUI):
 
         while time.time() - start_time < timeout:
             elapsed = int(time.time() - start_time)
+
+            if self.check_for_error_dialog():
+                print("\n[ERROR] tElock error dialog detected — packing failed.")
+                return None
 
             if input_path.exists():
                 current_size = input_path.stat().st_size
@@ -97,12 +178,12 @@ class YodaCrypter(BaseGUI):
 
     def run(self, click_mode="all", file_path=None, output_dir=None):
         """
-        Main execution flow for Yoda's Crypter.
+        Main execution flow for tElock.
 
         Args:
-            click_mode: Configuration mode (reserved for future steps)
+            click_mode: Configuration mode
             file_path: Path to the input file
-            output_dir: Directory to move the packed file to
+            output_dir: Directory to move final output to (optional)
 
         Returns:
             bool: True if successful, False otherwise
@@ -110,17 +191,17 @@ class YodaCrypter(BaseGUI):
         input_file = None
 
         try:
+            # Step 1: Load packer info from YAML
             print("\n" + "=" * 60)
-            print("YODA'S CRYPTER GUI AUTOMATION")
+            print("tElock GUI AUTOMATION")
             print("=" * 60)
 
-            # Step 1: Load packer info from YAML
             if not self.load_packer_info():
                 print("[ERROR] Failed to load packer info from YAML")
                 return False
 
             # Step 2: Launch application
-            print("\n[INFO] Launching Yoda's Crypter...")
+            print("\n[INFO] Launching tElock...")
             if not self.launch_application():
                 print("[ERROR] Failed to launch application")
                 return False
@@ -128,101 +209,52 @@ class YodaCrypter(BaseGUI):
             # Step 3: Find the window
             if not self.find_window():
                 print("[WARNING] Could not find window by PID, trying title search...")
-                if not self.find_window(window_title="yoda"):
-                    print("[ERROR] Could not find Yoda's Crypter window")
+                if not self.find_window(window_title="telock"):
+                    print("[ERROR] Could not find tElock window")
                     return False
 
-            print("\n[SUCCESS] Yoda's Crypter launched successfully!")
+            print("\n[SUCCESS] tElock launched successfully!")
             print(f"[INFO] Window title: {self.window.title}")
 
             # Step 4: Center window on monitor
             time.sleep(0.3)
             self.center_window_on_monitor(monitor_number=1)
 
-            # Step 5: Open file dialog via Tab then Enter
-            if not file_path:
+            # Step 5: Load the file via browse button and file picker
+            if file_path:
+                input_file = Path(file_path).resolve()
+                print(f"\n[INFO] Loading file: {input_file}")
+
+                # Click the "..." / browse button to open file picker
+                time.sleep(0.5)
+                self.click_at_percent(0.10, 0.92, "Browse button")
+                time.sleep(1.0)
+
+                # Use the file picker to navigate and select the file
+                app_name = self.extract_app_name(str(input_file))
+                if not self.paste_file_path_in_picker(str(input_file), app_name):
+                    print("[ERROR] Failed to select file in picker")
+                    self.close_application()
+                    return False
+
+                time.sleep(0.5)
+                print("[SUCCESS] File loaded!")
+            else:
                 print("[ERROR] No file path provided")
                 self.close_application()
                 return False
 
-            input_file = Path(file_path).resolve()
-            print(f"\n[INFO] Opening file dialog for: {input_file}")
-
-            self.window.activate()
-            time.sleep(0.3)
-            pyautogui.press("tab")
-            time.sleep(0.2)
-            pyautogui.press("enter")
-            print("[INFO] File open dialog triggered!")
-
-            # Step 6: Navigate to directory and paste filename
-            time.sleep(1.0)
-            if not self.paste_file_path_in_picker(str(input_file), input_file.name):
-                print("[ERROR] Failed to select file in dialog")
-                self.close_application()
-                return False
-
-            print("[SUCCESS] File selected!")
-
-            # Step 7: Re-find window — title changes after file is loaded
-            # _get_client_area_info uses FindWindow(exact title), so self.window.title
-            # must be current or click coordinates will be calculated against hwnd=0
+            # Step 6: Click the "tElock it!" button
             time.sleep(0.5)
-            print("\n[INFO] Re-finding window to capture updated title...")
-            if not self.find_window():
-                print(
-                    "[WARNING] Could not re-find window by PID, trying title search..."
-                )
-                if not self.find_window(window_title="yoda"):
-                    print(
-                        "[ERROR] Could not find Yoda's Crypter window after file selection"
-                    )
-                    self.close_application()
-                    return False
+            self.click_at_percent(0.50, 0.85, "tElock it! button")
 
-            # Re-center so the window is fully on screen before coordinates are computed
-            time.sleep(0.3)
-            self.center_window_on_monitor(monitor_number=1)
-            time.sleep(0.3)
-
-            # Capture fresh window dimensions (matches shrinker pattern)
-            self.get_window_dimensions()
-
-            # Step 8: Click Protect! button (top-right of window)
-            time.sleep(0.5)
-            self.click_at_percent(0.85, 0.15, "Protect button")
             print("[INFO] Packing process initiated!")
 
-            # Step 9: Wait for the ":)" completion dialog, then dismiss it.
-            # yC holds the file lock until this dialog is acknowledged, so we
-            # must dismiss it BEFORE running the file watch — not after.
-            print("\n[INFO] Waiting for completion dialog ':)'...")
-            dialog_dismissed = False
-            deadline = time.time() + self.EXTRA_LONG_TIMEOUT
-
-            while time.time() < deadline:
-                elapsed = int(time.time() - (deadline - self.EXTRA_LONG_TIMEOUT))
-                if self.find_window(window_title=":)", timeout=2) and self.window:
-                    print(f"\n[SUCCESS] Completion dialog found! ({elapsed}s)")
-                    self.window.activate()
-                    time.sleep(0.3)
-                    pyautogui.press("enter")
-                    time.sleep(0.5)
-                    print("[SUCCESS] Completion dialog dismissed!")
-                    dialog_dismissed = True
-                    break
-                print(f"  [{elapsed}s] Waiting for completion dialog...")
-
-            if not dialog_dismissed:
-                print("\n[ERROR] Completion dialog never appeared — timed out!")
-                self.close_application()
-                return False
-
-            # Step 10: Confirm file is released and stable after dialog dismissal
+            # Step 7: Wait for packing to complete
             packed_file = self.wait_for_packing_complete(str(input_file))
 
             if packed_file:
-                # Step 11: Move packed file to output directory
+                # Step 8: Move to output directory if specified
                 final_path = self.move_protected_file_to_output(packed_file, output_dir)
 
                 if final_path:
@@ -233,12 +265,12 @@ class YodaCrypter(BaseGUI):
                     print(f"  Output: {final_path}")
                     print(f"{'=' * 60}")
 
-                # Step 12: Close application
+                # Step 9: Close application
                 self.close_application()
                 print("\n[SUCCESS] Automation complete!")
                 return True
             else:
-                print("[ERROR] File watch failed after dialog dismissal!")
+                print("[ERROR] Packing process failed or timed out!")
                 self.close_application()
                 return False
 
@@ -257,7 +289,7 @@ def main():
     import argparse
 
     parser = argparse.ArgumentParser(
-        description="Yoda's Crypter GUI Automation Wrapper",
+        description="tElock GUI Automation Wrapper",
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
 
@@ -273,6 +305,7 @@ def main():
 
     args = parser.parse_args()
 
+    # Determine paths
     script_dir = Path(__file__).parent
     main_dir = script_dir.parent
     yaml_path = main_dir / "manifest" / "packer_corpus.yaml"
@@ -285,7 +318,7 @@ def main():
         print(f"\n[ERROR] YAML file not found at: {yaml_path}")
         return 1
 
-    wrapper = YodaCrypter(yaml_path, main_dir)
+    wrapper = Telock(yaml_path, main_dir)
     success = wrapper.run(file_path=args.file_path, output_dir=args.output_dir)
 
     return 0 if success else 1

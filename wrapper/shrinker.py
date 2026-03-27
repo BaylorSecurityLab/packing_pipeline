@@ -24,7 +24,7 @@ class Shrinker(BaseGUI):
 
     def get_packer_name(self):
         """Return the packer name for YAML lookup"""
-        return "Shrinker"
+        return "shrinker_v3.4_demo"
 
     def wait_for_packing_complete(self, input_file_path):
         """

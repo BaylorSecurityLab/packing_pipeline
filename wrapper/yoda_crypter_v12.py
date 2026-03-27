@@ -1,5 +1,5 @@
 """
-Yoda's Crypter GUI Automation Wrapper
+Yoda's Crypter v1.2 GUI Automation Wrapper
 """
 
 import sys
@@ -10,20 +10,23 @@ import pyautogui
 import traceback
 
 
-class YodaCrypter(BaseGUI):
+class YodaCrypterV12(BaseGUI):
     """
-    Wrapper for Yoda's Crypter (yC) v1.3 GUI automation.
+    Wrapper for Yoda's Crypter (yC) v1.2 GUI automation.
 
     In-place packer: output file replaces the input file (same name/path).
+
+    NOTE: v1.2 UI differences from v1.3:
+      - TODO: document button positions / dialog titles once confirmed
     """
 
     def __init__(self, yaml_path, main_dir):
-        """Initialize YodaCrypter wrapper"""
+        """Initialize YodaCrypterV12 wrapper"""
         super().__init__(yaml_path, main_dir)
 
     def get_packer_name(self):
         """Return the packer name for YAML lookup"""
-        return "yoda_crypter_v1.3"
+        return "yoda_crypter_v1.2"
 
     def wait_for_packing_complete(self, input_file_path):
         """
@@ -97,7 +100,7 @@ class YodaCrypter(BaseGUI):
 
     def run(self, click_mode="all", file_path=None, output_dir=None):
         """
-        Main execution flow for Yoda's Crypter.
+        Main execution flow for Yoda's Crypter v1.2.
 
         Args:
             click_mode: Configuration mode (reserved for future steps)
@@ -111,7 +114,7 @@ class YodaCrypter(BaseGUI):
 
         try:
             print("\n" + "=" * 60)
-            print("YODA'S CRYPTER GUI AUTOMATION")
+            print("YODA'S CRYPTER v1.2 GUI AUTOMATION")
             print("=" * 60)
 
             # Step 1: Load packer info from YAML
@@ -120,7 +123,7 @@ class YodaCrypter(BaseGUI):
                 return False
 
             # Step 2: Launch application
-            print("\n[INFO] Launching Yoda's Crypter...")
+            print("\n[INFO] Launching Yoda's Crypter v1.2...")
             if not self.launch_application():
                 print("[ERROR] Failed to launch application")
                 return False
@@ -129,10 +132,10 @@ class YodaCrypter(BaseGUI):
             if not self.find_window():
                 print("[WARNING] Could not find window by PID, trying title search...")
                 if not self.find_window(window_title="yoda"):
-                    print("[ERROR] Could not find Yoda's Crypter window")
+                    print("[ERROR] Could not find Yoda's Crypter v1.2 window")
                     return False
 
-            print("\n[SUCCESS] Yoda's Crypter launched successfully!")
+            print("\n[SUCCESS] Yoda's Crypter v1.2 launched successfully!")
             print(f"[INFO] Window title: {self.window.title}")
 
             # Step 4: Center window on monitor
@@ -165,8 +168,6 @@ class YodaCrypter(BaseGUI):
             print("[SUCCESS] File selected!")
 
             # Step 7: Re-find window — title changes after file is loaded
-            # _get_client_area_info uses FindWindow(exact title), so self.window.title
-            # must be current or click coordinates will be calculated against hwnd=0
             time.sleep(0.5)
             print("\n[INFO] Re-finding window to capture updated title...")
             if not self.find_window():
@@ -175,7 +176,7 @@ class YodaCrypter(BaseGUI):
                 )
                 if not self.find_window(window_title="yoda"):
                     print(
-                        "[ERROR] Could not find Yoda's Crypter window after file selection"
+                        "[ERROR] Could not find Yoda's Crypter v1.2 window after file selection"
                     )
                     self.close_application()
                     return False
@@ -185,17 +186,16 @@ class YodaCrypter(BaseGUI):
             self.center_window_on_monitor(monitor_number=1)
             time.sleep(0.3)
 
-            # Capture fresh window dimensions (matches shrinker pattern)
+            # Capture fresh window dimensions
             self.get_window_dimensions()
 
-            # Step 8: Click Protect! button (top-right of window)
+            # Step 8: Click Protect! button
+            # TODO: verify click coordinates for v1.2 UI — may differ from v1.3 (0.85, 0.15)
             time.sleep(0.5)
-            self.click_at_percent(0.85, 0.15, "Protect button")
+            self.click_at_percent(0.85, 0.25, "Protect button")
             print("[INFO] Packing process initiated!")
 
-            # Step 9: Wait for the ":)" completion dialog, then dismiss it.
-            # yC holds the file lock until this dialog is acknowledged, so we
-            # must dismiss it BEFORE running the file watch — not after.
+            # Step 9: Wait for completion dialog, then dismiss it.
             print("\n[INFO] Waiting for completion dialog ':)'...")
             dialog_dismissed = False
             deadline = time.time() + self.EXTRA_LONG_TIMEOUT
@@ -257,7 +257,7 @@ def main():
     import argparse
 
     parser = argparse.ArgumentParser(
-        description="Yoda's Crypter GUI Automation Wrapper",
+        description="Yoda's Crypter v1.2 GUI Automation Wrapper",
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
 
@@ -285,7 +285,7 @@ def main():
         print(f"\n[ERROR] YAML file not found at: {yaml_path}")
         return 1
 
-    wrapper = YodaCrypter(yaml_path, main_dir)
+    wrapper = YodaCrypterV12(yaml_path, main_dir)
     success = wrapper.run(file_path=args.file_path, output_dir=args.output_dir)
 
     return 0 if success else 1

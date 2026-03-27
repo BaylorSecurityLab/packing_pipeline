@@ -32,7 +32,11 @@ from npack import NPack
 from nspack import NSpack
 from wupack import WinUpack
 from yoda_crypter import YodaCrypter
+from yoda_crypter_v12 import YodaCrypterV12
 from yoda_protector import YodaProtector
+from acprotect import ACProtect
+from telock import Telock
+from pelock import PELock
 
 PACKER_FILE_SUPPORT: Dict[str, List[str]] = {
     "npack_v1.1": [".exe"],
@@ -45,7 +49,7 @@ PACKER_FILE_SUPPORT: Dict[str, List[str]] = {
     "packman": [".exe"],
     "rlpack": [".exe"],
     "pe_diminisher": [".exe"],
-    "shrinker": [".exe"],
+    "shrinker_v3.4_demo": [".exe"],
     "upx_scrambler": [".exe"],
     "upx_scrambler_306": [".exe"],
     "upx_scrambler_rc1": [".exe"],
@@ -53,8 +57,12 @@ PACKER_FILE_SUPPORT: Dict[str, List[str]] = {
     "upx_scrambler_rc105": [".exe"],
     "upx_scrambler_rc1b10": [".exe"],
     "winupack": [".exe"],
-    "yoda_crypter": [".exe"],
+    "yoda_crypter_v1.3": [".exe"],
+    "yoda_crypter_v1.2": [".exe"],
     "yoda_protector": [".exe"],
+    "acprotect_std": [".exe"],
+    "telock_v0.98": [".exe"],
+    "pelock_v2.40": [".exe"],
 }
 
 PACKER_OPTIONS: Dict[str, Dict[str, str]] = {
@@ -85,7 +93,7 @@ PACKER_DEFAULT_STATES: Dict[str, Dict[str, bool]] = {
     "packman": {},
     "rlpack": {},
     "pe_diminisher": {},
-    "shrinker": {},
+    "shrinker_v3.4_demo": {},
     "upx_scrambler": {},
     "upx_scrambler_306": {},
     "upx_scrambler_rc1": {},
@@ -93,8 +101,12 @@ PACKER_DEFAULT_STATES: Dict[str, Dict[str, bool]] = {
     "upx_scrambler_rc105": {},
     "upx_scrambler_rc1b10": {},
     "winupack": {},
-    "yoda_crypter": {},
+    "yoda_crypter_v1.3": {},
+    "yoda_crypter_v1.2": {},
     "yoda_protector": {},
+    "acprotect_std": {},
+    "telock_v0.98": {},
+    "pelock_v2.40": {},
 }
 
 # Default packer to use
@@ -195,10 +207,11 @@ class GUIWrapperRunner:
         try:
             shutil.copy2(file_path, temp_file)
         except OSError as e:
-            if e.winerror == 1224:
+            if e.winerror in (32, 1224):
                 # WinError 1224: file has a user-mapped section open (memory-mapped by OS).
+                # WinError 32: sharing violation (file locked by another process).
                 # Fall back to raw binary copy which bypasses this restriction.
-                print("[WARNING] shutil.copy2 blocked (user-mapped section); using raw binary copy.")
+                print(f"[WARNING] shutil.copy2 blocked (WinError {e.winerror}); using raw binary copy.")
                 with open(file_path, "rb") as src, open(temp_file, "wb") as dst:
                     shutil.copyfileobj(src, dst)
                 shutil.copystat(file_path, temp_file)
@@ -682,7 +695,7 @@ class GUIWrapperRunner:
             wrapper = Shrinker(str(self.yaml_path), str(self.main_dir))
 
             if output_dir is None:
-                output_dir = self.get_output_directory("shrinker")
+                output_dir = self.get_output_directory("shrinker_v3.4_demo")
 
             print(f"[INFO] Output directory: {output_dir}")
 
@@ -953,7 +966,42 @@ class GUIWrapperRunner:
             wrapper = YodaCrypter(str(self.yaml_path), str(self.main_dir))
 
             if output_dir is None:
-                output_dir = self.get_output_directory("yoda_crypter")
+                output_dir = self.get_output_directory("yoda_crypter_v1.3")
+
+            print(f"[INFO] Output directory: {output_dir}")
+
+            success = wrapper.run(
+                click_mode=packer_config if packer_config else "all",
+                file_path=str(file_path.resolve()),
+                output_dir=str(output_dir),
+            )
+            return success
+
+        except Exception as e:
+            print(f"[ERROR] Failed to process {file_path.name}: {e}")
+            import traceback
+
+            traceback.print_exc()
+            return False
+
+    def run_yoda_crypter_v12(
+        self,
+        file_path: Path,
+        packer_config: Optional[Dict[str, bool]] = None,
+        output_dir: Optional[Path] = None,
+    ) -> bool:
+        """
+        Run Yoda's Crypter v1.2 wrapper on a single file.
+        """
+        print(f"\n{'=' * 60}")
+        print(f"PROCESSING: {file_path.name}")
+        print(f"{'=' * 60}")
+
+        try:
+            wrapper = YodaCrypterV12(str(self.yaml_path), str(self.main_dir))
+
+            if output_dir is None:
+                output_dir = self.get_output_directory("yoda_crypter_v1.2")
 
             print(f"[INFO] Output directory: {output_dir}")
 
@@ -1006,6 +1054,108 @@ class GUIWrapperRunner:
             traceback.print_exc()
             return False
 
+    def run_telock(
+        self,
+        file_path: Path,
+        packer_config: Optional[Dict[str, bool]] = None,
+        output_dir: Optional[Path] = None,
+    ) -> bool:
+        """
+        Run Telock wrapper on a single file
+        """
+        print(f"\n{'=' * 60}")
+        print(f"PROCESSING: {file_path.name}")
+        print(f"{'=' * 60}")
+
+        try:
+            wrapper = Telock(str(self.yaml_path), str(self.main_dir))
+
+            if output_dir is None:
+                output_dir = self.get_output_directory("telock_v0.98")
+
+            print(f"[INFO] Output directory: {output_dir}")
+
+            success = wrapper.run(
+                click_mode=packer_config if packer_config else "all",
+                file_path=str(file_path.resolve()),
+                output_dir=str(output_dir),
+            )
+            return success
+
+        except Exception as e:
+            print(f"[ERROR] Failed to process {file_path.name}: {e}")
+            import traceback
+            traceback.print_exc()
+            return False
+
+    def run_acprotect(
+        self,
+        file_path: Path,
+        packer_config: Optional[Dict[str, bool]] = None,
+        output_dir: Optional[Path] = None,
+    ) -> bool:
+        """
+        Run ACProtect wrapper on a single file
+        """
+        print(f"\n{'=' * 60}")
+        print(f"PROCESSING: {file_path.name}")
+        print(f"{'=' * 60}")
+
+        try:
+            wrapper = ACProtect(str(self.yaml_path), str(self.main_dir))
+
+            if output_dir is None:
+                output_dir = self.get_output_directory("acprotect_std")
+
+            print(f"[INFO] Output directory: {output_dir}")
+
+            success = wrapper.run(
+                click_mode=packer_config if packer_config else "all",
+                file_path=str(file_path.resolve()),
+                output_dir=str(output_dir),
+            )
+            return success
+
+        except Exception as e:
+            print(f"[ERROR] Failed to process {file_path.name}: {e}")
+            import traceback
+            traceback.print_exc()
+            return False
+
+    def run_pelock(
+        self,
+        file_path: Path,
+        packer_config: Optional[Dict[str, bool]] = None,
+        output_dir: Optional[Path] = None,
+    ) -> bool:
+        """
+        Run PELock wrapper on a single file
+        """
+        print(f"\n{'=' * 60}")
+        print(f"PROCESSING: {file_path.name}")
+        print(f"{'=' * 60}")
+
+        try:
+            wrapper = PELock(str(self.yaml_path), str(self.main_dir))
+
+            if output_dir is None:
+                output_dir = self.get_output_directory("pelock_v2.40")
+
+            print(f"[INFO] Output directory: {output_dir}")
+
+            success = wrapper.run(
+                click_mode=packer_config if packer_config else "all",
+                file_path=str(file_path.resolve()),
+                output_dir=str(output_dir),
+            )
+            return success
+
+        except Exception as e:
+            print(f"[ERROR] Failed to process {file_path.name}: {e}")
+            import traceback
+            traceback.print_exc()
+            return False
+
     def run_packer(
         self,
         packer_name: str,
@@ -1030,7 +1180,7 @@ class GUIWrapperRunner:
             "packman": self.run_packman,
             "rlpack": self.run_rlpack,
             "pe_diminisher": self.run_pe_diminisher,
-            "shrinker": self.run_shrinker,
+            "shrinker_v3.4_demo": self.run_shrinker,
             "upx_scrambler": self.run_upx_scrambler,
             "upx_scrambler_306": self.run_upx_scrambler_306,
             "upx_scrambler_rc1": self.run_upx_scrambler_rc1,
@@ -1038,8 +1188,12 @@ class GUIWrapperRunner:
             "upx_scrambler_rc105": self.run_upx_scrambler_rc105,
             "upx_scrambler_rc1b10": self.run_upx_scrambler_rc1b10,
             "winupack": self.run_winupack,
-            "yoda_crypter": self.run_yoda_crypter,
+            "yoda_crypter_v1.3": self.run_yoda_crypter,
+            "yoda_crypter_v1.2": self.run_yoda_crypter_v12,
             "yoda_protector": self.run_yoda_protector,
+            "acprotect_std": self.run_acprotect,
+            "telock_v0.98": self.run_telock,
+            "pelock_v2.40": self.run_pelock,
         }
 
         if packer_name not in packer_methods:
