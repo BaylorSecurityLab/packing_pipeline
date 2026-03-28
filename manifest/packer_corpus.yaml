@@ -1212,52 +1212,6 @@ definitions:
     type: "Type II"
     type_ex: "Simple XOR encryption of the .text section followed by a decryption stub appended to the end of the last section. Does not maintain persistent hooks."
 
-  - &aspack_v243
-    packer_family: "aspack"
-    packer_name: "aspack_v2.43"
-    version: "2.43"
-    arch_origin: "x86"
-    supported_input_arch: "PE32"
-    supported_output_arch: "PE32"
-    dependencies: []
-    tags: ["GUI", "Compressor", "Anti-Dump", "Commercial"]
-    binary_path: "./packers/aspack/ASPack/ASPack.exe"
-    binary_sha256: "b1aad17f65fbdb5fb75e13a00bd3b1db6e5168f8e4419e57b13fb34dc48c4ba4"
-    source_url: "http://www.aspack.com"
-    license: "Commercial (Trial)"
-    notes: "ASPack v2.43 (13-Jun-2018) by Alexey Solodovnikov. A popular Win32 PE compressor widely associated with malware distribution. GUI-only; no CLI interface. Trial version with nag screen."
-    size_kb: "558"
-    output_behavior: "in_place"
-    type: "Type III"
-    type_ex: "ASPack implements import table scrambling and anti-dump techniques. The packed executable retains hooks into the packer stub at runtime, consistent with a cyclic integrity model."
-    known_issues:
-      - "Automation: GUI-only; cannot be scripted via CLI."
-      - "Trial: Nag screen popup on every launch."
-      - "Compatibility: May fail on executables with non-standard section alignments or TLS-heavy binaries."
-
-  - &asprotect32_v278
-    packer_family: "asprotect32"
-    packer_name: "asprotect32_v2.78"
-    version: "2.78"
-    arch_origin: "x86"
-    supported_input_arch: "PE32"
-    supported_output_arch: "PE32"
-    dependencies: []
-    tags: ["GUI", "Protector", "Anti-Debug", "Crypter", "Commercial", "Demo"]
-    binary_path: "./packers/asprotect32/ASProtect 32 Demo/ASProtect.exe"
-    binary_sha256: "a73694cb69ccbcc2e14d85d08aa589d01e9a3f082cbe3a4e25a80c695c2885ca"
-    source_url: "http://www.aspack.com"
-    license: "Commercial (Demo)"
-    notes: "ASProtect 32 v2.78 (Demo) by Alexey Solodovnikov. A professional PE protector featuring compression, encryption, anti-debugging, anti-dump, and registration key API. Demo edition; full protection requires a license. Project-based GUI workflow; not CLI-automatable."
-    size_kb: "1756"
-    output_behavior: "explicit"
-    type: "Type IV"
-    type_ex: "ASProtect features full anti-debugging (INT3 detection, IsDebuggerPresent bypass), code encryption, CRC integrity checks, and a runtime API — all hallmarks of interleaved execution where packer code remains active throughout the program lifecycle."
-    known_issues:
-      - "Demo Limitations: Demo edition stamps output and limits protection features."
-      - "Automation: GUI-only workflow; no CLI interface. Cannot be scripted directly."
-      - "Dependencies: Requires .NET Framework 2.0 SP1 (NetFx20SP1_x64.exe included)."
-
   - &pecompact_v184
     packer_family: "pecompact"
     packer_name: "pecompact_v1.84"
@@ -1394,28 +1348,6 @@ definitions:
   # Entries are provided for corpus completeness.
   # ==========================================
 
-  - &expressor_v1
-    packer_family: "expressor"
-    packer_name: "expressor"
-    version: "1.8"
-    arch_origin: "x86"
-    supported_input_arch: "PE32"
-    supported_output_arch: "PE32"
-    dependencies: []
-    tags: ["GUI", "Compressor", "Protector", "Commercial"]
-    binary_path: "./packers/expressor/eXPressor.exe"
-    binary_sha256: "7c4c1d333766977c36181cebeefe2b7927a95f5f42205856499359cbcd6de4ec"
-    source_url: "https://www.sgb-development.de/products/expressor/"
-    license: "Commercial"
-    notes: "eXPressor by SGB-Development. A commercial PE compressor and protector for Win32 EXEs and DLLs. Requires elevation to run (UAC). GUI-only; cannot be scripted via CLI."
-    size_kb: "592"
-    output_behavior: "explicit"
-    type: "Type III"
-    type_ex: "eXPressor combines compression with code encryption and anti-debugging, placing it in the interleaved-integrity category."
-    known_issues:
-      - "Requires UAC elevation to launch."
-      - "GUI-only; cannot be scripted via CLI."
-
   - &molebox_build6000
     packer_family: "molebox"
     packer_name: "molebox_build6000"
@@ -1446,27 +1378,6 @@ definitions:
     known_issues:
       - "MxbPack.exe requires all bundled DLLs (libwx3_32r10.dll etc.) in the same directory to run."
       - "Automation: GUI-only."
-
-  - &pep_placeholder
-    packer_family: "pep"
-    packer_name: "pep"
-    version: "1.0"
-    arch_origin: "x86"
-    supported_input_arch: "PE32"
-    supported_output_arch: "PE32"
-    dependencies: []
-    tags: ["GUI", "Compressor"]
-    binary_path: "./packers/pep/PEP.exe"
-    binary_sha256: ""
-    source_url: ""
-    license: "Freeware"
-    notes: "PEP (PE Pack). A rare older PE packer/compressor. BINARY NOT ACQUIRED — no confirmed public download source found. Locate from RE community archives, place at binary_path, then run binary_info.py."
-    size_kb: ""
-    output_behavior: "in_place"
-    type: "Type I"
-    type_ex: "PEP is described as a simple PE compressor."
-    known_issues:
-      - "Binary not acquired. No confirmed public download source."
 
   - &enigma_v780
     packer_family: "enigma"
@@ -1588,8 +1499,6 @@ definitions:
     type: "Type IV"
     type_ex: "Armadillo uses nanomite protection (exception-driven code execution), IAT encryption, and persistent runtime integrity checks."
     known_issues:
-      - "Binary not acquired. Software is discontinued; no official download."
-      - "Automation: GUI-only."
 
   - &themida_demo
     packer_family: "themida"
@@ -2463,48 +2372,6 @@ definitions:
     type_ex: "XPA is a single-layer PE compressor that prepends a decompression stub, consistent with Type I."
     known_issues:
       - "GUI-only; cannot be scripted via CLI."
-
-  - &aspack_v241
-    packer_family: "aspack"
-    packer_name: "aspack_v2.41"
-    version: "2.41"
-    arch_origin: "x86"
-    supported_input_arch: "PE32"
-    supported_output_arch: "PE32"
-    dependencies: []
-    tags: ["CLI", "Compressor", "Commercial"]
-    binary_path: "./packers/aspack/2.41/aspack.x86"
-    binary_sha256: "c0612e96a7256271df20ff2c3cf05adcadce73f0815286be7805652072ca5ea7"
-    source_url: "http://www.aspack.com"
-    license: "Commercial"
-    notes: "ASPack v2.41 by Alexey Solodovnikov. A professional PE compressor featuring compression, encryption, and anti-debugging. CLI capable via aspack.x86 command-line interface."
-    size_kb: "73"
-    output_behavior: "explicit"
-    type: "Type I"
-    type_ex: "ASPack applies compression and encryption with a runtime decompression stub prepended to the PE, consistent with single-layer packing."
-    known_issues:
-      - ""
-
-  - &aspack_v212
-    packer_family: "aspack"
-    packer_name: "aspack_v2.12"
-    version: "2.12"
-    arch_origin: "x86"
-    supported_input_arch: "PE32"
-    supported_output_arch: "PE32"
-    dependencies: []
-    tags: ["GUI", "Compressor", "Commercial"]
-    binary_path: "./packers/aspack/2.12/ASPack.exe"
-    binary_sha256: ""
-    source_url: "http://www.aspack.com"
-    license: "Commercial"
-    notes: "ASPack v2.12 by Alexey Solodovnikov. An earlier version of the ASPack compressor with GUI interface."
-    size_kb: "203"
-    output_behavior: "explicit"
-    type: "Type I"
-    type_ex: "ASPack applies compression and encryption with a runtime decompression stub, consistent with single-layer packing."
-    known_issues:
-      - "Automation: GUI-only; cannot be scripted via CLI."
 
   - &jdpack_v100
     packer_family: "jdpack"
@@ -4024,23 +3891,6 @@ test_cases:
     <<: *upx_v122
     command_label: "Max Compression (Level 9)"
     cli_template: "{bin} -9 {in} -o {out}"
-    validation:
-      allow_x64_switch: false
-      allow_x86_switch: false
-
-  # --- ASPack Test Group ---
-  - id: "ASPACK_V241_001_DEFAULT"
-    <<: *aspack_v241
-    command_label: "Default Compression"
-    cli_template: "{bin} {in} {out}"
-    validation:
-      allow_x64_switch: false
-      allow_x86_switch: false
-
-  - id: "ASPACK_V241_002_COMPRESSION"
-    <<: *aspack_v241
-    command_label: "Maximum Compression"
-    cli_template: "{bin} -b {in} {out}"
     validation:
       allow_x64_switch: false
       allow_x86_switch: false

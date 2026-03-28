@@ -37,6 +37,8 @@ from yoda_protector import YodaProtector
 from acprotect import ACProtect
 from telock import Telock
 from pelock import PELock
+from armadillo import Armadillo
+from pecompact import PECompact
 
 PACKER_FILE_SUPPORT: Dict[str, List[str]] = {
     "npack_v1.1": [".exe"],
@@ -63,6 +65,8 @@ PACKER_FILE_SUPPORT: Dict[str, List[str]] = {
     "acprotect_std": [".exe"],
     "telock_v0.98": [".exe"],
     "pelock_v2.40": [".exe"],
+    "armadillo": [".exe"],
+    "pecompact_v1.84": [".exe"],
 }
 
 PACKER_OPTIONS: Dict[str, Dict[str, str]] = {
@@ -107,6 +111,8 @@ PACKER_DEFAULT_STATES: Dict[str, Dict[str, bool]] = {
     "acprotect_std": {},
     "telock_v0.98": {},
     "pelock_v2.40": {},
+    "armadillo": {},
+    "pecompact_v1.84": {},
 }
 
 # Default packer to use
@@ -1156,6 +1162,76 @@ class GUIWrapperRunner:
             traceback.print_exc()
             return False
 
+    def run_armadillo(
+        self,
+        file_path: Path,
+        packer_config: Optional[Dict[str, bool]] = None,
+        output_dir: Optional[Path] = None,
+    ) -> bool:
+        """
+        Run Armadillo wrapper - launch, wait 60 seconds, close.
+        Armadillo is GUI-only; no CLI scripting is possible.
+        """
+        print(f"\n{'=' * 60}")
+        print(f"PROCESSING: {file_path.name}")
+        print(f"{'=' * 60}")
+
+        try:
+            wrapper = Armadillo(str(self.yaml_path), str(self.main_dir))
+
+            if output_dir is None:
+                output_dir = self.get_output_directory("armadillo")
+
+            print(f"[INFO] Output directory: {output_dir}")
+
+            success = wrapper.run(
+                click_mode="none",
+                file_path=str(file_path.resolve()),
+                output_dir=str(output_dir),
+            )
+            return success
+
+        except Exception as e:
+            print(f"[ERROR] Failed to process {file_path.name}: {e}")
+            import traceback
+            traceback.print_exc()
+            return False
+
+    def run_pecompact(
+        self,
+        file_path: Path,
+        packer_config: Optional[Dict[str, bool]] = None,
+        output_dir: Optional[Path] = None,
+    ) -> bool:
+        """
+        Run PECompact wrapper - launch, wait 60 seconds, close.
+        PECompact is GUI-only; no CLI scripting is possible.
+        """
+        print(f"\n{'=' * 60}")
+        print(f"PROCESSING: {file_path.name}")
+        print(f"{'=' * 60}")
+
+        try:
+            wrapper = PECompact(str(self.yaml_path), str(self.main_dir))
+
+            if output_dir is None:
+                output_dir = self.get_output_directory("pecompact_v1.84")
+
+            print(f"[INFO] Output directory: {output_dir}")
+
+            success = wrapper.run(
+                click_mode="none",
+                file_path=str(file_path.resolve()),
+                output_dir=str(output_dir),
+            )
+            return success
+
+        except Exception as e:
+            print(f"[ERROR] Failed to process {file_path.name}: {e}")
+            import traceback
+            traceback.print_exc()
+            return False
+
     def run_packer(
         self,
         packer_name: str,
@@ -1194,6 +1270,8 @@ class GUIWrapperRunner:
             "acprotect_std": self.run_acprotect,
             "telock_v0.98": self.run_telock,
             "pelock_v2.40": self.run_pelock,
+            "armadillo": self.run_armadillo,
+            "pecompact_v1.84": self.run_pecompact,
         }
 
         if packer_name not in packer_methods:

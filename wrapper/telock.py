@@ -47,9 +47,9 @@ class Telock(BaseGUI):
         # Broader patterns including the base ones
         patterns = self.FILE_PICKER_PATTERNS + [
             "telock",
-            "Ouvrir",       # French
-            "Abrir",        # Spanish
-            "Öffnen",       # German
+            "Ouvrir",  # French
+            "Abrir",  # Spanish
+            "Öffnen",  # German
             "Save",
             "File",
         ]
