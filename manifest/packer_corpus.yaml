@@ -1348,37 +1348,6 @@ definitions:
   # Entries are provided for corpus completeness.
   # ==========================================
 
-  - &molebox_build6000
-    packer_family: "molebox"
-    packer_name: "molebox_build6000"
-    version: "build 6000"
-    arch_origin: "x86"
-    supported_input_arch: "PE32"
-    supported_output_arch: "PE32"
-    dependencies:
-      [
-        "expatw_32r10.dll",
-        "libhash_32r10.dll",
-        "libjpeg_32r10.dll",
-        "libpng_32r10.dll",
-        "libtiff_32r10.dll",
-        "libwx3_32r10.dll",
-        "zlib_32r10.dll",
-      ]
-    tags: ["GUI", "Virtualizer", "Bundler", "GPL"]
-    binary_path: "./packers/molebox/MxbPack.exe"
-    binary_sha256: "a4da2297d2bb52fa343d86be9c3c4f2871bd3da644cebcebb994baac7b1d607d"
-    source_url: "https://github.com/sudachen/Molebox/releases/download/6000/molebox_gpl.zip"
-    license: "GPL v3"
-    notes: "MoleBox Virtualization Solution by sudachen (GPL fork, build 6000). Originally a commercial product by Teggo; first public version 2004, commercial support discontinued 2014. Packages a PE32 executable together with its dependencies (DLLs, data files) into a single standalone EXE using a virtual filesystem layer. MxbPack.exe is the CLI frontend; Molebox.exe (SHA256: de19da82318cdc6145be3a79b24f9878131eb88fe706dd4692fa469327694422, 521 KB) is the GUI frontend. Both ship with the same set of wxWidgets DLLs that must reside alongside the executable."
-    size_kb: "497"
-    output_behavior: "explicit"
-    type: "Type III"
-    type_ex: "MoleBox virtualizes file system access and bundles resources into a virtual filesystem stub; the original code runs inside the virtualized container at runtime."
-    known_issues:
-      - "MxbPack.exe requires all bundled DLLs (libwx3_32r10.dll etc.) in the same directory to run."
-      - "Automation: GUI-only."
-
   - &enigma_v780
     packer_family: "enigma"
     packer_name: "enigma_protector_v7.80"
@@ -1386,34 +1355,23 @@ definitions:
     arch_origin: "x86"
     supported_input_arch: "PE32"
     supported_output_arch: "PE32"
-    dependencies:
-      [
-        "dbghelp.dll",
-        "enigma_ide.dll",
-        "enigma_ide64.dll",
-        "libspv.dll",
-        "libssv.dll",
-        "libeay32.dll",
-        "ssleay32.dll",
-        "udis.dll",
-        "zydis.dll",
-      ]
+    dependencies: []
     tags:
-      ["GUI", "Protector", "Virtualizer", "Anti-Debug", "Commercial", "Demo"]
-    binary_path: "./packers/The Enigma Protector/enigma64.exe"
+      ["CLI", "Protector", "Virtualizer", "Anti-Debug", "Commercial", "Demo"]
+    binary_path: "./packers/enigma/The Enigma Protector/enigma32.exe"
     binary_sha256: "c393a08a7259c053ef9eff48fac64051422144bda6a5f7c8927113f50960fd30"
     source_url: "https://www.enigmaprotector.com"
     license: "Commercial (Demo)"
-    notes: "The Enigma Protector x64 v7.80 by Vladimir Sukhov. A professional PE protector with code virtualization, anti-debug, anti-dump, and license management. Demo version. CLI: enigma64.exe [options] project.enigma64 -input {in} -output {out}. Requires a .enigma64 project file — cannot pack without a pre-configured project. GUI variant: Enigma64g.exe (SHA256: 75bb5f7320368de260b79e4adbd326198ae3dda74bc31070b64ee0e62297840a, 7920 KB). Both executables and all DLLs must reside in the same directory."
+    notes: "The Enigma Protector x86 v7.80 by Vladimir Sukhov. A professional PE protector with code virtualization, anti-debug, anti-dump, and license management. Demo version. CLI: enigma32.exe [options] project.enigma -input {in} -output {out}. Requires a .enigma project file — cannot pack without a pre-configured project. GUI variant: Enigma32g.exe. All executables and DLLs must reside in the same directory."
     size_kb: "6958"
     cli_template: "{bin} {project} -input {in} -output {out}"
+    project_file: "./packers/enigma/The Enigma Protector/default.enigma"
     output_behavior: "explicit"
     type: "Type IV"
     type_ex: "Enigma Protector uses code virtualization (VM-based obfuscation) and full runtime integrity checks, consistent with interleaved execution throughout the program lifecycle."
     known_issues:
-      - "CLI requires a pre-configured .enigma64 project file; not a simple {in}/{out} packer."
       - "Demo version may add limitations (watermark, size cap, or expiry) to protected output."
-      - "All DLLs must be co-located with enigma64.exe."
+      - "All DLLs must be co-located with enigma32.exe."
 
   - &zprotect_placeholder
     packer_family: "zprotect"
@@ -1437,9 +1395,9 @@ definitions:
       - "Binary not acquired. Software is discontinued; no official download."
       - "Automation: GUI-only."
 
-  - &obsidium_placeholder
+  - &obsidium_v1880
     packer_family: "obsidium"
-    packer_name: "obsidium"
+    packer_name: "obsidium_v1.8.8"
     version: "1.8.8.10"
     arch_origin: "x86"
     supported_input_arch: "PE32"
@@ -1447,17 +1405,39 @@ definitions:
     dependencies: []
     tags: ["GUI", "Protector", "Virtualizer", "Anti-Debug", "Commercial"]
     binary_path: "./packers/obsidium/Obsidium.exe"
-    binary_sha256: ""
+    binary_sha256: "88c92e679b416267ce7fcdd72886a6bfaedc9f7fb56ba98d741cdacf8e51faff"
     source_url: "https://www.obsidium.de"
     license: "Commercial"
-    notes: "Obsidium by Obsidium Software. A professional PE protection system with code virtualization, anti-debug, anti-dump, and software licensing. BINARY NOT ACQUIRED — commercial license required. Trial available from source_url."
-    size_kb: ""
+    notes: "Obsidium v1.8.8 build 10 by Obsidium Software. A professional PE protection system with code virtualization, anti-debug, anti-dump, and software licensing. GUI-only; automated via obsidium_v1880_gui.py wrapper."
+    size_kb: "11792"
     output_behavior: "explicit"
     type: "Type IV"
     type_ex: "Obsidium uses code virtualization and runtime integrity checks throughout program execution, consistent with full interleaved execution."
     known_issues:
-      - "Binary not acquired. Commercial license required."
-      - "Automation: GUI-only."
+      - "GUI-only; automated via Python wrapper (obsidium_v1880_gui.py)."
+      - "CLI tool (obsi_cmd.exe) requires a paid license — demo locks it out."
+
+  - &obsidium_v152
+    packer_family: "obsidium"
+    packer_name: "obsidium_v1.5.2"
+    version: "1.5.2.11"
+    arch_origin: "x86"
+    supported_input_arch: "PE32"
+    supported_output_arch: "PE32"
+    dependencies: []
+    tags: ["GUI", "Protector", "Virtualizer", "Anti-Debug", "Commercial"]
+    binary_path: "./packers/obsidium/Obsidium 1.5/Obsidium.exe"
+    binary_sha256: "f0996e3241119da930ba2c45555b77f465f479143b126384b5eb63ed0d1a227e"
+    source_url: "https://www.obsidium.de"
+    license: "Commercial"
+    notes: "Obsidium v1.5.2 build 11 by Obsidium Software. Older version with a valid license (Obsidium_License.txt). GUI-only; automated via obsidium_v152_gui.py wrapper."
+    size_kb: "7810"
+    output_behavior: "explicit"
+    type: "Type IV"
+    type_ex: "Obsidium uses code virtualization and runtime integrity checks throughout program execution, consistent with full interleaved execution."
+    known_issues:
+      - "GUI-only; automated via Python wrapper (obsidium_v152_gui.py)."
+      - "CLI tool (obsi_cmd.exe) in this version produces no console output — unusable for automation."
 
   - &pelock_v240
     packer_family: "pelock"
@@ -1502,15 +1482,15 @@ definitions:
 
   - &themida_demo
     packer_family: "themida"
-    packer_name: "themida_demo"
-    version: "Demo"
+    packer_name: "themida_v3.2.4.34"
+    version: "3.2.4.34"
     arch_origin: "x86"
     supported_input_arch: "PE32"
     supported_output_arch: "PE32"
     dependencies: []
     tags:
       ["GUI", "Protector", "Virtualizer", "Anti-Debug", "Commercial", "Demo"]
-    binary_path: "./packers/themida/Themida.exe"
+    binary_path: "./packers/themida/ThemidaDemo32_64/Themida.exe"
     binary_sha256: "33e6389592efb5d00a494699d80361a5a37f67e095b6f9755b8de1b8cb988fc2"
     source_url: "https://www.oreans.com/Themida.php"
     license: "Commercial (Demo)"
@@ -4162,6 +4142,33 @@ test_cases:
     <<: *molebox_v46
     command_label: "Build Virtual Registry"
     cli_template: "{bin} -O {in} -o {out}"
+    validation:
+      allow_x64_switch: false
+      allow_x86_switch: false
+
+  # --- Obsidium v1.8.8 Test Group ---
+  - id: "OBSIDIUM_V1880_001_DEFAULT"
+    <<: *obsidium_v1880
+    command_label: "Default Protection (GUI wrapper)"
+    cli_template: "{python} ../wrapper/obsidium_v1880_gui.py --file {in} --output-dir {out}"
+    validation:
+      allow_x64_switch: false
+      allow_x86_switch: false
+
+  # --- Obsidium v1.5.2 Test Group ---
+  - id: "OBSIDIUM_V152_001_DEFAULT"
+    <<: *obsidium_v152
+    command_label: "Default Protection (GUI wrapper)"
+    cli_template: "{python} ../wrapper/obsidium_v152_gui.py --file {in} --output-dir {out}"
+    validation:
+      allow_x64_switch: false
+      allow_x86_switch: false
+
+  # --- Enigma Protector Test Group ---
+  - id: "ENIGMA_001_DEFAULT"
+    <<: *enigma_v780
+    command_label: "Default Protection (project file)"
+    cli_template: "{bin} {project} -input {in} -output {out}"
     validation:
       allow_x64_switch: false
       allow_x86_switch: false

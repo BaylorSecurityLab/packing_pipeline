@@ -238,6 +238,7 @@ def pack_single_file(args):
         output_behavior,
         dependencies,
         config,
+        project_file,
     ) = args
 
     filename = os.path.basename(src_path)
@@ -406,6 +407,7 @@ def pack_single_file(args):
         val_out = to_wsl_path(val_out)
 
     val_python = sys.executable
+    val_project = get_short_path(os.path.abspath(project_file)) if project_file else ""
 
     for part in raw_parts:
         # Use simple substitution to preserve flags attached to placeholders
@@ -416,6 +418,9 @@ def pack_single_file(args):
 
         if "{bin}" in new_part:
             new_part = new_part.replace("{bin}", val_bin)
+
+        if "{project}" in new_part:
+            new_part = new_part.replace("{project}", val_project)
 
         if "{in}" in new_part:
             new_part = new_part.replace("{in}", val_in)
@@ -598,6 +603,15 @@ def run_packing(packer_name_input, max_size_kb=0, config=None, workers=1):
             output_behavior = packer_def.get("output_behavior", "explicit")
             dependencies = packer_def.get("dependencies", [])
 
+            # Resolve project_file if present
+            raw_project = packer_def.get("project_file", "")
+            if raw_project:
+                if raw_project.startswith("./"):
+                    raw_project = raw_project[2:]
+                project_file_path = os.path.join(project_root, raw_project)
+            else:
+                project_file_path = ""
+
             print(f"\n--- Case: {test_id} (Workers: {workers}) ---")
 
             jobs = []
@@ -613,6 +627,7 @@ def run_packing(packer_name_input, max_size_kb=0, config=None, workers=1):
                         output_behavior,
                         dependencies,
                         config,
+                        project_file_path,
                     )
                 )
 
