@@ -33,13 +33,21 @@ from nspack import NSpack
 from wupack import WinUpack
 from yoda_crypter import YodaCrypter
 from yoda_crypter_v12 import YodaCrypterV12
-from yoda_protector import YodaProtector
+from yoda_protector_v10 import YodaProtectorV10
+from yoda_protector_v1012 import YodaProtectorV1012
+from yoda_protector_v102 import YodaProtectorV102
+from yoda_protector_v1032 import YodaProtectorV1032
+from yoda_protector_v1033 import YodaProtectorV1033
 from acprotect import ACProtect
 from telock import Telock
 from pelock import PELock
 from armadillo import Armadillo
 from pecompact import PECompact
 from themida_gui import ThemidaGUI
+from obsidium_v1880_gui import ObsidiumV1880GUI
+from obsidium_v152_gui import ObsidiumV152GUI
+from xpa_v143_gui import XPAV143GUI
+from zprotect_gui import ZProtectGUI
 
 PACKER_FILE_SUPPORT: Dict[str, List[str]] = {
     "npack_v1.1": [".exe"],
@@ -62,13 +70,21 @@ PACKER_FILE_SUPPORT: Dict[str, List[str]] = {
     "winupack": [".exe"],
     "yoda_crypter_v1.3": [".exe"],
     "yoda_crypter_v1.2": [".exe"],
-    "yoda_protector": [".exe"],
+    "yoda_protector_v1.0": [".exe"],
+    "yoda_protector_v1.01.2": [".exe"],
+    "yoda_protector_v1.02": [".exe"],
+    "yoda_protector_v1.03.2": [".exe"],
+    "yoda_protector_v1.03.3": [".exe"],
     "acprotect_std": [".exe"],
     "telock_v0.98": [".exe"],
     "pelock_v2.40": [".exe"],
     "armadillo": [".exe"],
     "pecompact_v1.84": [".exe"],
     "themida_v3.2.4.34": [".exe"],
+    "obsidium_v1.8.8": [".exe"],
+    "obsidium_v1.5.2": [".exe"],
+    "xpa_v1.43": [".exe"],
+    "zprotect": [".exe"],
 }
 
 PACKER_OPTIONS: Dict[str, Dict[str, str]] = {
@@ -109,13 +125,21 @@ PACKER_DEFAULT_STATES: Dict[str, Dict[str, bool]] = {
     "winupack": {},
     "yoda_crypter_v1.3": {},
     "yoda_crypter_v1.2": {},
-    "yoda_protector": {},
+    "yoda_protector_v1.0": {},
+    "yoda_protector_v1.01.2": {},
+    "yoda_protector_v1.02": {},
+    "yoda_protector_v1.03.2": {},
+    "yoda_protector_v1.03.3": {},
     "acprotect_std": {},
     "telock_v0.98": {},
     "pelock_v2.40": {},
     "armadillo": {},
     "pecompact_v1.84": {},
     "themida_v3.2.4.34": {},
+    "obsidium_v1.8.8": {},
+    "obsidium_v1.5.2": {},
+    "xpa_v1.43": {},
+    "zprotect": {},
 }
 
 # Default packer to use
@@ -1028,24 +1052,164 @@ class GUIWrapperRunner:
             traceback.print_exc()
             return False
 
-    def run_yoda_protector(
+    def run_yoda_protector_v10(
         self,
         file_path: Path,
         packer_config: Optional[Dict[str, bool]] = None,
         output_dir: Optional[Path] = None,
     ) -> bool:
         """
-        Run Yoda's Protector wrapper on a single file.
+        Run Yoda's Protector v1.0 wrapper on a single file.
         """
         print(f"\n{'=' * 60}")
         print(f"PROCESSING: {file_path.name}")
         print(f"{'=' * 60}")
 
         try:
-            wrapper = YodaProtector(str(self.yaml_path), str(self.main_dir))
+            wrapper = YodaProtectorV10(str(self.yaml_path), str(self.main_dir))
 
             if output_dir is None:
-                output_dir = self.get_output_directory("yoda_protector")
+                output_dir = self.get_output_directory("yoda_protector_v1.0")
+
+            print(f"[INFO] Output directory: {output_dir}")
+
+            success = wrapper.run(
+                click_mode=packer_config if packer_config else "all",
+                file_path=str(file_path.resolve()),
+                output_dir=str(output_dir),
+            )
+            return success
+
+        except Exception as e:
+            print(f"[ERROR] Failed to process {file_path.name}: {e}")
+            import traceback
+
+            traceback.print_exc()
+            return False
+
+    def run_yoda_protector_v1012(
+        self,
+        file_path: Path,
+        packer_config: Optional[Dict[str, bool]] = None,
+        output_dir: Optional[Path] = None,
+    ) -> bool:
+        """
+        Run Yoda's Protector v1.01.2 wrapper on a single file.
+        """
+        print(f"\n{'=' * 60}")
+        print(f"PROCESSING: {file_path.name}")
+        print(f"{'=' * 60}")
+
+        try:
+            wrapper = YodaProtectorV1012(str(self.yaml_path), str(self.main_dir))
+
+            if output_dir is None:
+                output_dir = self.get_output_directory("yoda_protector_v1.01.2")
+
+            print(f"[INFO] Output directory: {output_dir}")
+
+            success = wrapper.run(
+                click_mode=packer_config if packer_config else "all",
+                file_path=str(file_path.resolve()),
+                output_dir=str(output_dir),
+            )
+            return success
+
+        except Exception as e:
+            print(f"[ERROR] Failed to process {file_path.name}: {e}")
+            import traceback
+
+            traceback.print_exc()
+            return False
+
+    def run_yoda_protector_v102(
+        self,
+        file_path: Path,
+        packer_config: Optional[Dict[str, bool]] = None,
+        output_dir: Optional[Path] = None,
+    ) -> bool:
+        """
+        Run Yoda's Protector v1.02 wrapper on a single file.
+        """
+        print(f"\n{'=' * 60}")
+        print(f"PROCESSING: {file_path.name}")
+        print(f"{'=' * 60}")
+
+        try:
+            wrapper = YodaProtectorV102(str(self.yaml_path), str(self.main_dir))
+
+            if output_dir is None:
+                output_dir = self.get_output_directory("yoda_protector_v1.02")
+
+            print(f"[INFO] Output directory: {output_dir}")
+
+            success = wrapper.run(
+                click_mode=packer_config if packer_config else "all",
+                file_path=str(file_path.resolve()),
+                output_dir=str(output_dir),
+            )
+            return success
+
+        except Exception as e:
+            print(f"[ERROR] Failed to process {file_path.name}: {e}")
+            import traceback
+
+            traceback.print_exc()
+            return False
+
+    def run_yoda_protector_v1032(
+        self,
+        file_path: Path,
+        packer_config: Optional[Dict[str, bool]] = None,
+        output_dir: Optional[Path] = None,
+    ) -> bool:
+        """
+        Run Yoda's Protector v1.03.2 wrapper on a single file.
+        """
+        print(f"\n{'=' * 60}")
+        print(f"PROCESSING: {file_path.name}")
+        print(f"{'=' * 60}")
+
+        try:
+            wrapper = YodaProtectorV1032(str(self.yaml_path), str(self.main_dir))
+
+            if output_dir is None:
+                output_dir = self.get_output_directory("yoda_protector_v1.03.2")
+
+            print(f"[INFO] Output directory: {output_dir}")
+
+            success = wrapper.run(
+                click_mode=packer_config if packer_config else "all",
+                file_path=str(file_path.resolve()),
+                output_dir=str(output_dir),
+            )
+            return success
+
+        except Exception as e:
+            print(f"[ERROR] Failed to process {file_path.name}: {e}")
+            import traceback
+
+            traceback.print_exc()
+            return False
+
+    def run_yoda_protector_v1033(
+        self,
+        file_path: Path,
+        packer_config: Optional[Dict[str, bool]] = None,
+        output_dir: Optional[Path] = None,
+    ) -> bool:
+        """
+        Run Yoda's Protector v1.03.3 wrapper on a single file.
+        """
+        print(f"\n{'=' * 60}")
+        print(f"PROCESSING: {file_path.name}")
+        print(f"{'=' * 60}")
+
+        try:
+            wrapper = YodaProtectorV1033(str(self.yaml_path), str(self.main_dir))
+
+            if output_dir is None:
+                output_dir = self.get_output_directory("yoda_protector_v1.03.3")
 
             print(f"[INFO] Output directory: {output_dir}")
 
@@ -1270,6 +1434,132 @@ class GUIWrapperRunner:
             traceback.print_exc()
             return False
 
+    def run_obsidium_v1880(
+        self,
+        file_path: Path,
+        packer_config: Optional[Dict[str, bool]] = None,
+        output_dir: Optional[Path] = None,
+    ) -> bool:
+        """Run Obsidium v1.8.8 GUI wrapper (stub)."""
+        print(f"\n{'=' * 60}")
+        print(f"PROCESSING: {file_path.name}")
+        print(f"{'=' * 60}")
+
+        try:
+            wrapper = ObsidiumV1880GUI(str(self.yaml_path), str(self.main_dir))
+
+            if output_dir is None:
+                output_dir = self.get_output_directory("obsidium_v1.8.8")
+
+            print(f"[INFO] Output directory: {output_dir}")
+
+            success = wrapper.run(
+                click_mode="none",
+                file_path=str(file_path.resolve()),
+                output_dir=str(output_dir),
+            )
+            return success
+
+        except Exception as e:
+            print(f"[ERROR] Failed to process {file_path.name}: {e}")
+            import traceback
+            traceback.print_exc()
+            return False
+
+    def run_obsidium_v152(
+        self,
+        file_path: Path,
+        packer_config: Optional[Dict[str, bool]] = None,
+        output_dir: Optional[Path] = None,
+    ) -> bool:
+        """Run Obsidium v1.5.2 GUI wrapper (stub)."""
+        print(f"\n{'=' * 60}")
+        print(f"PROCESSING: {file_path.name}")
+        print(f"{'=' * 60}")
+
+        try:
+            wrapper = ObsidiumV152GUI(str(self.yaml_path), str(self.main_dir))
+
+            if output_dir is None:
+                output_dir = self.get_output_directory("obsidium_v1.5.2")
+
+            print(f"[INFO] Output directory: {output_dir}")
+
+            success = wrapper.run(
+                click_mode="none",
+                file_path=str(file_path.resolve()),
+                output_dir=str(output_dir),
+            )
+            return success
+
+        except Exception as e:
+            print(f"[ERROR] Failed to process {file_path.name}: {e}")
+            import traceback
+            traceback.print_exc()
+            return False
+
+    def run_xpa_v143(
+        self,
+        file_path: Path,
+        packer_config: Optional[Dict[str, bool]] = None,
+        output_dir: Optional[Path] = None,
+    ) -> bool:
+        """Run XPA v1.43 GUI wrapper."""
+        print(f"\n{'=' * 60}")
+        print(f"PROCESSING: {file_path.name}")
+        print(f"{'=' * 60}")
+
+        try:
+            wrapper = XPAV143GUI(str(self.yaml_path), str(self.main_dir))
+
+            if output_dir is None:
+                output_dir = self.get_output_directory("xpa_v1.43")
+
+            print(f"[INFO] Output directory: {output_dir}")
+
+            success = wrapper.run(
+                file_path=str(file_path.resolve()),
+                output_dir=str(output_dir),
+            )
+            return success
+
+        except Exception as e:
+            print(f"[ERROR] Failed to process {file_path.name}: {e}")
+            import traceback
+            traceback.print_exc()
+            return False
+
+    def run_zprotect(
+        self,
+        file_path: Path,
+        packer_config: Optional[Dict[str, bool]] = None,
+        output_dir: Optional[Path] = None,
+    ) -> bool:
+        """Run ZProtect v1.4.2.0 GUI wrapper."""
+        print(f"\n{'=' * 60}")
+        print(f"PROCESSING: {file_path.name}")
+        print(f"{'=' * 60}")
+
+        try:
+            wrapper = ZProtectGUI(str(self.yaml_path), str(self.main_dir))
+
+            if output_dir is None:
+                output_dir = self.get_output_directory("zprotect")
+
+            print(f"[INFO] Output directory: {output_dir}")
+
+            success = wrapper.run(
+                file_path=str(file_path.resolve()),
+                output_dir=str(output_dir),
+            )
+            return success
+
+        except Exception as e:
+            print(f"[ERROR] Failed to process {file_path.name}: {e}")
+            import traceback
+            traceback.print_exc()
+            return False
+
     def run_packer(
         self,
         packer_name: str,
@@ -1304,13 +1594,21 @@ class GUIWrapperRunner:
             "winupack": self.run_winupack,
             "yoda_crypter_v1.3": self.run_yoda_crypter,
             "yoda_crypter_v1.2": self.run_yoda_crypter_v12,
-            "yoda_protector": self.run_yoda_protector,
+            "yoda_protector_v1.0": self.run_yoda_protector_v10,
+            "yoda_protector_v1.01.2": self.run_yoda_protector_v1012,
+            "yoda_protector_v1.02": self.run_yoda_protector_v102,
+            "yoda_protector_v1.03.2": self.run_yoda_protector_v1032,
+            "yoda_protector_v1.03.3": self.run_yoda_protector_v1033,
             "acprotect_std": self.run_acprotect,
             "telock_v0.98": self.run_telock,
             "pelock_v2.40": self.run_pelock,
             "armadillo": self.run_armadillo,
             "pecompact_v1.84": self.run_pecompact,
             "themida_v3.2.4.34": self.run_themida,
+            "obsidium_v1.8.8": self.run_obsidium_v1880,
+            "obsidium_v1.5.2": self.run_obsidium_v152,
+            "xpa_v1.43": self.run_xpa_v143,
+            "zprotect": self.run_zprotect,
         }
 
         if packer_name not in packer_methods:

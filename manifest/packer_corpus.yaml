@@ -701,27 +701,6 @@ definitions:
     known_issues:
       - ""
 
-  - &yoda_v101
-    packer_family: "yoda_protector"
-    packer_name: "yoda_protector_v1.01"
-    version: "1.01"
-    arch_origin: "x86"
-    supported_input_arch: "PE32"
-    supported_output_arch: "PE32"
-    dependencies: []
-    tags: ["GUI"]
-    binary_path: "./packers/yoda_protect/v1.01/yp.exe"
-    binary_sha256: "a3835c35912e1b9a57ae674f1ef9c2e9d5219041cec5c5224a335e6998850044"
-    source_url: "https://sourceforge.net/projects/yodap/"
-    license: "Freeware"
-    notes: "Yoda's Protector v1.01 (2005). GUI-based PE protector with anti-debugging features."
-    size_kb: "86"
-    output_behavior: "explicit"
-    type: "Type IV"
-    type_ex: "As a 'protector' with anti-debugging features (inferred from its sibling 'crypter'), it likely uses interleaved execution."
-    known_issues:
-      - ""
-
   - &yoda_v1012
     packer_family: "yoda_protector"
     packer_name: "yoda_protector_v1.01.2"
@@ -764,20 +743,20 @@ definitions:
     known_issues:
       - ""
 
-  - &yoda_v103
+  - &yoda_v1032
     packer_family: "yoda_protector"
-    packer_name: "yoda_protector_v1.03"
-    version: "1.03"
+    packer_name: "yoda_protector_v1.03.2"
+    version: "1.03.2"
     arch_origin: "x86"
     supported_input_arch: "PE32"
     supported_output_arch: "PE32"
     dependencies: []
     tags: ["GUI"]
-    binary_path: "./packers/yoda_protect/v1.03/yp.exe"
+    binary_path: "./packers/yoda_protect/v1.03.2/yp.exe"
     binary_sha256: "a48ae6f9abd8e767b5fa25727959b9fd7cf1ef601c520e0bf0e0e4544479cc89"
     source_url: "https://sourceforge.net/projects/yodap/"
     license: "Freeware"
-    notes: "Yoda's Protector v1.03 (2005). GUI-based PE protector with anti-debugging features."
+    notes: "Yoda's Protector v1.03.2 (2005). GUI-based PE protector with anti-debugging features."
     size_kb: "120"
     output_behavior: "explicit"
     type: "Type IV"
@@ -4142,24 +4121,6 @@ test_cases:
     <<: *molebox_v46
     command_label: "Build Virtual Registry"
     cli_template: "{bin} -O {in} -o {out}"
-    validation:
-      allow_x64_switch: false
-      allow_x86_switch: false
-
-  # --- Obsidium v1.8.8 Test Group ---
-  - id: "OBSIDIUM_V1880_001_DEFAULT"
-    <<: *obsidium_v1880
-    command_label: "Default Protection (GUI wrapper)"
-    cli_template: "{python} ../wrapper/obsidium_v1880_gui.py --file {in} --output-dir {out}"
-    validation:
-      allow_x64_switch: false
-      allow_x86_switch: false
-
-  # --- Obsidium v1.5.2 Test Group ---
-  - id: "OBSIDIUM_V152_001_DEFAULT"
-    <<: *obsidium_v152
-    command_label: "Default Protection (GUI wrapper)"
-    cli_template: "{python} ../wrapper/obsidium_v152_gui.py --file {in} --output-dir {out}"
     validation:
       allow_x64_switch: false
       allow_x86_switch: false
