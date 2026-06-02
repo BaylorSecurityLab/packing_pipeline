@@ -4,35 +4,87 @@ Scans benign_sources/x86 directory and runs appropriate GUI packers on compatibl
 """
 
 import sys
+import re
 import shutil
 from pathlib import Path
 from typing import List, Dict, Optional, Set
 import argparse
+import yaml
 
+from fsg import FSG
 from asm_guard import AsmGuard
-from acprotect import ACProtect
-from alienyze import Alienyze
+from alienyze_protector import AlienyzeProtector
 from mew import Mew
 from packman import Packman
 from rlpack import RLPack
 from ped import PEDiminisher
 from shrinker import Shrinker
-from telock import Telock
-from upx_scrambler import UpxScrambler
+from upx_scrambler import (
+    UpxScrambler304,
+    UpxScrambler306,
+    UpxScramblerRC1,
+    UpxScramblerRC103,
+    UpxScramblerRC105,
+    UpxScramblerRC1b10,
+)
+from jdpack import JDPack
+from npack import NPack
+from nspack import NSpack
 from wupack import WinUpack
+from yoda_crypter import YodaCrypter
+from yoda_crypter_v12 import YodaCrypterV12
+from yoda_protector_v10 import YodaProtectorV10
+from yoda_protector_v1012 import YodaProtectorV1012
+from yoda_protector_v102 import YodaProtectorV102
+from yoda_protector_v1032 import YodaProtectorV1032
+from yoda_protector_v1033 import YodaProtectorV1033
+from acprotect import ACProtect
+from telock import Telock
+from pelock import PELock
+from armadillo import Armadillo
+from pecompact import PECompact
+from themida_gui import ThemidaGUI
+from obsidium_v1880_gui import ObsidiumV1880GUI
+from obsidium_v152_gui import ObsidiumV152GUI
+from xpa_v143_gui import XPAV143GUI
+from zprotect_gui import ZProtectGUI
 
 PACKER_FILE_SUPPORT: Dict[str, List[str]] = {
+    "npack_v1.1": [".exe"],
+    "nspack_v3.7": [".exe"],
+    "jdpack_v1.00": [".exe"],
+    "fsg_v1.0": [".exe"],
     "asm_guard": [".exe"],
-    "acprotect": [".exe"],
-    "alienyze": [".exe"],
+    "alienyze_protector": [".exe"],
     "mew": [".exe"],
     "packman": [".exe"],
     "rlpack": [".exe"],
     "pe_diminisher": [".exe"],
-    "shrinker": [".exe"],
-    "telock": [".exe"],
+    "shrinker_v3.4_demo": [".exe"],
     "upx_scrambler": [".exe"],
+    "upx_scrambler_306": [".exe"],
+    "upx_scrambler_rc1": [".exe"],
+    "upx_scrambler_rc103": [".exe"],
+    "upx_scrambler_rc105": [".exe"],
+    "upx_scrambler_rc1b10": [".exe"],
     "winupack": [".exe"],
+    "yoda_crypter_v1.3": [".exe"],
+    "yoda_crypter_v1.2": [".exe"],
+    "yoda_protector_v1.0": [".exe"],
+    "yoda_protector_v1.01.2": [".exe"],
+    "yoda_protector_v1.02": [".exe"],
+    "yoda_protector_v1.03.2": [".exe"],
+    "yoda_protector_v1.03.3": [".exe"],
+    "acprotect_std": [".exe"],
+    "telock_v0.98": [".exe"],
+    "pelock_v2.40": [".exe"],
+    "armadillo": [".exe"],
+    "pecompact_v1.84": [".exe"],
+    "themida_v3.2.4.34": [".exe"],
+    "obsidium_v1.8.8": [".exe"],
+    "obsidium_v1.5.2": [".exe"],
+    "xpa_v1.43": [".exe"],
+    "zprotect": [".exe"],
 }
 
 PACKER_OPTIONS: Dict[str, Dict[str, str]] = {
@@ -54,20 +106,44 @@ PACKER_DEFAULT_STATES: Dict[str, Dict[str, bool]] = {
         "enhanced_flood_mode": False,
         "add_different_types": False,
     },
-    "acprotect": {},
-    "alienyze": {},
+    "npack_v1.1": {},
+    "nspack_v3.7": {},
+    "jdpack_v1.00": {},
+    "fsg_v1.0": {},
+    "alienyze_protector": {},
     "mew": {},
     "packman": {},
     "rlpack": {},
     "pe_diminisher": {},
-    "shrinker": {},
-    "telock": {},
+    "shrinker_v3.4_demo": {},
     "upx_scrambler": {},
+    "upx_scrambler_306": {},
+    "upx_scrambler_rc1": {},
+    "upx_scrambler_rc103": {},
+    "upx_scrambler_rc105": {},
+    "upx_scrambler_rc1b10": {},
     "winupack": {},
+    "yoda_crypter_v1.3": {},
+    "yoda_crypter_v1.2": {},
+    "yoda_protector_v1.0": {},
+    "yoda_protector_v1.01.2": {},
+    "yoda_protector_v1.02": {},
+    "yoda_protector_v1.03.2": {},
+    "yoda_protector_v1.03.3": {},
+    "acprotect_std": {},
+    "telock_v0.98": {},
+    "pelock_v2.40": {},
+    "armadillo": {},
+    "pecompact_v1.84": {},
+    "themida_v3.2.4.34": {},
+    "obsidium_v1.8.8": {},
+    "obsidium_v1.5.2": {},
+    "xpa_v1.43": {},
+    "zprotect": {},
 }
 
 # Default packer to use
-DEFAULT_PACKER = "asm_guard"
+DEFAULT_PACKER = "all"
 
 
 class GUIWrapperRunner:
@@ -90,6 +166,15 @@ class GUIWrapperRunner:
         if not self.yaml_path.exists():
             raise FileNotFoundError(f"YAML file not found: {self.yaml_path}")
 
+        # Load YAML config for version lookups
+        with open(self.yaml_path, "r") as f:
+            self._config = yaml.safe_load(f)
+        self._version_map = {}
+        for defn in self._config.get("definitions", []):
+            name = defn.get("packer_name", "").lower()
+            version = defn.get("version", "unknown")
+            self._version_map[name] = version
+
     def get_supported_extensions(self, packer_name: str) -> List[str]:
         """Get list of supported file extensions for a packer"""
         return PACKER_FILE_SUPPORT.get(packer_name, ["*"])
@@ -110,9 +195,13 @@ class GUIWrapperRunner:
             packer_name: Name of the packer
 
         Returns:
-            Path: Output directory (e.g., main_dir/packed_sources/asm_guard)
+            Path: Output directory (e.g., main_dir/packed_sources/asm_guard_2.9.4)
         """
-        output_dir = self.main_dir / "packed_sources" / packer_name
+        version = self._version_map.get(packer_name.lower(), "unknown")
+        # Sanitize version for filesystem (replace spaces, parens, etc.)
+        safe_version = re.sub(r'[^\w\.\-]', '_', version).strip('_')
+        dir_name = f"{packer_name}_{safe_version}"
+        output_dir = self.main_dir / "packed_sources" / dir_name
         output_dir.mkdir(parents=True, exist_ok=True)
         return output_dir
 
@@ -144,11 +233,24 @@ class GUIWrapperRunner:
         temp_dir = self.get_temp_directory(output_dir)
         temp_file = temp_dir / file_path.name
 
-        print(f"[INFO] Copying input file to temp directory...")
+        print("[INFO] Copying input file to temp directory...")
         print(f"[INFO]   Source: {file_path}")
         print(f"[INFO]   Dest:   {temp_file}")
 
-        shutil.copy2(file_path, temp_file)
+        try:
+            shutil.copy2(file_path, temp_file)
+        except OSError as e:
+            if e.winerror in (32, 1224):
+                # WinError 1224: file has a user-mapped section open (memory-mapped by OS).
+                # WinError 32: sharing violation (file locked by another process).
+                # Fall back to raw binary copy which bypasses this restriction.
+                print(f"[WARNING] shutil.copy2 blocked (WinError {e.winerror}); using raw binary copy.")
+                with open(file_path, "rb") as src, open(temp_file, "wb") as dst:
+                    shutil.copyfileobj(src, dst)
+                shutil.copystat(file_path, temp_file)
+            else:
+                raise
+
         return temp_file
 
     def is_file_supported(self, file_path: Path, packer_name: str) -> bool:
@@ -187,7 +289,7 @@ class GUIWrapperRunner:
     # ========== SCANNING & PACKING ==========
 
     def scan_source_directory(
-        self, packer_name: str = DEFAULT_PACKER, recursive: bool = False
+        self, packer_name: str = "asm_guard", recursive: bool = False
     ) -> List[Path]:
         """
         Scan source directory for files compatible with the specified packer
@@ -258,6 +360,143 @@ class GUIWrapperRunner:
 
         return config if config else None
 
+    def run_npack(
+        self,
+        file_path: Path,
+        packer_config: Optional[Dict[str, bool]] = None,
+        output_dir: Optional[Path] = None,
+    ) -> bool:
+        """
+        Run nPack wrapper on a single file
+        """
+        print(f"\n{'=' * 60}")
+        print(f"PROCESSING: {file_path.name}")
+        print(f"{'=' * 60}")
+
+        try:
+            wrapper = NPack(str(self.yaml_path), str(self.main_dir))
+
+            if output_dir is None:
+                output_dir = self.get_output_directory("npack_v1.1")
+
+            print(f"[INFO] Output directory: {output_dir}")
+
+            success = wrapper.run(
+                click_mode=packer_config if packer_config else "all",
+                file_path=str(file_path.resolve()),
+                output_dir=str(output_dir),
+            )
+            return success
+
+        except Exception as e:
+            print(f"[ERROR] Failed to process {file_path.name}: {e}")
+            import traceback
+            traceback.print_exc()
+            return False
+
+    def run_nspack(
+        self,
+        file_path: Path,
+        packer_config: Optional[Dict[str, bool]] = None,
+        output_dir: Optional[Path] = None,
+    ) -> bool:
+        """
+        Run NSpack wrapper on a single file
+        """
+        print(f"\n{'=' * 60}")
+        print(f"PROCESSING: {file_path.name}")
+        print(f"{'=' * 60}")
+
+        try:
+            wrapper = NSpack(str(self.yaml_path), str(self.main_dir))
+
+            if output_dir is None:
+                output_dir = self.get_output_directory("nspack_v3.7")
+
+            print(f"[INFO] Output directory: {output_dir}")
+
+            success = wrapper.run(
+                click_mode=packer_config if packer_config else "all",
+                file_path=str(file_path.resolve()),
+                output_dir=str(output_dir),
+            )
+            return success
+
+        except Exception as e:
+            print(f"[ERROR] Failed to process {file_path.name}: {e}")
+            import traceback
+            traceback.print_exc()
+            return False
+
+    def run_jdpack(
+        self,
+        file_path: Path,
+        packer_config: Optional[Dict[str, bool]] = None,
+        output_dir: Optional[Path] = None,
+    ) -> bool:
+        """
+        Run JDPack wrapper on a single file
+        """
+        print(f"\n{'=' * 60}")
+        print(f"PROCESSING: {file_path.name}")
+        print(f"{'=' * 60}")
+
+        try:
+            wrapper = JDPack(str(self.yaml_path), str(self.main_dir))
+
+            if output_dir is None:
+                output_dir = self.get_output_directory("jdpack_v1.00")
+
+            print(f"[INFO] Output directory: {output_dir}")
+
+            success = wrapper.run(
+                click_mode=packer_config if packer_config else "all",
+                file_path=str(file_path.resolve()),
+                output_dir=str(output_dir),
+            )
+            return success
+
+        except Exception as e:
+            print(f"[ERROR] Failed to process {file_path.name}: {e}")
+            import traceback
+            traceback.print_exc()
+            return False
+
+    def run_fsg(
+        self,
+        file_path: Path,
+        packer_config: Optional[Dict[str, bool]] = None,
+        output_dir: Optional[Path] = None,
+    ) -> bool:
+        """
+        Run FSG wrapper on a single file
+        """
+        print(f"\n{'=' * 60}")
+        print(f"PROCESSING: {file_path.name}")
+        print(f"{'=' * 60}")
+
+        try:
+            wrapper = FSG(str(self.yaml_path), str(self.main_dir))
+
+            if output_dir is None:
+                output_dir = self.get_output_directory("fsg_v1.0")
+
+            print(f"[INFO] Output directory: {output_dir}")
+
+            success = wrapper.run(
+                click_mode=packer_config if packer_config else "all",
+                file_path=str(file_path.resolve()),
+                output_dir=str(output_dir),
+            )
+            return success
+
+        except Exception as e:
+            print(f"[ERROR] Failed to process {file_path.name}: {e}")
+            import traceback
+
+            traceback.print_exc()
+            return False
+
     def run_asm_guard(
         self,
         file_path: Path,
@@ -297,59 +536,24 @@ class GUIWrapperRunner:
             traceback.print_exc()
             return False
 
-    def run_acprotect(
+    def run_alienyze_protector(
         self,
         file_path: Path,
         packer_config: Optional[Dict[str, bool]] = None,
         output_dir: Optional[Path] = None,
     ) -> bool:
         """
-        Run ACProtect wrapper on a single file
+        Run Alienyze Protector wrapper on a single file
         """
         print(f"\n{'=' * 60}")
         print(f"PROCESSING: {file_path.name}")
         print(f"{'=' * 60}")
 
         try:
-            wrapper = ACProtect(str(self.yaml_path), str(self.main_dir))
+            wrapper = AlienyzeProtector(str(self.yaml_path), str(self.main_dir))
 
             if output_dir is None:
-                output_dir = self.get_output_directory("acprotect")
-
-            print(f"[INFO] Output directory: {output_dir}")
-
-            success = wrapper.run(
-                click_mode=packer_config if packer_config else "all",
-                file_path=str(file_path.resolve()),
-                output_dir=str(output_dir),
-            )
-            return success
-
-        except Exception as e:
-            print(f"[ERROR] Failed to process {file_path.name}: {e}")
-            import traceback
-
-            traceback.print_exc()
-            return False
-
-    def run_alienyze(
-        self,
-        file_path: Path,
-        packer_config: Optional[Dict[str, bool]] = None,
-        output_dir: Optional[Path] = None,
-    ) -> bool:
-        """
-        Run Alienyze wrapper on a single file
-        """
-        print(f"\n{'=' * 60}")
-        print(f"PROCESSING: {file_path.name}")
-        print(f"{'=' * 60}")
-
-        try:
-            wrapper = Alienyze(str(self.yaml_path), str(self.main_dir))
-
-            if output_dir is None:
-                output_dir = self.get_output_directory("alienyze")
+                output_dir = self.get_output_directory("alienyze_protector")
 
             print(f"[INFO] Output directory: {output_dir}")
 
@@ -524,42 +728,7 @@ class GUIWrapperRunner:
             wrapper = Shrinker(str(self.yaml_path), str(self.main_dir))
 
             if output_dir is None:
-                output_dir = self.get_output_directory("shrinker")
-
-            print(f"[INFO] Output directory: {output_dir}")
-
-            success = wrapper.run(
-                click_mode=packer_config if packer_config else "all",
-                file_path=str(file_path.resolve()),
-                output_dir=str(output_dir),
-            )
-            return success
-
-        except Exception as e:
-            print(f"[ERROR] Failed to process {file_path.name}: {e}")
-            import traceback
-
-            traceback.print_exc()
-            return False
-
-    def run_telock(
-        self,
-        file_path: Path,
-        packer_config: Optional[Dict[str, bool]] = None,
-        output_dir: Optional[Path] = None,
-    ) -> bool:
-        """
-        Run tElock wrapper on a single file
-        """
-        print(f"\n{'=' * 60}")
-        print(f"PROCESSING: {file_path.name}")
-        print(f"{'=' * 60}")
-
-        try:
-            wrapper = Telock(str(self.yaml_path), str(self.main_dir))
-
-            if output_dir is None:
-                output_dir = self.get_output_directory("telock")
+                output_dir = self.get_output_directory("shrinker_v3.4_demo")
 
             print(f"[INFO] Output directory: {output_dir}")
 
@@ -592,10 +761,175 @@ class GUIWrapperRunner:
         print(f"{'=' * 60}")
 
         try:
-            wrapper = UpxScrambler(str(self.yaml_path), str(self.main_dir))
+            wrapper = UpxScrambler304(str(self.yaml_path), str(self.main_dir))
 
             if output_dir is None:
                 output_dir = self.get_output_directory("upx_scrambler")
+
+            print(f"[INFO] Output directory: {output_dir}")
+
+            success = wrapper.run(
+                click_mode=packer_config if packer_config else "all",
+                file_path=str(file_path.resolve()),
+                output_dir=str(output_dir),
+            )
+            return success
+
+        except Exception as e:
+            print(f"[ERROR] Failed to process {file_path.name}: {e}")
+            import traceback
+
+            traceback.print_exc()
+            return False
+
+    def run_upx_scrambler_306(
+        self,
+        file_path: Path,
+        packer_config: Optional[Dict[str, bool]] = None,
+        output_dir: Optional[Path] = None,
+    ) -> bool:
+        """Run UPX Scrambler 3.06 wrapper on a single file."""
+        print(f"\n{'=' * 60}")
+        print(f"PROCESSING: {file_path.name}")
+        print(f"{'=' * 60}")
+
+        try:
+            wrapper = UpxScrambler306(str(self.yaml_path), str(self.main_dir))
+
+            if output_dir is None:
+                output_dir = self.get_output_directory("upx_scrambler_306")
+
+            print(f"[INFO] Output directory: {output_dir}")
+
+            success = wrapper.run(
+                click_mode=packer_config if packer_config else "all",
+                file_path=str(file_path.resolve()),
+                output_dir=str(output_dir),
+            )
+            return success
+
+        except Exception as e:
+            print(f"[ERROR] Failed to process {file_path.name}: {e}")
+            import traceback
+
+            traceback.print_exc()
+            return False
+
+    def run_upx_scrambler_rc1(
+        self,
+        file_path: Path,
+        packer_config: Optional[Dict[str, bool]] = None,
+        output_dir: Optional[Path] = None,
+    ) -> bool:
+        """Run UPX Scrambler RC1 wrapper on a single file."""
+        print(f"\n{'=' * 60}")
+        print(f"PROCESSING: {file_path.name}")
+        print(f"{'=' * 60}")
+
+        try:
+            wrapper = UpxScramblerRC1(str(self.yaml_path), str(self.main_dir))
+
+            if output_dir is None:
+                output_dir = self.get_output_directory("upx_scrambler_rc1")
+
+            print(f"[INFO] Output directory: {output_dir}")
+
+            success = wrapper.run(
+                click_mode=packer_config if packer_config else "all",
+                file_path=str(file_path.resolve()),
+                output_dir=str(output_dir),
+            )
+            return success
+
+        except Exception as e:
+            print(f"[ERROR] Failed to process {file_path.name}: {e}")
+            import traceback
+
+            traceback.print_exc()
+            return False
+
+    def run_upx_scrambler_rc103(
+        self,
+        file_path: Path,
+        packer_config: Optional[Dict[str, bool]] = None,
+        output_dir: Optional[Path] = None,
+    ) -> bool:
+        """Run UPX Scrambler RC1.03 wrapper on a single file."""
+        print(f"\n{'=' * 60}")
+        print(f"PROCESSING: {file_path.name}")
+        print(f"{'=' * 60}")
+
+        try:
+            wrapper = UpxScramblerRC103(str(self.yaml_path), str(self.main_dir))
+
+            if output_dir is None:
+                output_dir = self.get_output_directory("upx_scrambler_rc103")
+
+            print(f"[INFO] Output directory: {output_dir}")
+
+            success = wrapper.run(
+                click_mode=packer_config if packer_config else "all",
+                file_path=str(file_path.resolve()),
+                output_dir=str(output_dir),
+            )
+            return success
+
+        except Exception as e:
+            print(f"[ERROR] Failed to process {file_path.name}: {e}")
+            import traceback
+
+            traceback.print_exc()
+            return False
+
+    def run_upx_scrambler_rc105(
+        self,
+        file_path: Path,
+        packer_config: Optional[Dict[str, bool]] = None,
+        output_dir: Optional[Path] = None,
+    ) -> bool:
+        """Run UPX Scrambler RC1.05 wrapper on a single file."""
+        print(f"\n{'=' * 60}")
+        print(f"PROCESSING: {file_path.name}")
+        print(f"{'=' * 60}")
+
+        try:
+            wrapper = UpxScramblerRC105(str(self.yaml_path), str(self.main_dir))
+
+            if output_dir is None:
+                output_dir = self.get_output_directory("upx_scrambler_rc105")
+
+            print(f"[INFO] Output directory: {output_dir}")
+
+            success = wrapper.run(
+                click_mode=packer_config if packer_config else "all",
+                file_path=str(file_path.resolve()),
+                output_dir=str(output_dir),
+            )
+            return success
+
+        except Exception as e:
+            print(f"[ERROR] Failed to process {file_path.name}: {e}")
+            import traceback
+
+            traceback.print_exc()
+            return False
+
+    def run_upx_scrambler_rc1b10(
+        self,
+        file_path: Path,
+        packer_config: Optional[Dict[str, bool]] = None,
+        output_dir: Optional[Path] = None,
+    ) -> bool:
+        """Run UPX Scrambler RC1b10 wrapper on a single file."""
+        print(f"\n{'=' * 60}")
+        print(f"PROCESSING: {file_path.name}")
+        print(f"{'=' * 60}")
+
+        try:
+            wrapper = UpxScramblerRC1b10(str(self.yaml_path), str(self.main_dir))
+
+            if output_dir is None:
+                output_dir = self.get_output_directory("upx_scrambler_rc1b10")
 
             print(f"[INFO] Output directory: {output_dir}")
 
@@ -648,6 +982,584 @@ class GUIWrapperRunner:
             traceback.print_exc()
             return False
 
+    def run_yoda_crypter(
+        self,
+        file_path: Path,
+        packer_config: Optional[Dict[str, bool]] = None,
+        output_dir: Optional[Path] = None,
+    ) -> bool:
+        """
+        Run Yoda's Crypter wrapper on a single file.
+        """
+        print(f"\n{'=' * 60}")
+        print(f"PROCESSING: {file_path.name}")
+        print(f"{'=' * 60}")
+
+        try:
+            wrapper = YodaCrypter(str(self.yaml_path), str(self.main_dir))
+
+            if output_dir is None:
+                output_dir = self.get_output_directory("yoda_crypter_v1.3")
+
+            print(f"[INFO] Output directory: {output_dir}")
+
+            success = wrapper.run(
+                click_mode=packer_config if packer_config else "all",
+                file_path=str(file_path.resolve()),
+                output_dir=str(output_dir),
+            )
+            return success
+
+        except Exception as e:
+            print(f"[ERROR] Failed to process {file_path.name}: {e}")
+            import traceback
+
+            traceback.print_exc()
+            return False
+
+    def run_yoda_crypter_v12(
+        self,
+        file_path: Path,
+        packer_config: Optional[Dict[str, bool]] = None,
+        output_dir: Optional[Path] = None,
+    ) -> bool:
+        """
+        Run Yoda's Crypter v1.2 wrapper on a single file.
+        """
+        print(f"\n{'=' * 60}")
+        print(f"PROCESSING: {file_path.name}")
+        print(f"{'=' * 60}")
+
+        try:
+            wrapper = YodaCrypterV12(str(self.yaml_path), str(self.main_dir))
+
+            if output_dir is None:
+                output_dir = self.get_output_directory("yoda_crypter_v1.2")
+
+            print(f"[INFO] Output directory: {output_dir}")
+
+            success = wrapper.run(
+                click_mode=packer_config if packer_config else "all",
+                file_path=str(file_path.resolve()),
+                output_dir=str(output_dir),
+            )
+            return success
+
+        except Exception as e:
+            print(f"[ERROR] Failed to process {file_path.name}: {e}")
+            import traceback
+
+            traceback.print_exc()
+            return False
+
+    def run_yoda_protector_v10(
+        self,
+        file_path: Path,
+        packer_config: Optional[Dict[str, bool]] = None,
+        output_dir: Optional[Path] = None,
+    ) -> bool:
+        """
+        Run Yoda's Protector v1.0 wrapper on a single file.
+        """
+        print(f"\n{'=' * 60}")
+        print(f"PROCESSING: {file_path.name}")
+        print(f"{'=' * 60}")
+
+        try:
+            wrapper = YodaProtectorV10(str(self.yaml_path), str(self.main_dir))
+
+            if output_dir is None:
+                output_dir = self.get_output_directory("yoda_protector_v1.0")
+
+            print(f"[INFO] Output directory: {output_dir}")
+
+            success = wrapper.run(
+                click_mode=packer_config if packer_config else "all",
+                file_path=str(file_path.resolve()),
+                output_dir=str(output_dir),
+            )
+            return success
+
+        except Exception as e:
+            print(f"[ERROR] Failed to process {file_path.name}: {e}")
+            import traceback
+
+            traceback.print_exc()
+            return False
+
+    def run_yoda_protector_v1012(
+        self,
+        file_path: Path,
+        packer_config: Optional[Dict[str, bool]] = None,
+        output_dir: Optional[Path] = None,
+    ) -> bool:
+        """
+        Run Yoda's Protector v1.01.2 wrapper on a single file.
+        """
+        print(f"\n{'=' * 60}")
+        print(f"PROCESSING: {file_path.name}")
+        print(f"{'=' * 60}")
+
+        try:
+            wrapper = YodaProtectorV1012(str(self.yaml_path), str(self.main_dir))
+
+            if output_dir is None:
+                output_dir = self.get_output_directory("yoda_protector_v1.01.2")
+
+            print(f"[INFO] Output directory: {output_dir}")
+
+            success = wrapper.run(
+                click_mode=packer_config if packer_config else "all",
+                file_path=str(file_path.resolve()),
+                output_dir=str(output_dir),
+            )
+            return success
+
+        except Exception as e:
+            print(f"[ERROR] Failed to process {file_path.name}: {e}")
+            import traceback
+
+            traceback.print_exc()
+            return False
+
+    def run_yoda_protector_v102(
+        self,
+        file_path: Path,
+        packer_config: Optional[Dict[str, bool]] = None,
+        output_dir: Optional[Path] = None,
+    ) -> bool:
+        """
+        Run Yoda's Protector v1.02 wrapper on a single file.
+        """
+        print(f"\n{'=' * 60}")
+        print(f"PROCESSING: {file_path.name}")
+        print(f"{'=' * 60}")
+
+        try:
+            wrapper = YodaProtectorV102(str(self.yaml_path), str(self.main_dir))
+
+            if output_dir is None:
+                output_dir = self.get_output_directory("yoda_protector_v1.02")
+
+            print(f"[INFO] Output directory: {output_dir}")
+
+            success = wrapper.run(
+                click_mode=packer_config if packer_config else "all",
+                file_path=str(file_path.resolve()),
+                output_dir=str(output_dir),
+            )
+            return success
+
+        except Exception as e:
+            print(f"[ERROR] Failed to process {file_path.name}: {e}")
+            import traceback
+
+            traceback.print_exc()
+            return False
+
+    def run_yoda_protector_v1032(
+        self,
+        file_path: Path,
+        packer_config: Optional[Dict[str, bool]] = None,
+        output_dir: Optional[Path] = None,
+    ) -> bool:
+        """
+        Run Yoda's Protector v1.03.2 wrapper on a single file.
+        """
+        print(f"\n{'=' * 60}")
+        print(f"PROCESSING: {file_path.name}")
+        print(f"{'=' * 60}")
+
+        try:
+            wrapper = YodaProtectorV1032(str(self.yaml_path), str(self.main_dir))
+
+            if output_dir is None:
+                output_dir = self.get_output_directory("yoda_protector_v1.03.2")
+
+            print(f"[INFO] Output directory: {output_dir}")
+
+            success = wrapper.run(
+                click_mode=packer_config if packer_config else "all",
+                file_path=str(file_path.resolve()),
+                output_dir=str(output_dir),
+            )
+            return success
+
+        except Exception as e:
+            print(f"[ERROR] Failed to process {file_path.name}: {e}")
+            import traceback
+
+            traceback.print_exc()
+            return False
+
+    def run_yoda_protector_v1033(
+        self,
+        file_path: Path,
+        packer_config: Optional[Dict[str, bool]] = None,
+        output_dir: Optional[Path] = None,
+    ) -> bool:
+        """
+        Run Yoda's Protector v1.03.3 wrapper on a single file.
+        """
+        print(f"\n{'=' * 60}")
+        print(f"PROCESSING: {file_path.name}")
+        print(f"{'=' * 60}")
+
+        try:
+            wrapper = YodaProtectorV1033(str(self.yaml_path), str(self.main_dir))
+
+            if output_dir is None:
+                output_dir = self.get_output_directory("yoda_protector_v1.03.3")
+
+            print(f"[INFO] Output directory: {output_dir}")
+
+            success = wrapper.run(
+                click_mode=packer_config if packer_config else "all",
+                file_path=str(file_path.resolve()),
+                output_dir=str(output_dir),
+            )
+            return success
+
+        except Exception as e:
+            print(f"[ERROR] Failed to process {file_path.name}: {e}")
+            import traceback
+
+            traceback.print_exc()
+            return False
+
+    def run_telock(
+        self,
+        file_path: Path,
+        packer_config: Optional[Dict[str, bool]] = None,
+        output_dir: Optional[Path] = None,
+    ) -> bool:
+        """
+        Run Telock wrapper on a single file
+        """
+        print(f"\n{'=' * 60}")
+        print(f"PROCESSING: {file_path.name}")
+        print(f"{'=' * 60}")
+
+        try:
+            wrapper = Telock(str(self.yaml_path), str(self.main_dir))
+
+            if output_dir is None:
+                output_dir = self.get_output_directory("telock_v0.98")
+
+            print(f"[INFO] Output directory: {output_dir}")
+
+            success = wrapper.run(
+                click_mode=packer_config if packer_config else "all",
+                file_path=str(file_path.resolve()),
+                output_dir=str(output_dir),
+            )
+            return success
+
+        except Exception as e:
+            print(f"[ERROR] Failed to process {file_path.name}: {e}")
+            import traceback
+            traceback.print_exc()
+            return False
+
+    def run_acprotect(
+        self,
+        file_path: Path,
+        packer_config: Optional[Dict[str, bool]] = None,
+        output_dir: Optional[Path] = None,
+    ) -> bool:
+        """
+        Run ACProtect wrapper on a single file
+        """
+        print(f"\n{'=' * 60}")
+        print(f"PROCESSING: {file_path.name}")
+        print(f"{'=' * 60}")
+
+        try:
+            wrapper = ACProtect(str(self.yaml_path), str(self.main_dir))
+
+            if output_dir is None:
+                output_dir = self.get_output_directory("acprotect_std")
+
+            print(f"[INFO] Output directory: {output_dir}")
+
+            success = wrapper.run(
+                click_mode=packer_config if packer_config else "all",
+                file_path=str(file_path.resolve()),
+                output_dir=str(output_dir),
+            )
+            return success
+
+        except Exception as e:
+            print(f"[ERROR] Failed to process {file_path.name}: {e}")
+            import traceback
+            traceback.print_exc()
+            return False
+
+    def run_pelock(
+        self,
+        file_path: Path,
+        packer_config: Optional[Dict[str, bool]] = None,
+        output_dir: Optional[Path] = None,
+    ) -> bool:
+        """
+        Run PELock wrapper on a single file
+        """
+        print(f"\n{'=' * 60}")
+        print(f"PROCESSING: {file_path.name}")
+        print(f"{'=' * 60}")
+
+        try:
+            wrapper = PELock(str(self.yaml_path), str(self.main_dir))
+
+            if output_dir is None:
+                output_dir = self.get_output_directory("pelock_v2.40")
+
+            print(f"[INFO] Output directory: {output_dir}")
+
+            success = wrapper.run(
+                click_mode=packer_config if packer_config else "all",
+                file_path=str(file_path.resolve()),
+                output_dir=str(output_dir),
+            )
+            return success
+
+        except Exception as e:
+            print(f"[ERROR] Failed to process {file_path.name}: {e}")
+            import traceback
+            traceback.print_exc()
+            return False
+
+    def run_armadillo(
+        self,
+        file_path: Path,
+        packer_config: Optional[Dict[str, bool]] = None,
+        output_dir: Optional[Path] = None,
+    ) -> bool:
+        """
+        Run Armadillo wrapper - launch, wait 60 seconds, close.
+        Armadillo is GUI-only; no CLI scripting is possible.
+        """
+        print(f"\n{'=' * 60}")
+        print(f"PROCESSING: {file_path.name}")
+        print(f"{'=' * 60}")
+
+        try:
+            wrapper = Armadillo(str(self.yaml_path), str(self.main_dir))
+
+            if output_dir is None:
+                output_dir = self.get_output_directory("armadillo")
+
+            print(f"[INFO] Output directory: {output_dir}")
+
+            success = wrapper.run(
+                click_mode="none",
+                file_path=str(file_path.resolve()),
+                output_dir=str(output_dir),
+            )
+            return success
+
+        except Exception as e:
+            print(f"[ERROR] Failed to process {file_path.name}: {e}")
+            import traceback
+            traceback.print_exc()
+            return False
+
+    def run_pecompact(
+        self,
+        file_path: Path,
+        packer_config: Optional[Dict[str, bool]] = None,
+        output_dir: Optional[Path] = None,
+    ) -> bool:
+        """
+        Run PECompact wrapper - launch, wait 60 seconds, close.
+        PECompact is GUI-only; no CLI scripting is possible.
+        """
+        print(f"\n{'=' * 60}")
+        print(f"PROCESSING: {file_path.name}")
+        print(f"{'=' * 60}")
+
+        try:
+            wrapper = PECompact(str(self.yaml_path), str(self.main_dir))
+
+            if output_dir is None:
+                output_dir = self.get_output_directory("pecompact_v1.84")
+
+            print(f"[INFO] Output directory: {output_dir}")
+
+            success = wrapper.run(
+                click_mode="none",
+                file_path=str(file_path.resolve()),
+                output_dir=str(output_dir),
+            )
+            return success
+
+        except Exception as e:
+            print(f"[ERROR] Failed to process {file_path.name}: {e}")
+            import traceback
+            traceback.print_exc()
+            return False
+
+    def run_themida(
+        self,
+        file_path: Path,
+        packer_config: Optional[Dict[str, bool]] = None,
+        output_dir: Optional[Path] = None,
+    ) -> bool:
+        """
+        Run Themida wrapper - launch, wait 60 seconds, close.
+        Themida is GUI-only; no CLI scripting is possible.
+        """
+        print(f"\n{'=' * 60}")
+        print(f"PROCESSING: {file_path.name}")
+        print(f"{'=' * 60}")
+
+        try:
+            wrapper = ThemidaGUI(str(self.yaml_path), str(self.main_dir))
+
+            if output_dir is None:
+                output_dir = self.get_output_directory("themida_v3.2.4.34")
+
+            print(f"[INFO] Output directory: {output_dir}")
+
+            success = wrapper.run(
+                click_mode="none",
+                file_path=str(file_path.resolve()),
+                output_dir=str(output_dir),
+            )
+            return success
+
+        except Exception as e:
+            print(f"[ERROR] Failed to process {file_path.name}: {e}")
+            import traceback
+            traceback.print_exc()
+            return False
+
+    def run_obsidium_v1880(
+        self,
+        file_path: Path,
+        packer_config: Optional[Dict[str, bool]] = None,
+        output_dir: Optional[Path] = None,
+    ) -> bool:
+        """Run Obsidium v1.8.8 GUI wrapper (stub)."""
+        print(f"\n{'=' * 60}")
+        print(f"PROCESSING: {file_path.name}")
+        print(f"{'=' * 60}")
+
+        try:
+            wrapper = ObsidiumV1880GUI(str(self.yaml_path), str(self.main_dir))
+
+            if output_dir is None:
+                output_dir = self.get_output_directory("obsidium_v1.8.8")
+
+            print(f"[INFO] Output directory: {output_dir}")
+
+            success = wrapper.run(
+                click_mode="none",
+                file_path=str(file_path.resolve()),
+                output_dir=str(output_dir),
+            )
+            return success
+
+        except Exception as e:
+            print(f"[ERROR] Failed to process {file_path.name}: {e}")
+            import traceback
+            traceback.print_exc()
+            return False
+
+    def run_obsidium_v152(
+        self,
+        file_path: Path,
+        packer_config: Optional[Dict[str, bool]] = None,
+        output_dir: Optional[Path] = None,
+    ) -> bool:
+        """Run Obsidium v1.5.2 GUI wrapper (stub)."""
+        print(f"\n{'=' * 60}")
+        print(f"PROCESSING: {file_path.name}")
+        print(f"{'=' * 60}")
+
+        try:
+            wrapper = ObsidiumV152GUI(str(self.yaml_path), str(self.main_dir))
+
+            if output_dir is None:
+                output_dir = self.get_output_directory("obsidium_v1.5.2")
+
+            print(f"[INFO] Output directory: {output_dir}")
+
+            success = wrapper.run(
+                click_mode="none",
+                file_path=str(file_path.resolve()),
+                output_dir=str(output_dir),
+            )
+            return success
+
+        except Exception as e:
+            print(f"[ERROR] Failed to process {file_path.name}: {e}")
+            import traceback
+            traceback.print_exc()
+            return False
+
+    def run_xpa_v143(
+        self,
+        file_path: Path,
+        packer_config: Optional[Dict[str, bool]] = None,
+        output_dir: Optional[Path] = None,
+    ) -> bool:
+        """Run XPA v1.43 GUI wrapper."""
+        print(f"\n{'=' * 60}")
+        print(f"PROCESSING: {file_path.name}")
+        print(f"{'=' * 60}")
+
+        try:
+            wrapper = XPAV143GUI(str(self.yaml_path), str(self.main_dir))
+
+            if output_dir is None:
+                output_dir = self.get_output_directory("xpa_v1.43")
+
+            print(f"[INFO] Output directory: {output_dir}")
+
+            success = wrapper.run(
+                file_path=str(file_path.resolve()),
+                output_dir=str(output_dir),
+            )
+            return success
+
+        except Exception as e:
+            print(f"[ERROR] Failed to process {file_path.name}: {e}")
+            import traceback
+            traceback.print_exc()
+            return False
+
+    def run_zprotect(
+        self,
+        file_path: Path,
+        packer_config: Optional[Dict[str, bool]] = None,
+        output_dir: Optional[Path] = None,
+    ) -> bool:
+        """Run ZProtect v1.4.2.0 GUI wrapper."""
+        print(f"\n{'=' * 60}")
+        print(f"PROCESSING: {file_path.name}")
+        print(f"{'=' * 60}")
+
+        try:
+            wrapper = ZProtectGUI(str(self.yaml_path), str(self.main_dir))
+
+            if output_dir is None:
+                output_dir = self.get_output_directory("zprotect")
+
+            print(f"[INFO] Output directory: {output_dir}")
+
+            success = wrapper.run(
+                file_path=str(file_path.resolve()),
+                output_dir=str(output_dir),
+            )
+            return success
+
+        except Exception as e:
+            print(f"[ERROR] Failed to process {file_path.name}: {e}")
+            import traceback
+            traceback.print_exc()
+            return False
+
     def run_packer(
         self,
         packer_name: str,
@@ -662,17 +1574,41 @@ class GUIWrapperRunner:
         directory, and the packer operates on that copy.
         """
         packer_methods = {
+            "npack_v1.1": self.run_npack,
+            "nspack_v3.7": self.run_nspack,
+            "jdpack_v1.00": self.run_jdpack,
+            "fsg_v1.0": self.run_fsg,
             "asm_guard": self.run_asm_guard,
-            "acprotect": self.run_acprotect,
-            "alienyze": self.run_alienyze,
+            "alienyze_protector": self.run_alienyze_protector,
             "mew": self.run_mew,
             "packman": self.run_packman,
             "rlpack": self.run_rlpack,
             "pe_diminisher": self.run_pe_diminisher,
-            "shrinker": self.run_shrinker,
-            "telock": self.run_telock,
+            "shrinker_v3.4_demo": self.run_shrinker,
             "upx_scrambler": self.run_upx_scrambler,
+            "upx_scrambler_306": self.run_upx_scrambler_306,
+            "upx_scrambler_rc1": self.run_upx_scrambler_rc1,
+            "upx_scrambler_rc103": self.run_upx_scrambler_rc103,
+            "upx_scrambler_rc105": self.run_upx_scrambler_rc105,
+            "upx_scrambler_rc1b10": self.run_upx_scrambler_rc1b10,
             "winupack": self.run_winupack,
+            "yoda_crypter_v1.3": self.run_yoda_crypter,
+            "yoda_crypter_v1.2": self.run_yoda_crypter_v12,
+            "yoda_protector_v1.0": self.run_yoda_protector_v10,
+            "yoda_protector_v1.01.2": self.run_yoda_protector_v1012,
+            "yoda_protector_v1.02": self.run_yoda_protector_v102,
+            "yoda_protector_v1.03.2": self.run_yoda_protector_v1032,
+            "yoda_protector_v1.03.3": self.run_yoda_protector_v1033,
+            "acprotect_std": self.run_acprotect,
+            "telock_v0.98": self.run_telock,
+            "pelock_v2.40": self.run_pelock,
+            "armadillo": self.run_armadillo,
+            "pecompact_v1.84": self.run_pecompact,
+            "themida_v3.2.4.34": self.run_themida,
+            "obsidium_v1.8.8": self.run_obsidium_v1880,
+            "obsidium_v1.5.2": self.run_obsidium_v152,
+            "xpa_v1.43": self.run_xpa_v143,
+            "zprotect": self.run_zprotect,
         }
 
         if packer_name not in packer_methods:
@@ -708,7 +1644,7 @@ class GUIWrapperRunner:
 
     def run_batch(
         self,
-        packer_name: str = DEFAULT_PACKER,
+        packer_name: str = "asm_guard",
         packer_config: Optional[Dict[str, bool]] = None,
         output_dir: Optional[Path] = None,
         recursive: bool = False,
@@ -957,8 +1893,8 @@ Examples:
         "--packer",
         type=str,
         default=DEFAULT_PACKER,
-        choices=list(PACKER_FILE_SUPPORT.keys()),
-        help=f"Packer to use (default: {DEFAULT_PACKER})",
+        choices=list(PACKER_FILE_SUPPORT.keys()) + ["all"],
+        help=f"Packer to use (default: {DEFAULT_PACKER}), or 'all' to run every GUI packer",
     )
 
     parser.add_argument(
@@ -1081,9 +2017,50 @@ Examples:
         # Build packer-specific config from args
         packer_config = runner.build_packer_config(
             args.packer,
-            check_options=args.check,
-            uncheck_options=args.uncheck,
+            check_options=getattr(args, "check", None),
+            uncheck_options=getattr(args, "uncheck", None),
         )
+
+        # "all" mode — run every packer in sequence
+        if args.packer == "all":
+            all_packers = list(PACKER_FILE_SUPPORT.keys())
+            any_failed = False
+
+            if args.file:
+                file_path = Path(args.file).resolve()
+                if not file_path.exists():
+                    print(f"[ERROR] File not found: {file_path}")
+                    return 1
+                for packer_name in all_packers:
+                    print(f"\n{'#' * 60}")
+                    print(f"PACKER: {packer_name}")
+                    print(f"{'#' * 60}")
+                    success = runner.run_packer(
+                        packer_name,
+                        file_path,
+                        packer_config=None,
+                        output_dir=None,
+                    )
+                    if not success:
+                        any_failed = True
+            else:
+                for packer_name in all_packers:
+                    print(f"\n{'#' * 60}")
+                    print(f"PACKER: {packer_name}")
+                    print(f"{'#' * 60}")
+                    results = runner.run_batch(
+                        packer_name=packer_name,
+                        packer_config=None,
+                        output_dir=None,
+                        recursive=args.recursive,
+                        dry_run=args.dry_run,
+                        limit=args.limit,
+                        skip_existing=not args.no_skip,
+                    )
+                    if any(v is False for v in results.values()):
+                        any_failed = True
+
+            return 1 if any_failed else 0
 
         # Single file mode
         if args.file:

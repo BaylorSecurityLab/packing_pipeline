@@ -32,7 +32,7 @@ class Telock(BaseGUI):
 
     def get_packer_name(self):
         """Return the packer name for YAML lookup"""
-        return "telock"
+        return "telock_v0.98"
 
     def find_file_picker_window(self, timeout=10):
         """
@@ -47,9 +47,9 @@ class Telock(BaseGUI):
         # Broader patterns including the base ones
         patterns = self.FILE_PICKER_PATTERNS + [
             "telock",
-            "Ouvrir",       # French
-            "Abrir",        # Spanish
-            "Öffnen",       # German
+            "Ouvrir",  # French
+            "Abrir",  # Spanish
+            "Öffnen",  # German
             "Save",
             "File",
         ]
@@ -79,6 +79,29 @@ class Telock(BaseGUI):
 
         print("[ERROR] File picker window not found within timeout")
         return None
+
+    def check_for_error_dialog(self):
+        """
+        Check if tElock has opened an error dialog (title exactly "Error").
+
+        Returns:
+            bool: True if an error dialog is detected
+        """
+        try:
+            for win in gw.getAllWindows():
+                if win.title.strip() == "Error" and win.visible:
+                    print(f"[WARNING] Error dialog detected: '{win.title}'")
+                    try:
+                        win.activate()
+                        time.sleep(0.2)
+                        pyautogui.press("enter")
+                        time.sleep(0.2)
+                    except Exception:
+                        pass
+                    return True
+        except Exception as e:
+            print(f"[DEBUG] Error dialog check failed: {e}")
+        return False
 
     def wait_for_packing_complete(self, input_file_path):
         """
@@ -114,6 +137,10 @@ class Telock(BaseGUI):
 
         while time.time() - start_time < timeout:
             elapsed = int(time.time() - start_time)
+
+            if self.check_for_error_dialog():
+                print("\n[ERROR] tElock error dialog detected — packing failed.")
+                return None
 
             if input_path.exists():
                 current_size = input_path.stat().st_size

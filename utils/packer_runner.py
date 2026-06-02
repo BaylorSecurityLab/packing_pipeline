@@ -42,6 +42,10 @@ PACKER_SETTINGS = {
         "use_dialog_killer": False,
         "timeout": 60,
     },
+    "pezor": {
+        "use_dialog_killer": False,
+        "timeout": 300,
+    },
     # Default for unknown packers
     "_default": {
         "use_dialog_killer": False,
@@ -234,6 +238,7 @@ def pack_single_file(args):
         output_behavior,
         dependencies,
         config,
+        project_file,
     ) = args
 
     filename = os.path.basename(src_path)
@@ -402,6 +407,7 @@ def pack_single_file(args):
         val_out = to_wsl_path(val_out)
 
     val_python = sys.executable
+    val_project = get_short_path(os.path.abspath(project_file)) if project_file else ""
 
     for part in raw_parts:
         # Use simple substitution to preserve flags attached to placeholders
@@ -412,6 +418,9 @@ def pack_single_file(args):
 
         if "{bin}" in new_part:
             new_part = new_part.replace("{bin}", val_bin)
+
+        if "{project}" in new_part:
+            new_part = new_part.replace("{project}", val_project)
 
         if "{in}" in new_part:
             new_part = new_part.replace("{in}", val_in)
@@ -575,7 +584,12 @@ def run_packing(packer_name_input, max_size_kb=0, config=None, workers=1):
                 print(f"    [!] Error: Packer binary not found at: {packer_bin}")
                 continue
 
-            output_dir = os.path.join(PACKED_OUTPUT_DIR, packer_name_input, test_id)
+            # Include version in directory name (e.g., upx_5.1.0/TEST_ID)
+            version = packer_def.get("version", "unknown")
+            # Sanitize version for filesystem (replace spaces, parens, etc.)
+            safe_version = re.sub(r'[^\w\.\-]', '_', version).strip('_')
+            packer_dir_name = f"{packer_name_input}_{safe_version}"
+            output_dir = os.path.join(PACKED_OUTPUT_DIR, packer_dir_name, test_id)
             os.makedirs(output_dir, exist_ok=True)
 
             targets = get_targets(test_case.get("supported_input_arch", "PE32"))
@@ -588,6 +602,15 @@ def run_packing(packer_name_input, max_size_kb=0, config=None, workers=1):
             # Get the behavior from the definition (defaults to explicit)
             output_behavior = packer_def.get("output_behavior", "explicit")
             dependencies = packer_def.get("dependencies", [])
+
+            # Resolve project_file if present
+            raw_project = packer_def.get("project_file", "")
+            if raw_project:
+                if raw_project.startswith("./"):
+                    raw_project = raw_project[2:]
+                project_file_path = os.path.join(project_root, raw_project)
+            else:
+                project_file_path = ""
 
             print(f"\n--- Case: {test_id} (Workers: {workers}) ---")
 
@@ -604,6 +627,7 @@ def run_packing(packer_name_input, max_size_kb=0, config=None, workers=1):
                         output_behavior,
                         dependencies,
                         config,
+                        project_file_path,
                     )
                 )
 
@@ -629,6 +653,14 @@ def run_packing(packer_name_input, max_size_kb=0, config=None, workers=1):
                         pbar.update(1)
 
             print(f"    Result: {success_count}/{len(targets)} packed.")
+
+            # Clean up _temp_build directory
+            temp_build_dir = os.path.join(output_dir, "_temp_build")
+            if os.path.exists(temp_build_dir):
+                try:
+                    shutil.rmtree(temp_build_dir)
+                except Exception as e:
+                    print(f"    [!] Warning: Could not remove temp dir: {e}")
 
     finally:
         if stop_event:
@@ -656,6 +688,16 @@ if __name__ == "__main__":
         default=default_workers,
         help=f"Number of parallel threads (default: {default_workers})",
     )
+    parser.add_argument(
+        "--verify",
+        action="store_true",
+        help="Run pack verification after packing to delete unverified samples.",
+    )
+    parser.add_argument(
+        "--verify-dry-run",
+        action="store_true",
+        help="Run pack verification in dry-run mode (report only, no deletes).",
+    )
 
     args = parser.parse_args()
     main_config = load_yaml(YAML_CONFIG_FILE)
@@ -671,3 +713,15 @@ if __name__ == "__main__":
             print("=" * 40)
     else:
         run_packing(args.packer_name, args.max_size_kb, main_config, args.workers)
+
+    # Post-packing verification
+    if args.verify or args.verify_dry_run:
+        print("\n" + "=" * 50)
+        print("POST-PACKING VERIFICATION")
+        print("=" * 50)
+        from pack_verifier import verify_directory
+        packed_dir = os.path.abspath(PACKED_OUTPUT_DIR)
+        if os.path.exists(packed_dir):
+            verify_directory(packed_dir, dry_run=args.verify_dry_run)
+        else:
+            print(f"[!] No packed output directory found at: {packed_dir}")

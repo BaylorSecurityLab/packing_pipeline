@@ -29,7 +29,7 @@ class ACProtect(BaseGUI):
 
     def get_packer_name(self):
         """Return the packer name for YAML lookup"""
-        return "acprotect"
+        return "acprotect_std"
 
     def click_window_to_focus(self):
         """Click somewhere safe on the window to give it focus"""

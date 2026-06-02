@@ -8,7 +8,7 @@ import zipfile
 import shutil
 
 # --- CONFIGURATION ---
-LIMIT = 20
+LIMIT = 66
 BASE_DIR = "../benign_sources"
 MANIFEST_DIR = os.path.join(BASE_DIR, "manifest")
 
@@ -62,6 +62,7 @@ def fetch_new_packages(manifest_data, target_limit):
             url = f"https://api.winget.run/v2/packages?page={page}&take=50"
             res = requests.get(url, timeout=10)
             if res.status_code != 200:
+                print(f"API returned status {res.status_code} for {url}")
                 break
 
             data = res.json()
@@ -81,7 +82,7 @@ def fetch_new_packages(manifest_data, target_limit):
             page += 1
             time.sleep(0.5)
         except Exception as e:
-            print(f"API Error: {e}")
+            print(f"API Error on page {page}: {e}")
             break
 
     return new_targets_executables
