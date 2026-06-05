@@ -6,9 +6,10 @@ import json
 import glob
 import zipfile
 import shutil
+from tqdm import tqdm
 
 # --- CONFIGURATION ---
-LIMIT = 66
+LIMIT = 200
 BASE_DIR = "../benign_sources"
 MANIFEST_DIR = os.path.join(BASE_DIR, "manifest")
 
@@ -44,20 +45,20 @@ def save_manifest(data):
             json.dump(data[key], f, indent=4)
 
 
-def fetch_new_packages(manifest_data, target_limit):
+def fetch_new_packages(manifest_data, num_new):
+    """Fetches up to `num_new` package IDs that have not been processed yet."""
     processed = manifest_data["processed_ids"]
-    current_count = len(processed)
 
-    if current_count >= target_limit:
+    if num_new <= 0:
         return []
 
     new_targets_executables = []
     print(
-        f"Sourcing new packages... (Current: {current_count} | Target: {target_limit})"
+        f"Sourcing new packages... (Already processed: {len(processed)} | Fetching: {num_new})"
     )
 
     page = 1
-    while (len(new_targets_executables) + current_count) < target_limit:
+    while len(new_targets_executables) < num_new:
         try:
             url = f"https://api.winget.run/v2/packages?page={page}&take=50"
             res = requests.get(url, timeout=10)
@@ -77,7 +78,7 @@ def fetch_new_packages(manifest_data, target_limit):
                     and (p_id not in new_targets_executables)
                 ):
                     new_targets_executables.append(p_id)
-                    if (len(new_targets_executables) + current_count) >= target_limit:
+                    if len(new_targets_executables) >= num_new:
                         break
             page += 1
             time.sleep(0.5)
@@ -107,7 +108,7 @@ def handle_zips(folder):
 
     for zip_path in zip_files:
         try:
-            print(f"   -> Unzipping: {os.path.basename(zip_path)}")
+            tqdm.write(f"   -> Unzipping: {os.path.basename(zip_path)}")
             # Create a temporary extraction folder
             temp_extract_dir = os.path.join(folder, "temp_extract_zone")
             os.makedirs(temp_extract_dir, exist_ok=True)
@@ -128,77 +129,104 @@ def handle_zips(folder):
                         if not os.path.exists(dest):
                             shutil.move(source, dest)
                             found_exe = True
-                            print(f"   -> Extracted: {file}")
+                            tqdm.write(f"   -> Extracted: {file}")
 
             # Cleanup: Delete the zip and the temp folder
             os.remove(zip_path)
             shutil.rmtree(temp_extract_dir)
 
             if not found_exe:
-                print(
+                tqdm.write(
                     f"   -> Warning: No .exe/.msi found in {os.path.basename(zip_path)}"
                 )
 
         except Exception as e:
-            print(f"   -> Zip Error: {e}")
+            tqdm.write(f"   -> Zip Error: {e}")
 
 
-def download_packages(targets, manifest_data):
-    print(f"\nProcessing {len(targets)} new targets into '{BASE_DIR}'...\n")
+def download_one(app_id, manifest_data):
+    """Attempts to download a single package. Returns True on success."""
+    success = False
+    try:
+        subprocess.run(
+            [
+                "winget",
+                "download",
+                "--id",
+                app_id,
+                "-d",
+                os.path.join(BASE_DIR, "x86"),
+                "-a",
+                "x86",
+                "--accept-package-agreements",
+                "--accept-source-agreements",
+                "--disable-interactivity",
+                "--skip-dependencies",
+            ],
+            capture_output=True,
+            check=True,
+        )
 
-    # Only create x86 folder
+        if app_id not in manifest_data["x86"]:
+            manifest_data["x86"].append(app_id)
+
+        delete_yaml_files(os.path.join(BASE_DIR, "x86"))
+        handle_zips(os.path.join(BASE_DIR, "x86"))
+        tqdm.write(f"[x86] Success: {app_id}")
+        success = True
+
+    except subprocess.CalledProcessError:
+        # If x86 is not available for this package, we skip it silently
+        tqdm.write(f"[x86] Skipped/Failed (Not available or Error): {app_id}")
+
+    # Always mark as processed so we don't try this ID again
+    if app_id not in manifest_data["processed_ids"]:
+        manifest_data["processed_ids"].append(app_id)
+
+    return success
+
+
+def download_until_limit(manifest_data, target_limit):
+    """Keeps fetching and downloading until `target_limit` successful x86 downloads."""
     os.makedirs(os.path.join(BASE_DIR, "x86"), exist_ok=True)
 
-    for index, app_id in enumerate(targets):
-        print(f"[{index + 1}/{len(targets)}] Processing: {app_id}")
+    already = len(manifest_data["x86"])
+    progress = tqdm(
+        total=target_limit, initial=already, desc="Downloaded", unit="pkg"
+    )
 
-        # --- PROCESS x86 ONLY ---
-        try:
-            subprocess.run(
-                [
-                    "winget",
-                    "download",
-                    "--id",
-                    app_id,
-                    "-d",
-                    os.path.join(BASE_DIR, "x86"),
-                    "-a",
-                    "x86",
-                    "--accept-package-agreements",
-                    "--accept-source-agreements",
-                    "--disable-interactivity",
-                    "--skip-dependencies",
-                ],
-                capture_output=True,
-                check=True,
-            )
+    attempts = 0
+    while len(manifest_data["x86"]) < target_limit:
+        needed = target_limit - len(manifest_data["x86"])
+        # Fetch a fresh batch of unprocessed candidates to attempt
+        targets = fetch_new_packages(manifest_data, needed)
+        if not targets:
+            tqdm.write("No more packages available from source.")
+            break
 
-            if app_id not in manifest_data["x86"]:
-                manifest_data["x86"].append(app_id)
+        for app_id in targets:
+            if len(manifest_data["x86"]) >= target_limit:
+                break
+            progress.set_postfix_str(app_id)
+            if download_one(app_id, manifest_data):
+                progress.update(1)
 
-            delete_yaml_files(os.path.join(BASE_DIR, "x86"))
-            handle_zips(os.path.join(BASE_DIR, "x86"))
-            print(f"   -> [x86] Success")
+            attempts += 1
+            if attempts % 5 == 0:
+                save_manifest(manifest_data)
 
-        except subprocess.CalledProcessError:
-            # If x86 is not available for this package, we skip it silently
-            print(f"   -> [x86] Skipped/Failed (Not available or Error)")
-
-        # Always mark as processed so we don't try this ID again
-        if app_id not in manifest_data["processed_ids"]:
-            manifest_data["processed_ids"].append(app_id)
-
-        if index % 5 == 0:
-            save_manifest(manifest_data)
-
+    progress.close()
     save_manifest(manifest_data)
-    print(f"\nOperation Complete.")
+    print(f"\nOperation Complete. Total downloaded: {len(manifest_data['x86'])}")
 
 
 if __name__ == "__main__":
     manifest = load_manifest()
-    new_targets = fetch_new_packages(manifest, LIMIT)
-    if new_targets:
-        download_packages(new_targets, manifest)
-    else:
+    already_downloaded = len(manifest["x86"])
+    print(
+        f"Target total: {LIMIT} | Already downloaded: {already_downloaded} | Remaining: {max(LIMIT - already_downloaded, 0)}"
+    )
+    if already_downloaded >= LIMIT:
         print("No new packages to process (Limit reached).")
+    else:
+        download_until_limit(manifest, LIMIT)

@@ -554,7 +554,7 @@ def run_packing(packer_name_input, max_size_kb=0, config=None, workers=1):
         print(f"[!] No test cases found for packer: '{packer_name_input}'")
         return
 
-    print(f"[*] Found {len(selected_tests)} test cases for '{packer_name_input}'")
+    tqdm.write(f"[*] Found {len(selected_tests)} test cases for '{packer_name_input}'")
 
     # Get packer-specific settings
     settings = get_packer_settings(packer_name_input)
@@ -570,8 +570,17 @@ def run_packing(packer_name_input, max_size_kb=0, config=None, workers=1):
         killer_thread.start()
 
     try:
-        for test_case in selected_tests:
+        case_bar = tqdm(
+            selected_tests,
+            total=len(selected_tests),
+            unit="case",
+            desc=f"[{packer_name_input}] Test cases",
+            position=1,
+            leave=False,
+        )
+        for test_case in case_bar:
             test_id = test_case["id"]
+            case_bar.set_postfix_str(test_id)
 
             script_dir = os.path.dirname(os.path.abspath(__file__))
             project_root = os.path.abspath(os.path.join(script_dir, ".."))
@@ -581,7 +590,7 @@ def run_packing(packer_name_input, max_size_kb=0, config=None, workers=1):
             packer_bin = os.path.join(project_root, raw_bin_path)
 
             if not os.path.exists(packer_bin):
-                print(f"    [!] Error: Packer binary not found at: {packer_bin}")
+                tqdm.write(f"    [!] Error: Packer binary not found at: {packer_bin}")
                 continue
 
             # Include version in directory name (e.g., upx_5.1.0/TEST_ID)
@@ -594,7 +603,7 @@ def run_packing(packer_name_input, max_size_kb=0, config=None, workers=1):
 
             targets = get_targets(test_case.get("supported_input_arch", "PE32"))
             if not targets:
-                print(
+                tqdm.write(
                     f"    [!] No targets found for case {test_id} (Checking x86 only)"
                 )
                 continue
@@ -612,7 +621,7 @@ def run_packing(packer_name_input, max_size_kb=0, config=None, workers=1):
             else:
                 project_file_path = ""
 
-            print(f"\n--- Case: {test_id} (Workers: {workers}) ---")
+            tqdm.write(f"\n--- Case: {test_id} (Workers: {workers}) ---")
 
             jobs = []
             for src in targets:
@@ -638,7 +647,13 @@ def run_packing(packer_name_input, max_size_kb=0, config=None, workers=1):
                     executor.submit(pack_single_file, job): job[0] for job in jobs
                 }
 
-                with tqdm(total=len(jobs), unit="file", desc="Packing") as pbar:
+                with tqdm(
+                    total=len(jobs),
+                    unit="file",
+                    desc=f"  └─ Packing [{test_id}]",
+                    position=2,
+                    leave=False,
+                ) as pbar:
                     for future in concurrent.futures.as_completed(future_to_file):
                         fname = os.path.basename(future_to_file[future])
                         try:
@@ -652,7 +667,7 @@ def run_packing(packer_name_input, max_size_kb=0, config=None, workers=1):
 
                         pbar.update(1)
 
-            print(f"    Result: {success_count}/{len(targets)} packed.")
+            tqdm.write(f"    Result: {success_count}/{len(targets)} packed.")
 
             # Clean up _temp_build directory
             temp_build_dir = os.path.join(output_dir, "_temp_build")
@@ -660,7 +675,9 @@ def run_packing(packer_name_input, max_size_kb=0, config=None, workers=1):
                 try:
                     shutil.rmtree(temp_build_dir)
                 except Exception as e:
-                    print(f"    [!] Warning: Could not remove temp dir: {e}")
+                    tqdm.write(f"    [!] Warning: Could not remove temp dir: {e}")
+
+        case_bar.close()
 
     finally:
         if stop_event:
@@ -708,9 +725,19 @@ if __name__ == "__main__":
             set([d["packer_name"] for d in main_config.get("definitions", [])])
         )
         print(f"=== RUNNING ALL PACKERS: {', '.join(packers)} ===")
-        for p in packers:
+        packer_bar = tqdm(
+            packers,
+            total=len(packers),
+            unit="packer",
+            desc="Packers completed",
+            position=0,
+            leave=True,
+        )
+        for p in packer_bar:
+            packer_bar.set_postfix_str(p)
             run_packing(p, args.max_size_kb, main_config, args.workers)
-            print("=" * 40)
+            tqdm.write("=" * 40)
+        packer_bar.close()
     else:
         run_packing(args.packer_name, args.max_size_kb, main_config, args.workers)
 
