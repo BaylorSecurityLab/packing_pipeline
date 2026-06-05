@@ -6,12 +6,19 @@ import json
 import glob
 import zipfile
 import shutil
+import threading
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from tqdm import tqdm
 
 # --- CONFIGURATION ---
 LIMIT = 200
 # Max seconds to wait for a single package download before skipping it
 DOWNLOAD_TIMEOUT = 60
+# Parallel download workers: 80% of available CPU cores (at least 1)
+MAX_WORKERS = max(1, int((os.cpu_count() or 1) * 0.80))
+
+# Guards shared manifest state and folder post-processing across threads
+_manifest_lock = threading.Lock()
 BASE_DIR = "../benign_sources"
 MANIFEST_DIR = os.path.join(BASE_DIR, "manifest")
 
@@ -170,11 +177,14 @@ def download_one(app_id, manifest_data):
             timeout=DOWNLOAD_TIMEOUT,
         )
 
-        if app_id not in manifest_data["x86"]:
-            manifest_data["x86"].append(app_id)
+        # Serialize manifest mutation + folder post-processing: the x86 dir
+        # is shared and handle_zips uses a common temp extraction folder.
+        with _manifest_lock:
+            if app_id not in manifest_data["x86"]:
+                manifest_data["x86"].append(app_id)
 
-        delete_yaml_files(os.path.join(BASE_DIR, "x86"))
-        handle_zips(os.path.join(BASE_DIR, "x86"))
+            delete_yaml_files(os.path.join(BASE_DIR, "x86"))
+            handle_zips(os.path.join(BASE_DIR, "x86"))
         tqdm.write(f"[x86] Success: {app_id}")
         success = True
 
@@ -189,40 +199,55 @@ def download_one(app_id, manifest_data):
         tqdm.write(f"[x86] Skipped/Failed (Not available or Error): {app_id}")
 
     # Always mark as processed so we don't try this ID again
-    if app_id not in manifest_data["processed_ids"]:
-        manifest_data["processed_ids"].append(app_id)
+    with _manifest_lock:
+        if app_id not in manifest_data["processed_ids"]:
+            manifest_data["processed_ids"].append(app_id)
 
     return success
 
 
 def download_until_limit(manifest_data, target_limit):
-    """Keeps fetching and downloading until `target_limit` successful x86 downloads."""
+    """Keeps fetching and downloading until `target_limit` successful x86 downloads.
+
+    Downloads run in parallel across MAX_WORKERS threads (80% of CPU cores).
+    """
     os.makedirs(os.path.join(BASE_DIR, "x86"), exist_ok=True)
 
     already = len(manifest_data["x86"])
     progress = tqdm(
         total=target_limit, initial=already, desc="Downloaded", unit="pkg"
     )
+    print(f"Running with {MAX_WORKERS} parallel workers.")
 
     attempts = 0
-    while len(manifest_data["x86"]) < target_limit:
-        needed = target_limit - len(manifest_data["x86"])
-        # Fetch a fresh batch of unprocessed candidates to attempt
-        targets = fetch_new_packages(manifest_data, needed)
-        if not targets:
-            tqdm.write("No more packages available from source.")
-            break
-
-        for app_id in targets:
-            if len(manifest_data["x86"]) >= target_limit:
+    with ThreadPoolExecutor(max_workers=MAX_WORKERS) as executor:
+        while len(manifest_data["x86"]) < target_limit:
+            needed = target_limit - len(manifest_data["x86"])
+            # Over-fetch a bit so workers stay busy even as some IDs fail.
+            batch_size = needed + MAX_WORKERS
+            targets = fetch_new_packages(manifest_data, batch_size)
+            if not targets:
+                tqdm.write("No more packages available from source.")
                 break
-            progress.set_postfix_str(app_id)
-            if download_one(app_id, manifest_data):
-                progress.update(1)
 
-            attempts += 1
-            if attempts % 5 == 0:
-                save_manifest(manifest_data)
+            # Submit the whole batch and process completions as they finish.
+            futures = {
+                executor.submit(download_one, app_id, manifest_data): app_id
+                for app_id in targets
+            }
+
+            for future in as_completed(futures):
+                if future.result():
+                    progress.update(1)
+                    progress.set_postfix_str(futures[future])
+
+                attempts += 1
+                if attempts % 5 == 0:
+                    with _manifest_lock:
+                        save_manifest(manifest_data)
+
+                if len(manifest_data["x86"]) >= target_limit:
+                    break
 
     progress.close()
     save_manifest(manifest_data)
