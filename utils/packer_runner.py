@@ -54,6 +54,17 @@ PACKER_SETTINGS = {
 }
 
 
+# Global verbosity flag. When False (default) we only show progress bars,
+# failures, the active packer, and its test cases. When True we print everything.
+VERBOSE = False
+
+
+def vlog(msg):
+    """Print only when --verbose is set (uses tqdm.write so bars stay intact)."""
+    if VERBOSE:
+        tqdm.write(msg)
+
+
 def get_packer_settings(packer_name):
     return PACKER_SETTINGS.get(packer_name.lower(), PACKER_SETTINGS["_default"])
 
@@ -132,7 +143,7 @@ def dialog_killer(stop_event, target_keywords=None):
         time.sleep(0.05)  # Check every 50ms
 
     if closed_count[0] > 0:
-        tqdm.write(f"[*] Dialog killer closed {closed_count[0]} popup(s)")
+        vlog(f"[*] Dialog killer closed {closed_count[0]} popup(s)")
 
 
 # --- CONFIGURATION ---
@@ -621,7 +632,7 @@ def run_packing(packer_name_input, max_size_kb=0, config=None, workers=1):
             else:
                 project_file_path = ""
 
-            tqdm.write(f"\n--- Case: {test_id} (Workers: {workers}) ---")
+            vlog(f"\n--- Case: {test_id} (Workers: {workers}) ---")
 
             jobs = []
             for src in targets:
@@ -660,6 +671,9 @@ def run_packing(packer_name_input, max_size_kb=0, config=None, workers=1):
                             success, msg = future.result()
                             if success:
                                 success_count += 1
+                            elif msg.startswith("Skipped"):
+                                # Skips are noise unless verbose
+                                vlog(f"[~] {fname}: {msg}")
                             else:
                                 tqdm.write(f"[-] {fname}: {msg}")
                         except Exception as exc:
@@ -715,8 +729,16 @@ if __name__ == "__main__":
         action="store_true",
         help="Run pack verification in dry-run mode (report only, no deletes).",
     )
+    parser.add_argument(
+        "-v",
+        "--verbose",
+        action="store_true",
+        help="Print everything. Without it: only progress bars, failures, "
+        "the active packer, and its test cases.",
+    )
 
     args = parser.parse_args()
+    VERBOSE = args.verbose
     main_config = load_yaml(YAML_CONFIG_FILE)
 
     if args.packer_name.lower() == "all":

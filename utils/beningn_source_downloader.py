@@ -10,6 +10,8 @@ from tqdm import tqdm
 
 # --- CONFIGURATION ---
 LIMIT = 200
+# Max seconds to wait for a single package download before skipping it
+DOWNLOAD_TIMEOUT = 60
 BASE_DIR = "../benign_sources"
 MANIFEST_DIR = os.path.join(BASE_DIR, "manifest")
 
@@ -165,6 +167,7 @@ def download_one(app_id, manifest_data):
             ],
             capture_output=True,
             check=True,
+            timeout=DOWNLOAD_TIMEOUT,
         )
 
         if app_id not in manifest_data["x86"]:
@@ -174,6 +177,12 @@ def download_one(app_id, manifest_data):
         handle_zips(os.path.join(BASE_DIR, "x86"))
         tqdm.write(f"[x86] Success: {app_id}")
         success = True
+
+    except subprocess.TimeoutExpired:
+        # Download took longer than DOWNLOAD_TIMEOUT seconds, skip and move on
+        tqdm.write(
+            f"[x86] Timed out after {DOWNLOAD_TIMEOUT}s, skipping: {app_id}"
+        )
 
     except subprocess.CalledProcessError:
         # If x86 is not available for this package, we skip it silently
