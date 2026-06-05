@@ -154,9 +154,23 @@ def handle_zips(folder):
 
 
 def download_one(app_id, manifest_data):
-    """Attempts to download a single package. Returns True on success."""
+    """Download a package and keep only its .exe output.
+
+    The package is counted as successful ONLY if it produces at least one
+    .exe. Any .msi or other installer artifacts are discarded. Returns True
+    on success.
+    """
+    x86_dir = os.path.join(BASE_DIR, "x86")
+    safe_id = app_id.replace("/", "_").replace("\\", "_")
+    # Per-package staging dir so parallel downloads never collide and so we
+    # can attribute every produced file to this exact package.
+    staging = os.path.join(BASE_DIR, "_staging", safe_id)
+
     success = False
     try:
+        shutil.rmtree(staging, ignore_errors=True)
+        os.makedirs(staging, exist_ok=True)
+
         subprocess.run(
             [
                 "winget",
@@ -164,7 +178,7 @@ def download_one(app_id, manifest_data):
                 "--id",
                 app_id,
                 "-d",
-                os.path.join(BASE_DIR, "x86"),
+                staging,
                 "-a",
                 "x86",
                 "--accept-package-agreements",
@@ -177,16 +191,37 @@ def download_one(app_id, manifest_data):
             timeout=DOWNLOAD_TIMEOUT,
         )
 
-        # Serialize manifest mutation + folder post-processing: the x86 dir
-        # is shared and handle_zips uses a common temp extraction folder.
-        with _manifest_lock:
-            if app_id not in manifest_data["x86"]:
-                manifest_data["x86"].append(app_id)
+        # Pull executables out of any zips and drop yaml noise.
+        handle_zips(staging)
+        delete_yaml_files(staging)
 
-            delete_yaml_files(os.path.join(BASE_DIR, "x86"))
-            handle_zips(os.path.join(BASE_DIR, "x86"))
-        tqdm.write(f"[x86] Success: {app_id}")
-        success = True
+        # Collect every .exe the package produced.
+        produced = []
+        for root, _dirs, files in os.walk(staging):
+            for f in files:
+                if f.lower().endswith(".exe") and ".packed" not in f.lower():
+                    produced.append(os.path.join(root, f))
+
+        if produced:
+            # Move exes into the shared x86 dir + record them under the lock.
+            with _manifest_lock:
+                for src in produced:
+                    name = os.path.basename(src)
+                    dest = os.path.join(x86_dir, name)
+                    # Disambiguate clashing names so packages don't clobber.
+                    if os.path.exists(dest):
+                        stem, ext = os.path.splitext(name)
+                        name = f"{stem}__{safe_id}{ext}"
+                        dest = os.path.join(x86_dir, name)
+                    if not os.path.exists(dest):
+                        shutil.move(src, dest)
+                    if name not in manifest_data["x86"]:
+                        manifest_data["x86"].append(name)
+            tqdm.write(f"[x86] Success ({len(produced)} exe): {app_id}")
+            success = True
+        else:
+            # No usable executable (e.g. msi-only) -> discard, do not count.
+            tqdm.write(f"[x86] No .exe produced, discarded: {app_id}")
 
     except subprocess.TimeoutExpired:
         # Download took longer than DOWNLOAD_TIMEOUT seconds, skip and move on
@@ -198,12 +233,46 @@ def download_one(app_id, manifest_data):
         # If x86 is not available for this package, we skip it silently
         tqdm.write(f"[x86] Skipped/Failed (Not available or Error): {app_id}")
 
+    finally:
+        # Remove the staging dir and any leftover msi/other artifacts.
+        shutil.rmtree(staging, ignore_errors=True)
+
     # Always mark as processed so we don't try this ID again
     with _manifest_lock:
         if app_id not in manifest_data["processed_ids"]:
             manifest_data["processed_ids"].append(app_id)
 
     return success
+
+
+def cleanup_msi_and_reconcile(manifest_data):
+    """Delete leftover .msi installers and rebuild the x86 list from the
+    .exe files actually present on disk, so the count reflects packable exes.
+    """
+    x86_dir = os.path.join(BASE_DIR, "x86")
+    os.makedirs(x86_dir, exist_ok=True)
+
+    removed = 0
+    for msi in glob.glob(os.path.join(x86_dir, "*.msi")):
+        try:
+            os.remove(msi)
+            removed += 1
+        except OSError:
+            pass
+
+    exes = sorted(
+        f
+        for f in os.listdir(x86_dir)
+        if f.lower().endswith(".exe")
+        and ".packed" not in f.lower()
+        and os.path.isfile(os.path.join(x86_dir, f))
+    )
+    manifest_data["x86"] = exes
+    save_manifest(manifest_data)
+
+    if removed:
+        print(f"Cleanup: removed {removed} .msi file(s).")
+    print(f"Reconciled x86 list to {len(exes)} .exe file(s) on disk.")
 
 
 def download_until_limit(manifest_data, target_limit):
@@ -256,6 +325,8 @@ def download_until_limit(manifest_data, target_limit):
 
 if __name__ == "__main__":
     manifest = load_manifest()
+    # Drop stale .msi files and re-base the x86 count on real .exe files.
+    cleanup_msi_and_reconcile(manifest)
     already_downloaded = len(manifest["x86"])
     print(
         f"Target total: {LIMIT} | Already downloaded: {already_downloaded} | Remaining: {max(LIMIT - already_downloaded, 0)}"
