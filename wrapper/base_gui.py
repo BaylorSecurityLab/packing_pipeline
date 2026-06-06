@@ -553,42 +553,30 @@ class BaseGUI(ABC):
             picker_window.activate()
             time.sleep(0.3)
 
-            # Navigate to directory using clipboard (supports Unicode)
-            directory_path = str(Path(file_path).resolve().parent)
-            print(f"[INFO] Navigating to directory: {directory_path}")
-
-            pyautogui.hotkey("ctrl", "l")
-            time.sleep(0.2)
-            pyperclip.copy(directory_path)
-            pyautogui.hotkey("ctrl", "v")
-            time.sleep(0.2)
-            pyautogui.press("enter")
-            time.sleep(0.5)
-
-            # Focus file name field
+            # Enter the FULL absolute path directly into the File name field.
+            # The Windows common Open dialog resolves a full path in one atomic
+            # action: it navigates to the directory AND selects the file. This
+            # avoids the timing race of a separate folder-navigation step, where
+            # the filename could be entered before navigation finished.
+            full_path = str(Path(file_path).resolve())
             print(f"[INFO] Focusing file name field...")
             pyautogui.hotkey("alt", "n")
             time.sleep(0.2)
             pyautogui.hotkey("ctrl", "a")
             time.sleep(0.1)
 
-            # Paste filename using clipboard
-            print(f"[INFO] Pasting filename: {app_name}")
-            pyperclip.copy(app_name)
+            # Paste full path using clipboard (supports Unicode/special chars)
+            print(f"[INFO] Pasting full path: {full_path}")
+            pyperclip.copy(full_path)
             pyautogui.hotkey("ctrl", "v")
             time.sleep(0.3)
 
-            # Click Open button
-            print("[INFO] Clicking the Open button...")
-            client_info = self._get_client_area_info(picker_window.title)
-            if client_info:
-                client_width, client_height, client_point = client_info
-                open_button_x = client_point[0] + int(client_width * 0.85)
-                open_button_y = client_point[1] + int(client_height * 0.97)
-                pyautogui.click(open_button_x, open_button_y)
-                time.sleep(0.5)
+            # Submit with Enter (opens directly without needing the Open button)
+            print("[INFO] Submitting path with Enter...")
+            pyautogui.press("enter")
+            time.sleep(0.5)
 
-            print("[SUCCESS] Directory navigated and filename entered")
+            print("[SUCCESS] Full file path entered and submitted")
             return True
 
         except Exception as e:

@@ -24,9 +24,65 @@ if os.name == "nt":
     _GetClassNameW = user32.GetClassNameW
     _PostMessageW = user32.PostMessageW
     _IsWindowVisible = user32.IsWindowVisible
+    _GetWindowThreadProcessId = user32.GetWindowThreadProcessId
 
     _WNDENUMPROC = ctypes.WINFUNCTYPE(wintypes.BOOL, wintypes.HWND, wintypes.LPARAM)
     _WM_CLOSE = 0x0010
+
+    # --- Process-tree introspection (used to scope the dialog killer) ---
+    kernel32 = ctypes.windll.kernel32
+    _CreateToolhelp32Snapshot = kernel32.CreateToolhelp32Snapshot
+    _Process32First = kernel32.Process32First
+    _Process32Next = kernel32.Process32Next
+    _CloseHandle = kernel32.CloseHandle
+    _TH32CS_SNAPPROCESS = 0x00000002
+    _INVALID_HANDLE_VALUE = ctypes.c_void_p(-1).value
+
+    class _PROCESSENTRY32(ctypes.Structure):
+        _fields_ = [
+            ("dwSize", wintypes.DWORD),
+            ("cntUsage", wintypes.DWORD),
+            ("th32ProcessID", wintypes.DWORD),
+            ("th32DefaultHeapID", ctypes.POINTER(ctypes.c_ulong)),
+            ("th32ModuleID", wintypes.DWORD),
+            ("cntThreads", wintypes.DWORD),
+            ("th32ParentProcessID", wintypes.DWORD),
+            ("pcPriClassBase", ctypes.c_long),
+            ("dwFlags", wintypes.DWORD),
+            ("szExeFile", ctypes.c_char * 260),
+        ]
+
+    def _build_parent_map():
+        """Snapshot all processes and return a {pid: parent_pid} map."""
+        parents = {}
+        snap = _CreateToolhelp32Snapshot(_TH32CS_SNAPPROCESS, 0)
+        if snap == _INVALID_HANDLE_VALUE:
+            return parents
+        try:
+            entry = _PROCESSENTRY32()
+            entry.dwSize = ctypes.sizeof(_PROCESSENTRY32)
+            ok = _Process32First(snap, ctypes.byref(entry))
+            while ok:
+                parents[entry.th32ProcessID] = entry.th32ParentProcessID
+                ok = _Process32Next(snap, ctypes.byref(entry))
+        finally:
+            _CloseHandle(snap)
+        return parents
+
+    def _window_owned_by_tree(hwnd, parents, root_pid):
+        """True if hwnd's owning process is root_pid or one of its descendants."""
+        pid = wintypes.DWORD(0)
+        _GetWindowThreadProcessId(hwnd, ctypes.byref(pid))
+        cur = pid.value
+        if not cur:
+            return False
+        seen = set()
+        while cur and cur not in seen:
+            if cur == root_pid:
+                return True
+            seen.add(cur)
+            cur = parents.get(cur, 0)
+        return False
 
 # Packer-specific settings
 PACKER_SETTINGS = {
@@ -69,6 +125,31 @@ def get_packer_settings(packer_name):
     return PACKER_SETTINGS.get(packer_name.lower(), PACKER_SETTINGS["_default"])
 
 
+def _silent_remove(path):
+    """Best-effort file removal that never raises."""
+    if not path:
+        return
+    try:
+        if os.path.exists(path):
+            os.remove(path)
+    except OSError:
+        pass
+
+
+def _move_into_place(produced, dst_path):
+    """Move a produced artifact onto dst_path, atomically when on the same volume.
+
+    Using os.replace keeps dst_path from ever holding a half-written file: it
+    only appears once a complete, packed artifact exists.
+    """
+    _silent_remove(dst_path)
+    try:
+        os.replace(produced, dst_path)
+    except OSError:
+        # Cross-volume (e.g. packer dropped output on a different drive).
+        shutil.move(produced, dst_path)
+
+
 def sanitize_filename(filename):
     """
     Convert filename to ASCII-safe version, replacing spaces with underscores.
@@ -100,12 +181,18 @@ def sanitize_filename(filename):
     return safe_name + ext
 
 
-def dialog_killer(stop_event, target_keywords=None):
-    """Background thread that auto-closes error dialog boxes."""
+def dialog_killer(stop_event, scope_to_tree=True, target_keywords=None):
+    """Background thread that auto-closes packer error/nag dialog boxes.
+
+    By default it only closes dialogs owned by this process or one of its
+    descendants (the packer subprocesses), so it never touches unrelated
+    dialogs belonging to the user's other applications. If process-tree
+    scoping is disabled it falls back to matching dialog-title keywords.
+    """
     if os.name != "nt":
         return
 
-    # Keywords to match in dialog titles (case-insensitive)
+    # Keywords to match in dialog titles (case-insensitive) — legacy fallback.
     target_keywords = target_keywords or [
         "error",
         "exe32pack",
@@ -117,6 +204,8 @@ def dialog_killer(stop_event, target_keywords=None):
     ]
 
     closed_count = [0]
+    root_pid = os.getpid()
+    parents_holder = {"map": {}}
 
     def enum_callback(hwnd, _):
         if not _IsWindowVisible(hwnd):
@@ -126,19 +215,30 @@ def dialog_killer(stop_event, target_keywords=None):
         _GetClassNameW(hwnd, class_name, 256)
 
         # #32770 is the Windows dialog box class
-        if class_name.value == "#32770":
-            title = ctypes.create_unicode_buffer(256)
-            _GetWindowTextW(hwnd, title, 256)
-            title_lower = title.value.lower()
+        if class_name.value != "#32770":
+            return True
 
-            if any(kw in title_lower for kw in target_keywords):
+        if scope_to_tree:
+            # Only close dialogs spawned by our own packer process tree.
+            if _window_owned_by_tree(hwnd, parents_holder["map"], root_pid):
                 _PostMessageW(hwnd, _WM_CLOSE, 0, 0)
                 closed_count[0] += 1
+            return True
+
+        title = ctypes.create_unicode_buffer(256)
+        _GetWindowTextW(hwnd, title, 256)
+        title_lower = title.value.lower()
+        if any(kw in title_lower for kw in target_keywords):
+            _PostMessageW(hwnd, _WM_CLOSE, 0, 0)
+            closed_count[0] += 1
         return True
 
     callback = _WNDENUMPROC(enum_callback)
 
     while not stop_event.is_set():
+        # Refresh the PID->parent snapshot once per sweep (not per window).
+        if scope_to_tree:
+            parents_holder["map"] = _build_parent_map()
         _EnumWindows(callback, 0)
         time.sleep(0.05)  # Check every 50ms
 
@@ -147,9 +247,13 @@ def dialog_killer(stop_event, target_keywords=None):
 
 
 # --- CONFIGURATION ---
-BENIGN_SOURCE_DIR = "../benign_sources"
-PACKED_OUTPUT_DIR = "../packed_sources"
-YAML_CONFIG_FILE = "../manifest/packer_corpus.yaml"
+# Anchor all paths to the project root (parent of this script's dir) so the
+# runner works regardless of the current working directory it is launched from.
+SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
+PROJECT_ROOT = os.path.abspath(os.path.join(SCRIPT_DIR, ".."))
+BENIGN_SOURCE_DIR = os.path.join(PROJECT_ROOT, "benign_sources")
+PACKED_OUTPUT_DIR = os.path.join(PROJECT_ROOT, "packed_sources")
+YAML_CONFIG_FILE = os.path.join(PROJECT_ROOT, "manifest", "packer_corpus.yaml")
 
 # UPDATED: Enforce strict x86 mapping
 ARCH_MAP = {
@@ -298,8 +402,12 @@ def pack_single_file(args):
 
             # Create a local temporary copy of the current_input to the output_dir
             # so the packer is working on a local file, not a deep-pathed source file.
+            # Key the name on safe_filename so parallel workers never share this path.
             temp_local_input = os.path.abspath(
-                os.path.join(output_dir, f"tmp_input_{dep_name}.exe")
+                os.path.join(
+                    output_dir,
+                    f"tmp_input_{dep_name}_{os.path.splitext(safe_filename)[0]}.exe",
+                )
             )
             shutil.copy2(current_input, temp_local_input)
             temp_files_to_clean.append(temp_local_input)
@@ -354,46 +462,48 @@ def pack_single_file(args):
                 return False, f"Stage failed ({dep_name}): {str(e)}"
 
     # --- Create local temp for intermediate files and Safe Input Copy ---
-    local_temp = os.path.join(output_dir, "_temp_build")
+    # Each job gets its OWN subdir so parallel workers never collide on shared
+    # temp names. A clobbered/removed input is what produced the "Permission
+    # denied" failures under --workers > 1.
+    job_temp_name = os.path.splitext(safe_filename)[0]
+    local_temp = os.path.join(output_dir, "_temp_build", job_temp_name)
     os.makedirs(local_temp, exist_ok=True)
 
-    # --- NEW: Create a safe, simple copy of the input file ---
-    # This solves issues with spaces, Unicode, and long paths in legacy packers.
-    # The packer will work on 'in.exe' inside the temp folder.
-    safe_input_name = "in.exe"
+    # Short, ASCII-safe, per-job-unique stem. Short names keep legacy packers
+    # happy; the unique suffix means a packer that drops output into its own CWD
+    # writes a unique name there instead of a shared "in.packed.exe" that
+    # parallel workers would otherwise fight over.
+    stem = "i" + hashlib.md5(safe_filename.encode("utf-8")).hexdigest()[:7]
+    safe_input_name = stem + ".exe"
     safe_input_path = os.path.join(local_temp, safe_input_name)
 
-    # Clean up previous temp files to ensure no collision
-    if os.path.exists(safe_input_path):
-        try:
-            os.remove(safe_input_path)
-        except:
-            pass
+    _silent_remove(safe_input_path)
 
     try:
         shutil.copyfile(src_path, safe_input_path)
-    except Exception as e:
+    except OSError as e:
         return False, f"Failed to create temp input copy: {e}"
 
-    # Calculate EXPECTED output locations based on the SAFE INPUT name (in.exe)
-    # Because the packer runs on 'in.exe' in 'local_temp', the output will be there.
-    safe_name_no_ext = os.path.splitext(safe_input_name)[0]  # "in"
-
-    # Amber style: local_temp/in_packed.exe
-    temp_amber_output = os.path.join(local_temp, f"{safe_name_no_ext}_packed.exe")
-
-    # Eronona style: local_temp/in.packed.exe
-    temp_suffix_output = os.path.join(local_temp, f"{safe_name_no_ext}.packed.exe")
+    # Everything is produced inside local_temp and only moved to dst_path on a
+    # verified success, so a crash mid-pack can never leave a partial dst_path
+    # that a later run would wrongly skip as "Exists".
+    staging_out = os.path.join(local_temp, "out_" + stem + ".exe")
+    temp_amber_output = os.path.join(local_temp, f"{stem}_packed.exe")  # Amber style
+    temp_suffix_output = os.path.join(local_temp, f"{stem}.packed.exe")  # Eronona style
+    cwd_suffix_output = os.path.join(
+        os.path.dirname(packer_bin), f"{stem}.packed.exe"
+    )
 
     pack_env = os.environ.copy()
     pack_env["TEMP"] = os.path.abspath(local_temp)
     pack_env["TMP"] = os.path.abspath(local_temp)
 
-    # In-place behavior: copy input to destination first, then pack destination
+    # In-place packers modify a single file (named via {in} or {out}). Stage that
+    # file inside local_temp so dst_path stays untouched until success.
     if output_behavior == "in_place":
         try:
-            shutil.copy2(safe_input_path, dst_path)
-        except Exception as e:
+            shutil.copyfile(safe_input_path, staging_out)
+        except OSError as e:
             return False, f"Failed to setup in-place file: {e}"
 
     # --- Robust Command Construction ---
@@ -407,11 +517,15 @@ def pack_single_file(args):
     if is_wsl_command:
         val_bin = to_wsl_path(packer_bin)
 
-    val_in = get_short_path(os.path.abspath(safe_input_path))
+    # In-place packers operate on the staged file, so {in} points at it too;
+    # otherwise {in} is the (read-only) input copy.
+    in_source = staging_out if output_behavior == "in_place" else safe_input_path
+    val_in = get_short_path(os.path.abspath(in_source))
     if is_wsl_command:
         val_in = to_wsl_path(val_in)
 
-    val_out = os.path.abspath(dst_path)
+    # Direct-output packers ({out}) write to the staging path, never dst_path.
+    val_out = os.path.abspath(staging_out)
     if output_behavior != "explicit_absolute":
         val_out = get_short_path(val_out)
     if is_wsl_command:
@@ -461,74 +575,56 @@ def pack_single_file(args):
             input="\n\n",
         )
 
-        # Cleanup temp
-        try:
-            # We delay strict cleanup slightly to allow file handles to close
-            pass
-        except:
-            pass
-
         # --- POST-PROCESSING ---
+        # Locate the produced artifact (depends on the packer's output style) and
+        # move it into place only now that packing has succeeded. Checking
+        # staging_out first covers explicit/in-place packers; the suffix names
+        # cover Amber/Eronona; the CWD path is the legacy fallback.
+        produced = next(
+            (
+                p
+                for p in (
+                    staging_out,
+                    temp_amber_output,
+                    temp_suffix_output,
+                    cwd_suffix_output,
+                )
+                if os.path.exists(p)
+            ),
+            None,
+        )
 
-        # 1. Handle "input_dir_suffix" (Amber style)
-        if output_behavior == "input_dir_suffix":
-            if os.path.exists(temp_amber_output):
-                if os.path.exists(dst_path):
-                    os.remove(dst_path)
-                shutil.move(temp_amber_output, dst_path)
+        if produced:
+            _move_into_place(produced, dst_path)
 
-        # 2. Handle "suffix_packed" (Eronona style)
-        elif output_behavior == "suffix_packed":
-            if os.path.exists(temp_suffix_output):
-                if os.path.exists(dst_path):
-                    os.remove(dst_path)
-                shutil.move(temp_suffix_output, dst_path)
-
-            # Fallback: sometimes it might drop in the CWD (unlikely with Safe Copy but possible)
-            cwd_suffix_output = os.path.join(cwd, "in.packed.exe")
-            if os.path.exists(cwd_suffix_output):
-                if os.path.exists(dst_path):
-                    os.remove(dst_path)
-                shutil.move(cwd_suffix_output, dst_path)
-
-        # 3. Final Verification
         if os.path.exists(dst_path):
-            # Clean up input copy if successful
-            try:
-                os.remove(safe_input_path)
-            except:
-                pass
             return True, "Packed"
-        else:
-            combined_output = (
-                f"STDOUT: {result.stdout.strip()} | STDERR: {result.stderr.strip()}"
-            )
-            return (
-                False,
-                f"Failed (No Output) - Behavior: {output_behavior} | {combined_output}",
-            )
+
+        combined_output = (
+            f"STDOUT: {result.stdout.strip()} | STDERR: {result.stderr.strip()}"
+        )
+        return (
+            False,
+            f"Failed (No Output) - Behavior: {output_behavior} | {combined_output}",
+        )
 
     except subprocess.TimeoutExpired:
-        if os.path.exists(temp_amber_output):
-            os.remove(temp_amber_output)
-        if output_behavior == "in_place" and os.path.exists(dst_path):
-            os.remove(dst_path)
         return False, "Timeout (possible stuck dialog)"
 
     except subprocess.CalledProcessError as e:
-        if os.path.exists(temp_amber_output):
-            os.remove(temp_amber_output)
-        if output_behavior == "in_place" and os.path.exists(dst_path):
-            os.remove(dst_path)
-        combined_output = f"STDOUT: {e.stdout.strip()} | STDERR: {e.stderr.strip()}"
-        return False, f"Exit Code {e.returncode} - {combined_output}"
+        out = e.stdout.strip() if e.stdout else ""
+        err = e.stderr.strip() if e.stderr else ""
+        return False, f"Exit Code {e.returncode} - STDOUT: {out} | STDERR: {err}"
 
     except Exception as e:
-        if os.path.exists(temp_amber_output):
-            os.remove(temp_amber_output)
-        if output_behavior == "in_place" and os.path.exists(dst_path):
-            os.remove(dst_path)
         return False, f"Exception: {str(e)}"
+
+    finally:
+        # Clean artifacts that live OUTSIDE local_temp (which the caller wipes
+        # per test case): the CWD fallback drop and dependency staging files.
+        _silent_remove(cwd_suffix_output)
+        for leftover in temp_files_to_clean:
+            _silent_remove(leftover)
 
 
 def run_packing(packer_name_input, max_size_kb=0, config=None, workers=1):
@@ -547,13 +643,13 @@ def run_packing(packer_name_input, max_size_kb=0, config=None, workers=1):
 
     if not packer_def:
         print(f"[!] Packer definition not found for: {packer_name_input}")
-        return
+        return []
 
     # Check if 'CLI' is in the tags
     tags = packer_def.get("tags", [])
     if "CLI" not in tags:
         print(f"[*] Skipping '{packer_name_input}' - Not a CLI tool (Tags: {tags})")
-        return
+        return []
     # ----------------------------------
 
     selected_tests = []
@@ -563,7 +659,10 @@ def run_packing(packer_name_input, max_size_kb=0, config=None, workers=1):
 
     if not selected_tests:
         print(f"[!] No test cases found for packer: '{packer_name_input}'")
-        return
+        return []
+
+    # Per-test-case stats collected for the final report (used in 'all' mode).
+    report_rows = []
 
     tqdm.write(f"[*] Found {len(selected_tests)} test cases for '{packer_name_input}'")
 
@@ -602,6 +701,17 @@ def run_packing(packer_name_input, max_size_kb=0, config=None, workers=1):
 
             if not os.path.exists(packer_bin):
                 tqdm.write(f"    [!] Error: Packer binary not found at: {packer_bin}")
+                report_rows.append(
+                    {
+                        "packer": packer_name_input,
+                        "test_id": test_id,
+                        "packed": 0,
+                        "skipped": 0,
+                        "failed": 0,
+                        "total": 0,
+                        "note": "packer binary not found",
+                    }
+                )
                 continue
 
             # Include version in directory name (e.g., upx_5.1.0/TEST_ID)
@@ -616,6 +726,17 @@ def run_packing(packer_name_input, max_size_kb=0, config=None, workers=1):
             if not targets:
                 tqdm.write(
                     f"    [!] No targets found for case {test_id} (Checking x86 only)"
+                )
+                report_rows.append(
+                    {
+                        "packer": packer_name_input,
+                        "test_id": test_id,
+                        "packed": 0,
+                        "skipped": 0,
+                        "failed": 0,
+                        "total": 0,
+                        "note": "no x86 targets",
+                    }
                 )
                 continue
 
@@ -652,6 +773,8 @@ def run_packing(packer_name_input, max_size_kb=0, config=None, workers=1):
                 )
 
             success_count = 0
+            skipped_count = 0
+            failed_count = 0
 
             with concurrent.futures.ThreadPoolExecutor(max_workers=workers) as executor:
                 future_to_file = {
@@ -673,15 +796,30 @@ def run_packing(packer_name_input, max_size_kb=0, config=None, workers=1):
                                 success_count += 1
                             elif msg.startswith("Skipped"):
                                 # Skips are noise unless verbose
+                                skipped_count += 1
                                 vlog(f"[~] {fname}: {msg}")
                             else:
+                                failed_count += 1
                                 tqdm.write(f"[-] {fname}: {msg}")
                         except Exception as exc:
+                            failed_count += 1
                             tqdm.write(f"[x] Exception processing {fname}: {exc}")
 
                         pbar.update(1)
 
             tqdm.write(f"    Result: {success_count}/{len(targets)} packed.")
+
+            report_rows.append(
+                {
+                    "packer": packer_name_input,
+                    "test_id": test_id,
+                    "packed": success_count,
+                    "skipped": skipped_count,
+                    "failed": failed_count,
+                    "total": len(targets),
+                    "note": "",
+                }
+            )
 
             # Clean up _temp_build directory
             temp_build_dir = os.path.join(output_dir, "_temp_build")
@@ -700,6 +838,92 @@ def run_packing(packer_name_input, max_size_kb=0, config=None, workers=1):
         if killer_thread:
             killer_thread.join(timeout=1)
 
+    return report_rows
+
+
+def print_final_report(rows):
+    """Print an aggregated summary after an 'all' run and write it to a file.
+
+    The report is written to packed_sources/packing_report.txt and overwritten
+    on every run.
+    """
+    executed = [r for r in rows if not r.get("note")]
+    not_run = [r for r in rows if r.get("note")]
+
+    lines = []
+    lines.append("=" * 72)
+    lines.append("FINAL PACKING REPORT")
+    lines.append("=" * 72)
+
+    if not executed and not not_run:
+        lines.append("No CLI packing was performed (no matching test cases ran).")
+        lines.append("=" * 72)
+    else:
+        if executed:
+            name_w = max(max(len(r["packer"]) for r in executed), len("Packer"))
+            case_w = max(max(len(r["test_id"]) for r in executed), len("Test Case"))
+
+            header = (
+                f"{'Packer':<{name_w}}  {'Test Case':<{case_w}}  "
+                f"{'Packed':>6}  {'Skipped':>7}  {'Failed':>6}  {'Total':>6}"
+            )
+            lines.append(header)
+            lines.append("-" * len(header))
+
+            tot_packed = tot_skipped = tot_failed = tot_total = 0
+            for r in executed:
+                lines.append(
+                    f"{r['packer']:<{name_w}}  {r['test_id']:<{case_w}}  "
+                    f"{r['packed']:>6}  {r['skipped']:>7}  {r['failed']:>6}  {r['total']:>6}"
+                )
+                tot_packed += r["packed"]
+                tot_skipped += r["skipped"]
+                tot_failed += r["failed"]
+                tot_total += r["total"]
+
+            lines.append("-" * len(header))
+            lines.append(
+                f"{'TOTALS':<{name_w}}  {'':<{case_w}}  "
+                f"{tot_packed:>6}  {tot_skipped:>7}  {tot_failed:>6}  {tot_total:>6}"
+            )
+
+            # Surface packers/cases that produced nothing new but had failures.
+            problem_cases = [r for r in executed if r["failed"] > 0 and r["packed"] == 0]
+            if problem_cases:
+                lines.append("")
+                lines.append("[!] Test cases that packed 0 files and had failures:")
+                for r in problem_cases:
+                    lines.append(
+                        f"    - {r['packer']} / {r['test_id']}: "
+                        f"{r['failed']} failed of {r['total']}"
+                    )
+        else:
+            lines.append("No test cases produced output.")
+
+        # Cases that never ran (missing binary, no x86 targets, etc.).
+        if not_run:
+            lines.append("")
+            lines.append(f"[i] Cases not run ({len(not_run)}):")
+            for r in not_run:
+                lines.append(
+                    f"    - {r['packer']} / {r['test_id']}: {r['note']}"
+                )
+
+        lines.append("=" * 72)
+
+    report_text = "\n".join(lines)
+    print("\n" + report_text)
+
+    # Persist to packed_sources, overwriting any previous report.
+    try:
+        os.makedirs(PACKED_OUTPUT_DIR, exist_ok=True)
+        report_path = os.path.join(PACKED_OUTPUT_DIR, "packing_report.txt")
+        with open(report_path, "w", encoding="utf-8") as f:
+            f.write(report_text + "\n")
+        print(f"\n[*] Report written to: {os.path.abspath(report_path)}")
+    except Exception as e:
+        print(f"[!] Warning: could not write report file: {e}")
+
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Multi-threaded packer runner.")
@@ -712,7 +936,9 @@ if __name__ == "__main__":
     parser.add_argument(
         "--max-size-kb", type=int, default=0, help="Skip files larger than KB."
     )
-    default_workers = min(cpu_count(), 1)
+    # Use ~80% of available cores by default so packing parallelizes while
+    # leaving headroom for the OS and the dialog-killer thread.
+    default_workers = max(int(cpu_count() * 0.8), 1)
     parser.add_argument(
         "--workers",
         type=int,
@@ -755,11 +981,14 @@ if __name__ == "__main__":
             position=0,
             leave=True,
         )
+        all_results = []
         for p in packer_bar:
             packer_bar.set_postfix_str(p)
-            run_packing(p, args.max_size_kb, main_config, args.workers)
+            rows = run_packing(p, args.max_size_kb, main_config, args.workers)
+            all_results.extend(rows or [])
             tqdm.write("=" * 40)
         packer_bar.close()
+        print_final_report(all_results)
     else:
         run_packing(args.packer_name, args.max_size_kb, main_config, args.workers)
 
