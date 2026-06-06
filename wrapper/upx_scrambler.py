@@ -145,6 +145,7 @@ class UpxScramblerBase(BaseGUI):
             "explicit",
             [],
             config,
+            "",
         )
 
         success, msg = pack_single_file(args)
