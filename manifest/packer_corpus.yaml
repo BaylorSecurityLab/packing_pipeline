@@ -3247,7 +3247,7 @@ test_cases:
   - id: "PEZOR_001_DEFAULT_32"
     <<: *pezor_v330
     command_label: "Default 32-bit Packing"
-    cli_template: "wsl -d Ubuntu -- bash {bin} -32 {in} {out}"
+    cli_template: "wsl -d Ubuntu-26.04 -u root -- bash {bin} -32 {in} {out}"
     validation:
       allow_x64_switch: false
       allow_x86_switch: false
@@ -3255,7 +3255,7 @@ test_cases:
   - id: "PEZOR_002_SELF_INJECT_32"
     <<: *pezor_v330
     command_label: "32-bit Self-Inject"
-    cli_template: "wsl -d Ubuntu -- bash {bin} -32 -self -text {in} {out}"
+    cli_template: "wsl -d Ubuntu-26.04 -u root -- bash {bin} -32 -self -text {in} {out}"
     validation:
       allow_x64_switch: false
       allow_x86_switch: false
@@ -3263,7 +3263,7 @@ test_cases:
   - id: "PEZOR_003_UNHOOK_32"
     <<: *pezor_v330
     command_label: "32-bit Unhook"
-    cli_template: "wsl -d Ubuntu -- bash {bin} -32 -unhook {in} {out}"
+    cli_template: "wsl -d Ubuntu-26.04 -u root -- bash {bin} -32 -unhook {in} {out}"
     validation:
       allow_x64_switch: false
       allow_x86_switch: false
@@ -3271,7 +3271,7 @@ test_cases:
   - id: "PEZOR_004_SGN_32"
     <<: *pezor_v330
     command_label: "32-bit SGN Encoded"
-    cli_template: "wsl -d Ubuntu -- bash {bin} -32 -sgn {in} {out}"
+    cli_template: "wsl -d Ubuntu-26.04 -u root -- bash {bin} -32 -sgn {in} {out}"
     validation:
       allow_x64_switch: false
       allow_x86_switch: false
@@ -3279,7 +3279,7 @@ test_cases:
   - id: "PEZOR_005_ANTIDEBUG_32"
     <<: *pezor_v330
     command_label: "32-bit Anti-Debug"
-    cli_template: "wsl -d Ubuntu -- bash {bin} -32 -antidebug {in} {out}"
+    cli_template: "wsl -d Ubuntu-26.04 -u root -- bash {bin} -32 -antidebug {in} {out}"
     validation:
       allow_x64_switch: false
       allow_x86_switch: false
@@ -3287,7 +3287,7 @@ test_cases:
   - id: "PEZOR_006_FULL_EVASION_32"
     <<: *pezor_v330
     command_label: "32-bit Full Evasion (Unhook + Anti-Debug + SGN)"
-    cli_template: "wsl -d Ubuntu -- bash {bin} -32 -sgn -unhook -antidebug -text {in} {out}"
+    cli_template: "wsl -d Ubuntu-26.04 -u root -- bash {bin} -32 -sgn -unhook -antidebug -text {in} {out}"
     validation:
       allow_x64_switch: false
       allow_x86_switch: false
@@ -3295,7 +3295,7 @@ test_cases:
   - id: "PEZOR_007_SLEEP_32"
     <<: *pezor_v330
     command_label: "32-bit with Sleep Delay"
-    cli_template: "wsl -d Ubuntu -- bash {bin} -32 -sleep=10 {in} {out}"
+    cli_template: "wsl -d Ubuntu-26.04 -u root -- bash {bin} -32 -sleep=10 {in} {out}"
     validation:
       allow_x64_switch: false
       allow_x86_switch: false

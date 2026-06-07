@@ -1,12 +1,12 @@
 #!/bin/bash
 # PEzor wrapper for packer_runner
 # Usage: pezor_wrap.sh <flags...> <input> <output>
-# Runs PEzor inside WSL and moves the output to the specified location.
+# Runs PEzor inside WSL (Ubuntu-26.04) and moves the output to the specified location.
 
-PEZOR_DIR="/mnt/c/Users/bkoro/projects/PEzor"
-export PATH="/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/usr/local/go/bin:/home/banny/go/bin:$PEZOR_DIR:$PEZOR_DIR/deps/donut:$PEZOR_DIR/deps/wclang/_prefix_PEzor_/bin"
-export HOME="/home/banny"
-export GOPATH="/home/banny/go"
+PEZOR_DIR="/opt/PEzor"
+export PATH="/usr/local/bin:/usr/local/sbin:/usr/sbin:/usr/bin:/sbin:/bin:/root/go/bin:$PEZOR_DIR:$PEZOR_DIR/deps/donut:$PEZOR_DIR/deps/wclang/_prefix_PEzor_/bin"
+export HOME="/root"
+export GOPATH="/root/go"
 
 # Parse: last two args are input and output, everything else is PEzor flags
 ARGS=("$@")
@@ -29,7 +29,6 @@ if [ -f "$PACKED" ]; then
     echo "[pezor_wrap] Success: moved $PACKED -> $OUTPUT"
 else
     echo "[pezor_wrap] ERROR: Expected output not found: $PACKED"
-    # Try to find any .packed file nearby
     ls -la "$(dirname "$INPUT")"/*.packed.* 2>/dev/null
     exit 1
 fi

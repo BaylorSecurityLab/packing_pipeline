@@ -12,6 +12,9 @@ from tqdm import tqdm
 import hashlib
 import re
 
+# Set when Ctrl+C is pressed; workers check this and bail out immediately.
+_cancel_event = threading.Event()
+
 # --- DIALOG KILLER (Windows only) ---
 if os.name == "nt":
     import ctypes
@@ -343,6 +346,9 @@ def to_wsl_path(win_path):
 
 def pack_single_file(args):
     """Worker function to pack a single file."""
+    if _cancel_event.is_set():
+        return False, "Cancelled"
+
     (
         src_path,
         output_dir,
@@ -632,6 +638,7 @@ def pack_single_file(args):
 
 
 def run_packing(packer_name_input, max_size_kb=0, config=None, workers=1):
+    _cancel_event.clear()
     if config is None:
         config = load_yaml(YAML_CONFIG_FILE)
 
@@ -780,36 +787,40 @@ def run_packing(packer_name_input, max_size_kb=0, config=None, workers=1):
             skipped_count = 0
             failed_count = 0
 
-            with concurrent.futures.ThreadPoolExecutor(max_workers=workers) as executor:
-                future_to_file = {
-                    executor.submit(pack_single_file, job): job[0] for job in jobs
-                }
+            try:
+                with concurrent.futures.ThreadPoolExecutor(max_workers=workers) as executor:
+                    future_to_file = {
+                        executor.submit(pack_single_file, job): job[0] for job in jobs
+                    }
 
-                with tqdm(
-                    total=len(jobs),
-                    unit="file",
-                    desc=f"  └─ Packing [{test_id}]",
-                    position=2,
-                    leave=False,
-                ) as pbar:
-                    for future in concurrent.futures.as_completed(future_to_file):
-                        fname = os.path.basename(future_to_file[future])
-                        try:
-                            success, msg = future.result()
-                            if success:
-                                success_count += 1
-                            elif msg.startswith("Skipped"):
-                                # Skips are noise unless verbose
-                                skipped_count += 1
-                                vlog(f"[~] {fname}: {msg}")
-                            else:
+                    with tqdm(
+                        total=len(jobs),
+                        unit="file",
+                        desc=f"  └─ Packing [{test_id}]",
+                        position=2,
+                        leave=False,
+                    ) as pbar:
+                        for future in concurrent.futures.as_completed(future_to_file):
+                            fname = os.path.basename(future_to_file[future])
+                            try:
+                                success, msg = future.result()
+                                if success:
+                                    success_count += 1
+                                elif msg.startswith("Skipped") or msg == "Cancelled":
+                                    skipped_count += 1
+                                    vlog(f"[~] {fname}: {msg}")
+                                else:
+                                    failed_count += 1
+                                    tqdm.write(f"[-] {fname}: {msg}")
+                            except Exception as exc:
                                 failed_count += 1
-                                tqdm.write(f"[-] {fname}: {msg}")
-                        except Exception as exc:
-                            failed_count += 1
-                            tqdm.write(f"[x] Exception processing {fname}: {exc}")
+                                tqdm.write(f"[x] Exception processing {fname}: {exc}")
 
-                        pbar.update(1)
+                            pbar.update(1)
+            except KeyboardInterrupt:
+                _cancel_event.set()
+                tqdm.write("\n[!] Interrupted — cancelling remaining jobs...")
+                raise
 
             tqdm.write(f"    Result: {success_count}/{len(targets)} packed.")
 
