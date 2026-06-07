@@ -134,6 +134,17 @@ class UpxScramblerBase(BaseGUI):
         print(f"[INFO] UPX binary: {upx_bin}")
         print(f"[INFO] CLI template: {upx_test['cli_template']}")
 
+        # pack_single_file returns "Skipped (Exists)" if the destination already
+        # exists, which would make a re-run fail. Remove any stale intermediate
+        # from a previous run so UPX always packs fresh.
+        safe_name = sanitize_filename(Path(input_file).name)
+        upx_packed = Path(temp_dir) / safe_name
+        try:
+            if upx_packed.exists():
+                upx_packed.unlink()
+        except OSError as e:
+            print(f"[WARNING] Could not remove stale UPX output {upx_packed}: {e}")
+
         # Build args tuple for pack_single_file
         args = (
             str(input_file),
@@ -151,14 +162,10 @@ class UpxScramblerBase(BaseGUI):
         success, msg = pack_single_file(args)
         print(f"[INFO] UPX result: {msg}")
 
-        if success:
-            # Find the output file in temp_dir
-            safe_name = sanitize_filename(Path(input_file).name)
-            upx_packed = Path(temp_dir) / safe_name
-            if upx_packed.exists():
-                print(f"[SUCCESS] UPX packed file: {upx_packed}")
-                print(f"[INFO] Size: {upx_packed.stat().st_size:,} bytes")
-                return str(upx_packed)
+        if success and upx_packed.exists():
+            print(f"[SUCCESS] UPX packed file: {upx_packed}")
+            print(f"[INFO] Size: {upx_packed.stat().st_size:,} bytes")
+            return str(upx_packed)
 
         print(f"[ERROR] UPX packing failed: {msg}")
         return None
@@ -176,6 +183,9 @@ class UpxScramblerBase(BaseGUI):
         Returns:
             str: Path to scrambled file if successful, None otherwise
         """
+        # Interaction is complete; release the input lock so other packers can
+        # interact while this one watches its output file.
+        self.release_input()
         timeout = self.EXTRA_LONG_TIMEOUT
         input_path = Path(input_file_path)
         check_interval = self.LONG_TIMEOUT

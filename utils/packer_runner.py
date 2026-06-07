@@ -479,8 +479,12 @@ def pack_single_file(args):
 
     _silent_remove(safe_input_path)
 
+    # Copy from current_input, not src_path: when this packer has dependencies
+    # (e.g. hackupx depends on upx), current_input points at the last stage's
+    # output. Using src_path here would silently discard the dependency chain
+    # and feed the packer the original unpacked file.
     try:
-        shutil.copyfile(src_path, safe_input_path)
+        shutil.copyfile(current_input, safe_input_path)
     except OSError as e:
         return False, f"Failed to create temp input copy: {e}"
 
@@ -928,10 +932,12 @@ def print_final_report(rows):
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Multi-threaded packer runner.")
     parser.add_argument(
-        "packer_name",
-        type=str,
-        help="Packer name (e.g., 'upx', 'exe32pack', or 'all')",
-        default="all",
+        "packer_names",
+        nargs="*",
+        default=["all"],
+        metavar="PACKER",
+        help="One or more packer names (e.g. 'upx_v5.1.0 amber_v3.0 hxor_packer'), "
+        "or 'all'. Defaults to 'all' when omitted.",
     )
     parser.add_argument(
         "--max-size-kb", type=int, default=0, help="Skip files larger than KB."
@@ -967,30 +973,50 @@ if __name__ == "__main__":
     VERBOSE = args.verbose
     main_config = load_yaml(YAML_CONFIG_FILE)
 
-    if args.packer_name.lower() == "all":
-        # Get all unique packer names from definitions
-        packers = list(
-            set([d["packer_name"] for d in main_config.get("definitions", [])])
-        )
+    all_defs = main_config.get("definitions", [])
+
+    # Resolve the requested packer name(s) into a concrete run list. 'all'
+    # (alone or mixed in) expands to every defined packer; otherwise we take the
+    # names as given, de-duplicating while preserving order and dropping any that
+    # don't exist in the manifest (with a warning).
+    requested = args.packer_names
+    if any(p.lower() == "all" for p in requested):
+        packers = sorted({d["packer_name"] for d in all_defs})
         print(f"=== RUNNING ALL PACKERS: {', '.join(packers)} ===")
-        packer_bar = tqdm(
-            packers,
-            total=len(packers),
-            unit="packer",
-            desc="Packers completed",
-            position=0,
-            leave=True,
-        )
-        all_results = []
-        for p in packer_bar:
-            packer_bar.set_postfix_str(p)
-            rows = run_packing(p, args.max_size_kb, main_config, args.workers)
-            all_results.extend(rows or [])
-            tqdm.write("=" * 40)
-        packer_bar.close()
-        print_final_report(all_results)
     else:
-        run_packing(args.packer_name, args.max_size_kb, main_config, args.workers)
+        known = {d["packer_name"].lower(): d["packer_name"] for d in all_defs}
+        packers = []
+        seen = set()
+        for p in requested:
+            key = p.lower()
+            if key in seen:
+                continue
+            seen.add(key)
+            if key not in known:
+                print(f"[!] Unknown packer '{p}' - skipping (not in manifest).")
+                continue
+            packers.append(known[key])
+        if not packers:
+            print("[!] No valid packers to run. Use 'all' or a name from the manifest.")
+            sys.exit(1)
+        print(f"=== RUNNING PACKERS: {', '.join(packers)} ===")
+
+    packer_bar = tqdm(
+        packers,
+        total=len(packers),
+        unit="packer",
+        desc="Packers completed",
+        position=0,
+        leave=True,
+    )
+    all_results = []
+    for p in packer_bar:
+        packer_bar.set_postfix_str(p)
+        rows = run_packing(p, args.max_size_kb, main_config, args.workers)
+        all_results.extend(rows or [])
+        tqdm.write("=" * 40)
+    packer_bar.close()
+    print_final_report(all_results)
 
     # Post-packing verification
     if args.verify or args.verify_dry_run:

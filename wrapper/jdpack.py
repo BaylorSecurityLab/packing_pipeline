@@ -92,6 +92,9 @@ class JDPack(BaseGUI):
         Watch the input file for lock release after JDPack finishes writing.
         Requires 5 consecutive unlocked checks before declaring success.
         """
+        # Interaction is complete; release the input lock so other packers can
+        # interact while this one watches its output file.
+        self.release_input()
         timeout = self.EXTRA_LONG_TIMEOUT
         input_path = Path(input_file_path)
         check_interval = self.LONG_TIMEOUT

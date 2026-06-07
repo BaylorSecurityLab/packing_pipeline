@@ -118,6 +118,10 @@ class ThemidaGUI(BaseGUI):
         """
         import subprocess as sp
 
+        # Safety net: free the global input lock on every exit path (this
+        # override does not call super().close_application()).
+        self.release_input()
+
         print("[INFO] Closing Themida (taskkill /F /IM Themida.exe /T)...")
         try:
             sp.run(
@@ -213,6 +217,9 @@ class ThemidaGUI(BaseGUI):
 
         Returns the output path string on success, None on timeout.
         """
+        # Interaction is complete; release the input lock so other packers can
+        # interact while this one watches its output file.
+        self.release_input()
         timeout = self.EXTRA_LONG_TIMEOUT  # 500 s
         check_interval = 5  # seconds between polls
         required_stable_checks = 4

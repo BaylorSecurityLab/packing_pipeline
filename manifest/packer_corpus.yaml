@@ -99,7 +99,7 @@ definitions:
     arch_origin: "x86"
     supported_input_arch: "PE32"
     supported_output_arch: "PE32"
-    dependencies: ["upx"]
+    dependencies: ["upx_v5.1.0"]
     tags: ["CLI", "Mutator", "Obfuscator", "Multi-Stage"]
     binary_path: "./packers/hackupx/hackupx.exe"
     binary_sha256: "47a0ac6605d6f63b94df7c54d54674dcf4f48038b39d08668f633edd61812e10"
@@ -3867,7 +3867,11 @@ test_cases:
   - id: "AMBER_V30_001_DEFAULT"
     <<: *amber_v30
     command_label: "Default (CRC resolver)"
-    cli_template: "{bin} -f {in} -build -o {out}"
+    # amber v3 (Go flag parser) has no -o output flag; it writes "<in>_packed.exe"
+    # next to {in}, which the runner detects via its amber-style output search.
+    # -build (not -b) is the real flag; -ignore-checks is required or amber
+    # rejects real-world installers on its integrity check.
+    cli_template: "{bin} -f {in} -build -ignore-checks"
     validation:
       allow_x64_switch: false
       allow_x86_switch: false
@@ -3875,7 +3879,7 @@ test_cases:
   - id: "AMBER_V30_002_IAT"
     <<: *amber_v30
     command_label: "IAT Resolver"
-    cli_template: "{bin} -f {in} -iat -build -o {out}"
+    cli_template: "{bin} -f {in} -iat -build -ignore-checks"
     validation:
       allow_x64_switch: false
       allow_x86_switch: false
@@ -3883,7 +3887,7 @@ test_cases:
   - id: "AMBER_V30_003_ENCODED"
     <<: *amber_v30
     command_label: "Encoded (1x)"
-    cli_template: "{bin} -f {in} -e 1 -build -o {out}"
+    cli_template: "{bin} -f {in} -e 1 -build -ignore-checks"
     validation:
       allow_x64_switch: false
       allow_x86_switch: false

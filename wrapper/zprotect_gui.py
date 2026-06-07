@@ -37,6 +37,9 @@ class ZProtectGUI(BaseGUI):
         Poll for the output file until it exists and is stable (not locked).
         Returns the output path string on success, None on timeout.
         """
+        # Interaction is complete; release the input lock so other packers can
+        # interact while this one watches its output file.
+        self.release_input()
         check_interval = 3
         required_stable_checks = 3
         stable_count = 0

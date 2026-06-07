@@ -40,6 +40,9 @@ class Packman(BaseGUI):
         Returns:
             str: Path to packed file if successful, None otherwise
         """
+        # Interaction is complete; release the input lock so other packers can
+        # interact while this one watches its output file.
+        self.release_input()
         timeout = self.EXTRA_LONG_TIMEOUT
         output_path = Path(output_file_path)
         check_interval = self.LONG_TIMEOUT

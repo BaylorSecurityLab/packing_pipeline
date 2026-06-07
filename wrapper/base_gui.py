@@ -7,6 +7,7 @@ GUI-based packer applications on Windows.
 
 import yaml
 import time
+import threading
 from pathlib import Path
 from abc import ABC, abstractmethod
 import subprocess
@@ -18,6 +19,21 @@ import win32file
 import pywintypes
 from screeninfo import get_monitors
 import win32con
+
+
+# --- GLOBAL INPUT LOCK ---
+# GUI automation is driven via pyautogui: real mouse clicks at absolute screen
+# coordinates, real keystrokes, and window.activate() to bring a window to the
+# foreground. A desktop has exactly one cursor, one keyboard focus, and one
+# foreground window, so no two packers can *interact* at the same instant — one
+# packer's clicks would land in another's window.
+#
+# This lock serializes the interaction phase (launch → fill fields → click)
+# while leaving the long, no-input watch phase (file-lock polling) free to
+# overlap across packers. Wrappers acquire it at launch and release it when they
+# enter their watch loop. It is an RLock so a single worker re-acquiring is safe;
+# it must only ever be released by the worker thread that holds it.
+_INPUT_LOCK = threading.RLock()
 
 
 class BaseGUI(ABC):
@@ -73,6 +89,31 @@ class BaseGUI(ABC):
         self.packer_info = None
         self.process = None
         self.window = None
+        # Whether this instance currently holds the global input lock.
+        self._holds_input = False
+
+    # ========== INPUT SERIALIZATION ==========
+
+    def acquire_input(self):
+        """Acquire the global input lock for the interaction phase.
+
+        Idempotent per instance: calling it again while already held is a no-op,
+        so re-entrant interaction steps don't stack acquisitions.
+        """
+        if not self._holds_input:
+            _INPUT_LOCK.acquire()
+            self._holds_input = True
+
+    def release_input(self):
+        """Release the global input lock, allowing another packer to interact.
+
+        Idempotent: safe to call even if the lock is not held (e.g. from the
+        close/cleanup safety net after the watch method already released it).
+        Must be called from the same worker thread that acquired the lock.
+        """
+        if self._holds_input:
+            self._holds_input = False
+            _INPUT_LOCK.release()
 
     # ========== ABSTRACT METHODS (must be implemented by subclasses) ==========
 
@@ -212,6 +253,13 @@ class BaseGUI(ABC):
         Returns:
             bool: True if launched successfully
         """
+        # Acquire the global input lock before the window appears. This is the
+        # universal first interaction step for every wrapper, so holding from
+        # here covers launch + all subsequent clicks/keystrokes. The lock is
+        # released later by the wrapper's watch method (or the close/cleanup
+        # safety net below).
+        self.acquire_input()
+
         exe_path = self.get_exe_path()
         print(f"\n[INFO] Launching application: {exe_path}")
 
@@ -341,6 +389,10 @@ class BaseGUI(ABC):
         Close the packer application.
         """
         print("[INFO] Closing application...")
+
+        # Safety net: ensure the input lock is freed on every exit path, even if
+        # the wrapper raised before reaching its watch method.
+        self.release_input()
 
         try:
             if self.process:
@@ -682,4 +734,7 @@ class BaseGUI(ABC):
             input_file_path: Path to the input file
         """
         print("\n[INFO] Cleaning up after failure...")
+        # Free the input lock first in case close_application is overridden
+        # without calling super().
+        self.release_input()
         self.close_application()

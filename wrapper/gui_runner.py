@@ -4,12 +4,87 @@ Scans benign_sources/x86 directory and runs appropriate GUI packers on compatibl
 """
 
 import sys
+import os
 import re
 import shutil
+import time
+import threading
+import queue
 from pathlib import Path
 from typing import List, Dict, Optional, Set
 import argparse
 import yaml
+from tqdm import tqdm
+
+# Reuse the packer_runner filename sanitizer (spaces -> underscores, non-ASCII
+# -> hashed) so GUI packers never receive a name with spaces/unicode they choke
+# on. packer_runner lives in ../utils.
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "utils"))
+from packer_runner import sanitize_filename
+
+
+# Set on Ctrl+C so worker threads stop pulling new packers from the queue.
+# In-flight workers are daemon threads, so they die when the process exits.
+_ABORT = threading.Event()
+
+
+# Global verbosity flag. When False (default) we only show progress bars,
+# per-packer failures, and the final report; the wrappers' verbose [INFO]
+# chatter is routed to per-sample log files. When True everything prints to
+# the console (interleaved under parallelism — intended for debugging).
+VERBOSE = False
+
+# The real stdout, captured before the thread-local router is installed. tqdm
+# bars, result lines, and the final report are written here so they stay clean
+# regardless of any per-thread stdout redirection.
+_REAL_STDOUT = sys.stdout
+
+# Force UTF-8 with replacement so progress bars / box-drawing chars / check marks
+# never crash with UnicodeEncodeError on a legacy cp1252 Windows console.
+for _stream in (sys.stdout, sys.stderr):
+    try:
+        _stream.reconfigure(encoding="utf-8", errors="replace")
+    except Exception:
+        pass
+
+
+def vlog(msg):
+    """Print only when --verbose is set (uses tqdm.write so bars stay intact)."""
+    if VERBOSE:
+        tqdm.write(msg, file=_REAL_STDOUT)
+
+
+class _StdoutRouter:
+    """Thread-aware stdout proxy.
+
+    Each worker thread can redirect *its own* prints to a per-task file via
+    set_target(); the main thread (and any thread without a target) keeps
+    writing to the real stdout. This lets the noisy wrappers log to files while
+    the progress bars and report stay readable on the console, without the
+    threads clobbering each other's output.
+    """
+
+    def __init__(self, real):
+        self._real = real
+        self._local = threading.local()
+
+    def set_target(self, fileobj):
+        self._local.target = fileobj
+
+    def reset(self):
+        self._local.target = None
+
+    def _stream(self):
+        return getattr(self._local, "target", None) or self._real
+
+    def write(self, s):
+        self._stream().write(s)
+
+    def flush(self):
+        self._stream().flush()
+
+    def isatty(self):
+        return self._real.isatty()
 
 from fsg import FSG
 from asm_guard import AsmGuard
@@ -175,6 +250,30 @@ class GUIWrapperRunner:
             version = defn.get("version", "unknown")
             self._version_map[name] = version
 
+        # Per-packer stats collected for the final report (used in 'all' mode).
+        self.report_rows: List[Dict] = []
+
+    def _record_report_row(
+        self,
+        packer_name: str,
+        packed: int,
+        skipped: int,
+        failed: int,
+        total: int,
+        note: str = "",
+    ):
+        """Append one packer's stats to the aggregated final report."""
+        self.report_rows.append(
+            {
+                "packer": packer_name,
+                "packed": packed,
+                "skipped": skipped,
+                "failed": failed,
+                "total": total,
+                "note": note,
+            }
+        )
+
     def get_supported_extensions(self, packer_name: str) -> List[str]:
         """Get list of supported file extensions for a packer"""
         return PACKER_FILE_SUPPORT.get(packer_name, ["*"])
@@ -231,7 +330,10 @@ class GUIWrapperRunner:
             Path: Path to the copied file in temp directory
         """
         temp_dir = self.get_temp_directory(output_dir)
-        temp_file = temp_dir / file_path.name
+        # Sanitize the working-copy name: many GUI packers reject spaces /
+        # non-ASCII in the path, surfacing as "invalid name" errors. The packed
+        # output then inherits this safe name.
+        temp_file = temp_dir / sanitize_filename(file_path.name)
 
         print("[INFO] Copying input file to temp directory...")
         print(f"[INFO]   Source: {file_path}")
@@ -1631,14 +1733,23 @@ class GUIWrapperRunner:
     def is_already_packed(self, file_path: Path, packer_name: str) -> bool:
         """
         Check if a file has already been packed (output exists in packed_sources)
-        Uses fuzzy matching - checks if any file contains the original stem
+        Uses fuzzy matching - checks if any file contains the sanitized stem.
+
+        Matching is done on the *sanitized* stem because that is the name the
+        packed output now carries (see copy_to_temp); the raw stem (with spaces)
+        would never substring-match the underscored output name.
         """
         output_dir = self.get_output_directory(packer_name)
-        stem = file_path.stem.lower()
 
-        # Check if any file in output_dir contains the original filename stem
+        # Normalize spaces->underscores on both sides so this also matches
+        # outputs from older runs that were saved with the raw (spaced) name.
+        def _norm(s: str) -> str:
+            return s.lower().replace(" ", "_")
+
+        stem = _norm(Path(sanitize_filename(file_path.name)).stem)
+
         for existing_file in output_dir.glob("*"):
-            if existing_file.is_file() and stem in existing_file.stem.lower():
+            if existing_file.is_file() and stem in _norm(existing_file.stem):
                 return True
         return False
 
@@ -1672,6 +1783,9 @@ class GUIWrapperRunner:
 
         if not files:
             print("[WARNING] No compatible files found!")
+            self._record_report_row(
+                packer_name, 0, 0, 0, 0, note="no compatible files"
+            )
             return {}
 
         # Use packer-specific output directory if not specified
@@ -1704,6 +1818,10 @@ class GUIWrapperRunner:
 
         if not files:
             print("[INFO] All files already packed! Nothing to do.")
+            already = len(skipped_files) if skip_existing else 0
+            self._record_report_row(
+                packer_name, 0, already, 0, already, note="all already packed"
+            )
             return {}
 
         # Print file list
@@ -1716,6 +1834,9 @@ class GUIWrapperRunner:
 
         if dry_run:
             print("\n[DRY RUN] No files will be processed")
+            self._record_report_row(
+                packer_name, 0, 0, 0, len(files), note="dry run"
+            )
             return {f.name: None for f in files}
 
         # ========== SNAPSHOT SOURCE DIRECTORY BEFORE PROCESSING ==========
@@ -1749,6 +1870,18 @@ class GUIWrapperRunner:
 
             shutil.rmtree(temp_dir, ignore_errors=True)
             print(f"[INFO] Deleted temp directory: {temp_dir}")
+
+        # Record aggregated stats for the final report (used in 'all' mode).
+        successful = sum(1 for v in results.values() if v is True)
+        failed = sum(1 for v in results.values() if v is False)
+        already = len(skipped_files) if skip_existing else 0
+        self._record_report_row(
+            packer_name,
+            packed=successful,
+            skipped=already,
+            failed=failed,
+            total=successful + failed + already,
+        )
 
         # Print summary
         self.print_summary(results, skipped_files if skip_existing else [])
@@ -1796,6 +1929,215 @@ class GUIWrapperRunner:
         if dry_run_skipped:
             print(f"  Dry run:       {dry_run_skipped}")
         print(f"{'=' * 60}")
+
+    # ========== PARALLEL ORCHESTRATION ==========
+
+    def gather_samples(self, recursive: bool = False) -> List[Path]:
+        """Return the list of .exe samples in the source directory (sorted)."""
+        globber = self.source_dir.rglob("*") if recursive else self.source_dir.glob("*")
+        return sorted(
+            f for f in globber if f.is_file() and f.suffix.lower() == ".exe"
+        )
+
+    def _run_one(self, packer_name: str, sample_path: Path):
+        """Worker: run one packer on one sample.
+
+        In non-verbose mode this thread's stdout is routed to a per-sample log
+        file under the packer's output dir, so the wrappers' chatter doesn't
+        flood the console or interleave with other workers. Returns
+        (success, log_path | None).
+        """
+        output_dir = self.get_output_directory(packer_name)
+
+        # Verbose: let wrapper output go straight to the console (interleaved).
+        if VERBOSE or not isinstance(sys.stdout, _StdoutRouter):
+            try:
+                return self.run_packer(packer_name, sample_path, output_dir=output_dir), None
+            except Exception as e:
+                tqdm.write(f"[x] {packer_name} / {sample_path.name}: {e}", file=_REAL_STDOUT)
+                return False, None
+
+        # Non-verbose: route this worker's stdout to a per-sample log file.
+        log_dir = output_dir / "logs"
+        log_dir.mkdir(parents=True, exist_ok=True)
+        log_path = log_dir / f"{sample_path.stem}.log"
+
+        router = sys.stdout
+        log_file = open(log_path, "w", encoding="utf-8", errors="replace")
+        try:
+            router.set_target(log_file)
+            return self.run_packer(packer_name, sample_path, output_dir=output_dir), log_path
+        except Exception as e:
+            print(f"[ERROR] Worker exception: {e}")  # captured to log_file
+            return False, log_path
+        finally:
+            router.reset()
+            log_file.close()
+
+    def run_parallel(
+        self,
+        packers: List[str],
+        workers: int = 4,
+        recursive: bool = False,
+        dry_run: bool = False,
+        limit: Optional[int] = None,
+        skip_existing: bool = True,
+        samples: Optional[List[Path]] = None,
+    ) -> bool:
+        """Run multiple packers across samples, parallel across DIFFERENT packers.
+
+        Iterates samples outermost (one at a time); for each sample it fans the
+        supported packers out across a thread pool. The global input lock in
+        base_gui serializes each packer's launch+click phase while their long
+        file-watch phases overlap. Each packer writes to its own output dir, so
+        there are no output collisions.
+
+        Returns True if any packer failed on any sample.
+        """
+        if samples is None:
+            samples = self.gather_samples(recursive=recursive)
+            if limit:
+                samples = samples[:limit]
+
+        if not samples:
+            print("[WARNING] No .exe samples found to process.")
+            return False
+
+        # Per-packer running totals across all samples.
+        agg = {p: {"packed": 0, "skipped": 0, "failed": 0} for p in packers}
+        any_failed = False
+
+        stats_lock = threading.Lock()
+        interrupted = False
+
+        sample_bar = tqdm(
+            samples,
+            total=len(samples),
+            unit="sample",
+            desc="Samples",
+            position=0,
+            leave=True,
+            file=_REAL_STDOUT,
+        )
+        try:
+            for sample in sample_bar:
+                sample_bar.set_postfix_str(sample.name[:30])
+
+                # Which packers actually have work to do for this sample.
+                todo = []
+                for p in packers:
+                    if not self.is_file_supported(sample, p):
+                        continue
+                    if skip_existing and self.is_already_packed(sample, p):
+                        agg[p]["skipped"] += 1
+                        continue
+                    todo.append(p)
+
+                if not todo:
+                    continue
+
+                if dry_run:
+                    for p in todo:
+                        tqdm.write(f"[DRY RUN] {sample.name} -> {p}", file=_REAL_STDOUT)
+                    continue
+
+                # Fan the supported packers out across daemon worker threads
+                # pulling from a shared queue. Daemon threads are key for Ctrl+C:
+                # the main thread's join() is interruptible, and the workers (some
+                # sitting in 500s GUI-watch sleeps) die instantly when the process
+                # exits instead of blocking shutdown.
+                work = queue.Queue()
+                for p in todo:
+                    work.put(p)
+
+                with tqdm(
+                    total=len(todo),
+                    unit="packer",
+                    desc=f"  └─ {sample.name[:24]}",
+                    position=1,
+                    leave=False,
+                    file=_REAL_STDOUT,
+                ) as pbar:
+
+                    def _worker():
+                        while not _ABORT.is_set():
+                            try:
+                                p = work.get_nowait()
+                            except queue.Empty:
+                                return
+                            try:
+                                success, log_path = self._run_one(p, sample)
+                            except Exception as e:
+                                success, log_path = False, None
+                                tqdm.write(
+                                    f"[x] {p} / {sample.name}: {e}",
+                                    file=_REAL_STDOUT,
+                                )
+                            with stats_lock:
+                                if success:
+                                    agg[p]["packed"] += 1
+                                else:
+                                    agg[p]["failed"] += 1
+                                    msg = f"[-] {p} / {sample.name}: failed"
+                                    if log_path:
+                                        msg += f"  (log: {log_path})"
+                                    tqdm.write(msg, file=_REAL_STDOUT)
+                                pbar.set_postfix_str(p)
+                                pbar.update(1)
+
+                    pool = [
+                        threading.Thread(
+                            target=_worker, name=f"pack-{i}", daemon=True
+                        )
+                        for i in range(min(workers, len(todo)))
+                    ]
+                    for t in pool:
+                        t.start()
+                    # Poll-join so a pending Ctrl+C reaches the main thread
+                    # promptly. A bare join() blocks in C and delays delivery of
+                    # the KeyboardInterrupt until the (possibly 500s) worker ends.
+                    while any(t.is_alive() for t in pool):
+                        for t in pool:
+                            t.join(0.2)
+        except KeyboardInterrupt:
+            interrupted = True
+            _ABORT.set()
+            tqdm.write(
+                "\n[!] Interrupted — stopping. In-flight packer windows may "
+                "remain open; close them manually.",
+                file=_REAL_STDOUT,
+            )
+        finally:
+            sample_bar.close()
+
+        # Clean each packer's temp dir (working copies accumulate across
+        # samples). Skip when interrupted — daemon workers may still be writing.
+        if not interrupted:
+            for p in packers:
+                try:
+                    temp_dir = self.get_temp_directory(self.get_output_directory(p))
+                    if temp_dir.exists():
+                        shutil.rmtree(temp_dir, ignore_errors=True)
+                except Exception:
+                    pass
+
+        # Build the aggregated report rows (reuses print_final_report).
+        self.report_rows = []
+        for p in packers:
+            a = agg[p]
+            total = a["packed"] + a["failed"] + a["skipped"]
+            if dry_run:
+                note = "dry run"
+            elif total == 0:
+                note = "no samples"
+            else:
+                note = ""
+            self._record_report_row(
+                p, a["packed"], a["skipped"], a["failed"], total, note=note
+            )
+
+        any_failed = any(a["failed"] > 0 for a in agg.values())
+        return any_failed or interrupted
 
 
 def build_packer_argparser(packer_name: str, parser: argparse.ArgumentParser):
@@ -1850,6 +2192,90 @@ def print_packer_info(packer_name: str):
     print(f"{'=' * 60}")
 
 
+def print_final_report(rows, report_dir: Path):
+    """Print an aggregated summary after an 'all' run and write it to a file.
+
+    The report is written to <report_dir>/gui_packing_report.txt and overwritten
+    on every run. Mirrors the packer_runner final report.
+    """
+    executed = [r for r in rows if not r.get("note")]
+    not_run = [r for r in rows if r.get("note")]
+
+    lines = []
+    lines.append("=" * 72)
+    lines.append("FINAL GUI PACKING REPORT")
+    lines.append("=" * 72)
+
+    if not executed and not not_run:
+        lines.append("No GUI packing was performed (no packers ran).")
+        lines.append("=" * 72)
+    else:
+        if executed:
+            name_w = max(max(len(r["packer"]) for r in executed), len("Packer"))
+
+            header = (
+                f"{'Packer':<{name_w}}  "
+                f"{'Packed':>6}  {'Skipped':>7}  {'Failed':>6}  {'Total':>6}"
+            )
+            lines.append(header)
+            lines.append("-" * len(header))
+
+            tot_packed = tot_skipped = tot_failed = tot_total = 0
+            for r in executed:
+                lines.append(
+                    f"{r['packer']:<{name_w}}  "
+                    f"{r['packed']:>6}  {r['skipped']:>7}  "
+                    f"{r['failed']:>6}  {r['total']:>6}"
+                )
+                tot_packed += r["packed"]
+                tot_skipped += r["skipped"]
+                tot_failed += r["failed"]
+                tot_total += r["total"]
+
+            lines.append("-" * len(header))
+            lines.append(
+                f"{'TOTALS':<{name_w}}  "
+                f"{tot_packed:>6}  {tot_skipped:>7}  "
+                f"{tot_failed:>6}  {tot_total:>6}"
+            )
+
+            # Surface packers that produced nothing new but had failures.
+            problem_packers = [
+                r for r in executed if r["failed"] > 0 and r["packed"] == 0
+            ]
+            if problem_packers:
+                lines.append("")
+                lines.append("[!] Packers that packed 0 files and had failures:")
+                for r in problem_packers:
+                    lines.append(
+                        f"    - {r['packer']}: {r['failed']} failed of {r['total']}"
+                    )
+        else:
+            lines.append("No packers produced output.")
+
+        # Packers that never ran (no compatible files, all already packed, dry run).
+        if not_run:
+            lines.append("")
+            lines.append(f"[i] Packers not run ({len(not_run)}):")
+            for r in not_run:
+                lines.append(f"    - {r['packer']}: {r['note']}")
+
+        lines.append("=" * 72)
+
+    report_text = "\n".join(lines)
+    print("\n" + report_text)
+
+    # Persist to packed_sources, overwriting any previous report.
+    try:
+        report_dir.mkdir(parents=True, exist_ok=True)
+        report_path = report_dir / "gui_packing_report.txt"
+        with open(report_path, "w", encoding="utf-8") as f:
+            f.write(report_text + "\n")
+        print(f"\n[*] Report written to: {report_path}")
+    except Exception as e:
+        print(f"[!] Warning: could not write report file: {e}")
+
+
 def main():
     parser = argparse.ArgumentParser(
         description="GUI Wrapper Runner - Batch process files with GUI packers",
@@ -1892,9 +2318,31 @@ Examples:
     parser.add_argument(
         "--packer",
         type=str,
-        default=DEFAULT_PACKER,
+        nargs="+",
+        default=[DEFAULT_PACKER],
         choices=list(PACKER_FILE_SUPPORT.keys()) + ["all"],
-        help=f"Packer to use (default: {DEFAULT_PACKER}), or 'all' to run every GUI packer",
+        metavar="PACKER",
+        help=(
+            f"One or more packers to run (default: {DEFAULT_PACKER}), or 'all' "
+            "for every GUI packer. Multiple packers (or 'all') run in parallel "
+            "across DIFFERENT packers per sample; a single packer runs sequentially."
+        ),
+    )
+
+    parser.add_argument(
+        "--workers",
+        type=int,
+        default=4,
+        help="Parallel workers (different packers run concurrently per sample). "
+        "Default: 4. Only applies when running 2+ packers or 'all'.",
+    )
+
+    parser.add_argument(
+        "-v",
+        "--verbose",
+        action="store_true",
+        help="Print all wrapper output to the console. Without it: only progress "
+        "bars, failures, and the final report (wrapper logs go to per-sample files).",
     )
 
     parser.add_argument(
@@ -1961,6 +2409,13 @@ Examples:
 
     args = parser.parse_args()
 
+    # Resolve verbosity and install the thread-local stdout router so worker
+    # threads can redirect their (noisy) output to per-sample log files.
+    global VERBOSE
+    VERBOSE = args.verbose
+    if not isinstance(sys.stdout, _StdoutRouter):
+        sys.stdout = _StdoutRouter(_REAL_STDOUT)
+
     # List packers and exit
     if args.list_packers:
         print("\n" + "=" * 60)
@@ -1998,14 +2453,28 @@ Examples:
 
     yaml_path = main_dir / "manifest" / "packer_corpus.yaml"
 
-    print(f"Script directory: {script_dir}")
-    print(f"Main directory: {main_dir}")
-    print(f"Source directory: {source_dir}")
-    print(f"YAML path: {yaml_path}")
-    if output_dir:
-        print(f"Output directory (CLI): {output_dir}")
+    # Resolve the requested packers: 'all' expands to every packer; otherwise
+    # use the given list (de-duplicated, order preserved).
+    if "all" in args.packer:
+        packers = list(PACKER_FILE_SUPPORT.keys())
     else:
-        print(f"Output directory: ../packed_sources/{args.packer}/ (default)")
+        packers = list(dict.fromkeys(args.packer))
+    parallel = len(packers) > 1
+
+    vlog(f"Script directory: {script_dir}")
+    vlog(f"Main directory: {main_dir}")
+    vlog(f"Source directory: {source_dir}")
+    vlog(f"YAML path: {yaml_path}")
+    if parallel:
+        print(
+            f"[*] Running {len(packers)} packers "
+            f"(parallel across packers, {args.workers} workers): "
+            f"{', '.join(packers)}"
+        )
+    elif output_dir:
+        vlog(f"Output directory (CLI): {output_dir}")
+    else:
+        vlog(f"Output directory: ../packed_sources/{packers[0]}/ (default)")
 
     try:
         runner = GUIWrapperRunner(
@@ -2014,79 +2483,59 @@ Examples:
             yaml_path=str(yaml_path),
         )
 
-        # Build packer-specific config from args
-        packer_config = runner.build_packer_config(
-            args.packer,
-            check_options=getattr(args, "check", None),
-            uncheck_options=getattr(args, "uncheck", None),
-        )
+        # Packer-specific --check/--uncheck options only apply to single-packer
+        # runs; in parallel mode every packer uses its defaults.
+        packer_config = None
+        if not parallel:
+            packer_config = runner.build_packer_config(
+                packers[0],
+                check_options=getattr(args, "check", None),
+                uncheck_options=getattr(args, "uncheck", None),
+            )
 
-        # "all" mode — run every packer in sequence
-        if args.packer == "all":
-            all_packers = list(PACKER_FILE_SUPPORT.keys())
-            any_failed = False
-
-            if args.file:
-                file_path = Path(args.file).resolve()
-                if not file_path.exists():
-                    print(f"[ERROR] File not found: {file_path}")
-                    return 1
-                for packer_name in all_packers:
-                    print(f"\n{'#' * 60}")
-                    print(f"PACKER: {packer_name}")
-                    print(f"{'#' * 60}")
-                    success = runner.run_packer(
-                        packer_name,
-                        file_path,
-                        packer_config=None,
-                        output_dir=None,
-                    )
-                    if not success:
-                        any_failed = True
-            else:
-                for packer_name in all_packers:
-                    print(f"\n{'#' * 60}")
-                    print(f"PACKER: {packer_name}")
-                    print(f"{'#' * 60}")
-                    results = runner.run_batch(
-                        packer_name=packer_name,
-                        packer_config=None,
-                        output_dir=None,
-                        recursive=args.recursive,
-                        dry_run=args.dry_run,
-                        limit=args.limit,
-                        skip_existing=not args.no_skip,
-                    )
-                    if any(v is False for v in results.values()):
-                        any_failed = True
-
-            return 1 if any_failed else 0
-
-        # Single file mode
+        # ----- Single file -----
         if args.file:
             file_path = Path(args.file).resolve()
             if not file_path.exists():
                 print(f"[ERROR] File not found: {file_path}")
                 return 1
 
-            # Snapshot before single file
-            original_files = runner.snapshot_directory(file_path.parent)
+            if parallel:
+                # Multiple packers on one sample — parallel across packers.
+                any_failed = runner.run_parallel(
+                    packers,
+                    workers=args.workers,
+                    dry_run=args.dry_run,
+                    skip_existing=not args.no_skip,
+                    samples=[file_path],
+                )
+                print_final_report(runner.report_rows, main_dir / "packed_sources")
+                return 1 if any_failed else 0
 
             success = runner.run_packer(
-                args.packer,
+                packers[0],
                 file_path,
                 packer_config=packer_config,
                 output_dir=output_dir,
             )
-
-            # Cleanup after single file
-            runner.cleanup_new_files(file_path.parent, original_files)
-
             return 0 if success else 1
 
-        # Batch mode
+        # ----- Batch -----
+        if parallel:
+            any_failed = runner.run_parallel(
+                packers,
+                workers=args.workers,
+                recursive=args.recursive,
+                dry_run=args.dry_run,
+                limit=args.limit,
+                skip_existing=not args.no_skip,
+            )
+            print_final_report(runner.report_rows, main_dir / "packed_sources")
+            return 1 if any_failed else 0
+
+        # Single-packer batch — sequential (same-packer concurrency is unsafe).
         results = runner.run_batch(
-            packer_name=args.packer,
+            packer_name=packers[0],
             packer_config=packer_config,
             output_dir=output_dir,
             recursive=args.recursive,
@@ -2100,6 +2549,9 @@ Examples:
             return 1
         return 0
 
+    except KeyboardInterrupt:
+        print("\n[!] Interrupted by user — exiting.", file=_REAL_STDOUT)
+        return 130
     except FileNotFoundError as e:
         print(f"[ERROR] {e}")
         return 1

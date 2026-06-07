@@ -361,7 +361,7 @@ class AsmGuard(BaseGUI):
                 import pygetwindow as gw
 
                 self.window = gw.getWindowsWithTitle(self.window.title)[0]
-            except:
+            except Exception:
                 pass
 
             # Step 5: Get dimensions
@@ -489,6 +489,9 @@ class AsmGuard(BaseGUI):
         Wait for the protection process to complete with stability verification.
         Targets the '{stem}_protected{suffix}' file naming convention.
         """
+        # Interaction is complete; release the input lock so other packers can
+        # interact while this one watches its output file.
+        self.release_input()
         timeout = self.EXTRA_LONG_TIMEOUT
         input_path = Path(input_file_path)
 
