@@ -36,6 +36,33 @@ import win32con
 _INPUT_LOCK = threading.RLock()
 
 
+# --- ACTIVE WRAPPER REGISTRY ---
+# Every wrapper registers itself the moment it launches a packer process and
+# deregisters when it closes. A run can therefore sweep this set on Ctrl+C and
+# terminate any packer process/window still open, so an interrupted run never
+# leaves orphaned packer GUIs littering the desktop.
+_ACTIVE_WRAPPERS = set()
+_ACTIVE_WRAPPERS_LOCK = threading.Lock()
+
+
+def close_all_windows():
+    """Terminate every packer process/window currently registered as active.
+
+    Best-effort: each close is guarded so one failure can't stop the rest. Safe
+    to call from a Ctrl+C handler — it iterates a snapshot, so close_application
+    deregistering as it goes can't disturb the iteration.
+    """
+    with _ACTIVE_WRAPPERS_LOCK:
+        active = list(_ACTIVE_WRAPPERS)
+    if active:
+        print(f"\n[INFO] Closing {len(active)} open packer window(s)...")
+    for wrapper in active:
+        try:
+            wrapper.close_application()
+        except Exception as e:
+            print(f"[WARNING] Failed to close {wrapper.__class__.__name__}: {e}")
+
+
 class BaseGUI(ABC):
     """
     Abstract base class for GUI automation wrappers.
@@ -267,6 +294,11 @@ class BaseGUI(ABC):
         # This prevents issues with Windows GUI apps
         self.process = subprocess.Popen(str(exe_path), cwd=exe_path.parent, shell=shell)
 
+        # Register so a Ctrl+C sweep can find and close this window even if the
+        # wrapper is aborted mid-interaction before it reaches close_application.
+        with _ACTIVE_WRAPPERS_LOCK:
+            _ACTIVE_WRAPPERS.add(self)
+
         print(f"[SUCCESS] Process started with PID: {self.process.pid}")
         print("[INFO] Waiting for GUI window to appear...")
         time.sleep(2)
@@ -389,6 +421,11 @@ class BaseGUI(ABC):
         Close the packer application.
         """
         print("[INFO] Closing application...")
+
+        # Deregister first: once we've decided to close, this wrapper should no
+        # longer be a target for a concurrent close_all_windows sweep.
+        with _ACTIVE_WRAPPERS_LOCK:
+            _ACTIVE_WRAPPERS.discard(self)
 
         # Safety net: ensure the input lock is freed on every exit path, even if
         # the wrapper raised before reaching its watch method.
