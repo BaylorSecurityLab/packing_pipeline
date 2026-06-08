@@ -12,8 +12,68 @@ from tqdm import tqdm
 import hashlib
 import re
 
+# Inputs include non-ASCII filenames (e.g. CJK installer names). When stdout is
+# redirected to a file on Windows it defaults to cp1252, so printing a failure
+# line for such a file raises UnicodeEncodeError -- and because that fires inside
+# the failure-reporting path, it aborts the whole batch. Force UTF-8 with a
+# replacement fallback so no log line can ever kill the run.
+for _stream in (sys.stdout, sys.stderr):
+    try:
+        _stream.reconfigure(encoding="utf-8", errors="replace")
+    except (AttributeError, ValueError):
+        pass
+
 # Set when Ctrl+C is pressed; workers check this and bail out immediately.
 _cancel_event = threading.Event()
+
+
+class MemoryGate:
+    """Admission control by estimated RAM, for packers whose per-job memory
+    scales with input size (e.g. PEzor: donut embeds the whole input PE as a
+    C++ string literal, so clang's peak RSS grows ~linearly with input size).
+
+    A fixed worker count can't model this: 8 tiny inputs fit easily, but two
+    large inputs can exhaust the WSL VM and crash it (host-level
+    Wsl/Service/E_UNEXPECTED). Instead, each job estimates its peak RSS from the
+    input size and reserves that from a shared budget; jobs block until their
+    reservation fits. Small jobs run many-wide, large jobs self-serialize, and a
+    job whose estimate alone exceeds the budget is skipped as unpackable here.
+    """
+
+    def __init__(self, budget_mb, floor_mb, per_input_mb):
+        self.budget_mb = float(budget_mb)
+        self.floor_mb = float(floor_mb)
+        self.per_input_mb = float(per_input_mb)
+        self._available = float(budget_mb)
+        self._cv = threading.Condition()
+
+    def estimate_mb(self, size_bytes):
+        return self.floor_mb + self.per_input_mb * (size_bytes / 1048576.0)
+
+    def fits(self, est_mb):
+        """True if a job this large can ever run (estimate <= whole budget)."""
+        return est_mb <= self.budget_mb
+
+    def acquire(self, est_mb):
+        # A single job may reserve up to the entire budget (runs alone).
+        est_mb = min(est_mb, self.budget_mb)
+        with self._cv:
+            # Wait until enough budget frees up. A job needing the whole budget
+            # waits for everything else to finish; this never deadlocks because
+            # every acquired reservation is always released.
+            while self._available < est_mb:
+                self._cv.wait()
+            self._available -= est_mb
+        return est_mb
+
+    def release(self, est_mb):
+        with self._cv:
+            self._available += est_mb
+            self._cv.notify_all()
+
+
+# Set per-packer in run_packing (None for packers without memory-scaled jobs).
+_mem_gate = None
 
 # --- DIALOG KILLER (Windows only) ---
 if os.name == "nt":
@@ -103,7 +163,19 @@ PACKER_SETTINGS = {
     },
     "pezor": {
         "use_dialog_killer": False,
-        "timeout": 300,
+        "timeout": 600,
+        # PEzor shells into WSL2 and compiles C++ per job; donut embeds the whole
+        # input PE as a string literal, so clang's peak RSS scales ~linearly with
+        # input size (measured ~60 + 57*input_MB; 100 MB input -> ~5.8 GB). A flat
+        # worker count can't model this -- two large inputs at once exhaust the
+        # WSL VM and crash it (host-level Wsl/Service/E_UNEXPECTED). Gate jobs by
+        # estimated RAM instead. Budget stays under the VM's ~9.3 GB usable so the
+        # VM never OOMs. max_workers is just an upper ceiling on wsl.exe launches;
+        # the memory gate is the real throttle.
+        "max_workers": 8,
+        "mem_budget_mb": 7500,
+        "mem_floor_mb": 250,
+        "mem_per_input_mb": 60,
     },
     # Default for unknown packers
     "_default": {
@@ -374,6 +446,20 @@ def pack_single_file(args):
     if os.path.exists(dst_path):
         return False, "Skipped (Exists)"
 
+    # Estimate this job's peak RAM (for packers with a memory gate). Inputs whose
+    # estimate alone exceeds the whole budget can't run on this VM -> skip them.
+    gate = _mem_gate
+    est_mb = 0.0
+    if gate is not None:
+        est_mb = gate.estimate_mb(os.path.getsize(src_path))
+        if not gate.fits(est_mb):
+            size_mb = os.path.getsize(src_path) / 1048576.0
+            return (
+                False,
+                f"Skipped (Too large for memory budget: {size_mb:.0f} MB input "
+                f"-> ~{est_mb:.0f} MB RAM > {gate.budget_mb:.0f} MB budget)",
+            )
+
     current_input = src_path
     temp_files_to_clean = []
 
@@ -471,15 +557,21 @@ def pack_single_file(args):
     # Each job gets its OWN subdir so parallel workers never collide on shared
     # temp names. A clobbered/removed input is what produced the "Permission
     # denied" failures under --workers > 1.
-    job_temp_name = os.path.splitext(safe_filename)[0]
-    local_temp = os.path.join(output_dir, "_temp_build", job_temp_name)
-    os.makedirs(local_temp, exist_ok=True)
-
     # Short, ASCII-safe, per-job-unique stem. Short names keep legacy packers
     # happy; the unique suffix means a packer that drops output into its own CWD
     # writes a unique name there instead of a shared "in.packed.exe" that
     # parallel workers would otherwise fight over.
     stem = "i" + hashlib.md5(safe_filename.encode("utf-8")).hexdigest()[:7]
+
+    # Use the stem (not the human filename) for the _temp_build subdir too, so the
+    # ENTIRE staged path is [a-z0-9_]-safe. PEzor passes this path through
+    # wsl.exe -> bash, where shell metacharacters in the name corrupt it:
+    # "Batch File Split & Join" backgrounds the command at '&' (exit 127);
+    # "Rocks'n'Diamonds" has its quotes eaten by bash -> "RocksnDiamonds", a path
+    # that doesn't exist -> broken symlink / donut "File not found".
+    local_temp = os.path.join(output_dir, "_temp_build", stem)
+    os.makedirs(local_temp, exist_ok=True)
+
     safe_input_name = stem + ".exe"
     safe_input_path = os.path.join(local_temp, safe_input_name)
 
@@ -565,6 +657,14 @@ def pack_single_file(args):
 
         command_list.append(new_part)
 
+    # Reserve this job's estimated RAM before launching the heavy subprocess so
+    # concurrent jobs never collectively exceed the budget (released in finally).
+    gate_held = 0.0
+    if gate is not None:
+        if _cancel_event.is_set():
+            return False, "Cancelled"
+        gate_held = gate.acquire(est_mb)
+
     try:
         cwd = os.path.dirname(packer_bin)
 
@@ -630,6 +730,8 @@ def pack_single_file(args):
         return False, f"Exception: {str(e)}"
 
     finally:
+        if gate is not None and gate_held:
+            gate.release(gate_held)
         # Clean artifacts that live OUTSIDE local_temp (which the caller wipes
         # per test case): the CWD fallback drop and dependency staging files.
         _silent_remove(cwd_suffix_output)
@@ -655,6 +757,37 @@ def run_packing(packer_name_input, max_size_kb=0, config=None, workers=1):
     if not packer_def:
         print(f"[!] Packer definition not found for: {packer_name_input}")
         return []
+
+    # Some packers (e.g. PEzor) can't tolerate the global worker count because
+    # each job spawns a heavy WSL/compile subprocess. Honor a per-packer cap.
+    pk_settings = get_packer_settings(packer_name_input)
+    max_workers_cap = pk_settings.get("max_workers")
+    if max_workers_cap and workers > max_workers_cap:
+        print(
+            f"[*] Capping workers for '{packer_name_input}': "
+            f"{workers} -> {max_workers_cap} (packer is resource-heavy)"
+        )
+        workers = max_workers_cap
+
+    # If the packer's per-job memory scales with input size, install a memory
+    # gate so concurrency is throttled by estimated RAM rather than thread count.
+    global _mem_gate
+    if pk_settings.get("mem_budget_mb"):
+        _mem_gate = MemoryGate(
+            budget_mb=pk_settings["mem_budget_mb"],
+            floor_mb=pk_settings.get("mem_floor_mb", 0),
+            per_input_mb=pk_settings.get("mem_per_input_mb", 0),
+        )
+        cap_mb = _mem_gate.budget_mb - _mem_gate.floor_mb
+        cap_in = cap_mb / _mem_gate.per_input_mb if _mem_gate.per_input_mb else 0
+        print(
+            f"[*] Memory gate for '{packer_name_input}': budget "
+            f"{_mem_gate.budget_mb:.0f} MB, est ~{_mem_gate.floor_mb:.0f}"
+            f"+{_mem_gate.per_input_mb:.0f}*input_MB; inputs over "
+            f"~{cap_in:.0f} MB are skipped (need more RAM than the VM has)"
+        )
+    else:
+        _mem_gate = None
 
     # Check if 'CLI' is in the tags
     tags = packer_def.get("tags", [])

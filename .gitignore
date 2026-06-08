@@ -16,3 +16,11 @@ venv/
 packed_sources/
 benign_sources
 .claude
+
+# --- PEzor build artifacts / vendored dependencies ---
+_pezor_src.sh
+_prefix_PEzor_/
+donut/
+inline_syscall/
+keystone/
+wclang/

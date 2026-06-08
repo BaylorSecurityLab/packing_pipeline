@@ -8,6 +8,14 @@ export PATH="/usr/local/bin:/usr/local/sbin:/usr/sbin:/usr/bin:/sbin:/bin:/root/
 export HOME="/root"
 export GOPATH="/root/go"
 
+# /tmp in WSL2 is a RAM-backed tmpfs (~4 GB). PEzor + donut write large
+# shellcode/build dirs via mktemp, and with many parallel workers this fills
+# tmpfs instantly -> "No space left on device" and mass packing failures.
+# Redirect all mktemp activity (this wrapper AND PEzor.sh's internal calls)
+# to the large root disk. /var/tmp persists across reboots, so prune our own.
+export TMPDIR="/var/tmp/pezor"
+mkdir -p "$TMPDIR"
+
 # Parse: last two args are input and output, everything else is PEzor flags
 ARGS=("$@")
 NUM_ARGS=${#ARGS[@]}
