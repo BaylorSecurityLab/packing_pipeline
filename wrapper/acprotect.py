@@ -95,7 +95,7 @@ class ACProtect(BaseGUI):
                 # "ACProtector" is the main window
                 if win.title == "Acprotect" and win.visible:
                     count += 1
-        except:
+        except Exception:
             pass
         return count
 
@@ -131,6 +131,9 @@ class ACProtect(BaseGUI):
         Requires the file to remain unlocked for 5 consecutive checks to ensure
         the packer hasn't just momentarily dropped the lock due to an error.
         """
+        # Interaction is complete; release the input lock so other packers can
+        # interact while this one watches its output file.
+        self.release_input()
         timeout = self.EXTRA_LONG_TIMEOUT
         file_path = Path(file_path)
         check_interval = self.LONG_TIMEOUT
@@ -240,7 +243,7 @@ class ACProtect(BaseGUI):
                         print(f"[DEBUG] Closing window: '{win.title}'")
                         win.activate()
                         time.sleep(0.2)
-                    except:
+                    except Exception:
                         pass
 
                 # Method 1: Alt+F4

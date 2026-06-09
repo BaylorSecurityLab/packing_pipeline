@@ -11,6 +11,7 @@ from typing import List, Dict, Optional, Set
 import argparse
 import yaml
 
+from base_gui import close_all_windows
 from fsg import FSG
 from asm_guard import AsmGuard
 from alienyze_protector import AlienyzeProtector
@@ -159,6 +160,10 @@ class GUIWrapperRunner:
         self.source_dir = Path(source_dir).resolve()
         self.main_dir = Path(main_dir).resolve()
         self.yaml_path = Path(yaml_path).resolve()
+
+        # One row per packer batch, accumulated across the whole run (including
+        # partial rows recorded on Ctrl+C) and printed by print_final_report.
+        self.report_rows = []
 
         # Validate paths
         if not self.source_dir.exists():
@@ -1672,6 +1677,7 @@ class GUIWrapperRunner:
 
         if not files:
             print("[WARNING] No compatible files found!")
+            self._record_report_row(packer_name, {}, [], note="no compatible files")
             return {}
 
         # Use packer-specific output directory if not specified
@@ -1704,6 +1710,9 @@ class GUIWrapperRunner:
 
         if not files:
             print("[INFO] All files already packed! Nothing to do.")
+            self._record_report_row(
+                packer_name, {}, skipped_files, note="all files already packed"
+            )
             return {}
 
         # Print file list
@@ -1716,6 +1725,7 @@ class GUIWrapperRunner:
 
         if dry_run:
             print("\n[DRY RUN] No files will be processed")
+            self._record_report_row(packer_name, {}, [], note="dry run")
             return {f.name: None for f in files}
 
         # ========== SNAPSHOT SOURCE DIRECTORY BEFORE PROCESSING ==========
@@ -1724,34 +1734,42 @@ class GUIWrapperRunner:
 
         # Process each file
         results = {}
-        for i, file_path in enumerate(files, 1):
-            print(f"\n[PROGRESS] Processing file {i}/{len(files)}")
+        skipped = skipped_files if skip_existing else []
+        try:
+            for i, file_path in enumerate(files, 1):
+                print(f"\n[PROGRESS] Processing file {i}/{len(files)}")
 
-            success = self.run_packer(
-                packer_name,
-                file_path,
-                packer_config=packer_config,
-                output_dir=output_dir,
-            )
-            results[file_path.name] = success
+                success = self.run_packer(
+                    packer_name,
+                    file_path,
+                    packer_config=packer_config,
+                    output_dir=output_dir,
+                )
+                results[file_path.name] = success
 
-            # Brief pause between files
-            if i < len(files):
-                import time
+                # Brief pause between files
+                if i < len(files):
+                    import time
 
-                print("[INFO] Pausing before next file...")
-                time.sleep(2)
+                    print("[INFO] Pausing before next file...")
+                    time.sleep(2)
+        finally:
+            # Always run on the way out — including a Ctrl+C mid-batch — so an
+            # interrupted run still contributes its partial counts to the final
+            # report and never leaves working copies behind.
+            self._record_report_row(packer_name, results, skipped)
 
-        # ========== DELETE TEMP DIRECTORY ==========
-        temp_dir = self.get_temp_directory(output_dir)
-        if temp_dir.exists():
-            import shutil
+            # ========== DELETE TEMP DIRECTORY ==========
+            temp_dir = self.get_temp_directory(output_dir)
+            if temp_dir.exists():
+                import shutil
 
-            shutil.rmtree(temp_dir, ignore_errors=True)
-            print(f"[INFO] Deleted temp directory: {temp_dir}")
+                shutil.rmtree(temp_dir, ignore_errors=True)
+                print(f"[INFO] Deleted temp directory: {temp_dir}")
 
-        # Print summary
-        self.print_summary(results, skipped_files if skip_existing else [])
+        # Print per-packer summary (full runs only; Ctrl+C unwinds to the final
+        # report instead).
+        self.print_summary(results, skipped)
 
         return results
 
@@ -1796,6 +1814,111 @@ class GUIWrapperRunner:
         if dry_run_skipped:
             print(f"  Dry run:       {dry_run_skipped}")
         print(f"{'=' * 60}")
+
+    def _record_report_row(self, packer_name, results, skipped_files, note=""):
+        """Append one packer's outcome to self.report_rows for the final report.
+
+        Counts only completed files (True/False); dry-run placeholders (None)
+        are ignored. Safe to call from a finally block on Ctrl+C, where results
+        holds only the files finished before the interrupt.
+        """
+        successful = sum(1 for v in results.values() if v is True)
+        failed = sum(1 for v in results.values() if v is False)
+        already = len(skipped_files) if skipped_files else 0
+        processed = sum(1 for v in results.values() if v is not None)
+        self.report_rows.append(
+            {
+                "packer": packer_name,
+                "packed": successful,
+                "failed": failed,
+                "skipped": already,
+                "total": processed + already,
+                "note": note,
+            }
+        )
+
+    def print_final_report(self):
+        """Print an aggregated summary of every packer batch and write it to file.
+
+        Mirrors the packer_runner report: a per-packer table with totals, plus a
+        callout of packers that failed without packing anything and a list of
+        packers that never ran. Written to packed_sources/gui_packing_report.txt,
+        overwritten each run.
+        """
+        rows = self.report_rows
+        executed = [r for r in rows if not r.get("note")]
+        not_run = [r for r in rows if r.get("note")]
+
+        lines = []
+        lines.append("=" * 72)
+        lines.append("FINAL GUI PACKING REPORT")
+        lines.append("=" * 72)
+
+        if not executed and not not_run:
+            lines.append("No GUI packing was performed.")
+            lines.append("=" * 72)
+        else:
+            if executed:
+                name_w = max(max(len(r["packer"]) for r in executed), len("Packer"))
+
+                header = (
+                    f"{'Packer':<{name_w}}  {'Packed':>6}  {'Skipped':>7}  "
+                    f"{'Failed':>6}  {'Total':>6}"
+                )
+                lines.append(header)
+                lines.append("-" * len(header))
+
+                tot_packed = tot_skipped = tot_failed = tot_total = 0
+                for r in executed:
+                    lines.append(
+                        f"{r['packer']:<{name_w}}  {r['packed']:>6}  {r['skipped']:>7}  "
+                        f"{r['failed']:>6}  {r['total']:>6}"
+                    )
+                    tot_packed += r["packed"]
+                    tot_skipped += r["skipped"]
+                    tot_failed += r["failed"]
+                    tot_total += r["total"]
+
+                lines.append("-" * len(header))
+                lines.append(
+                    f"{'TOTALS':<{name_w}}  {tot_packed:>6}  {tot_skipped:>7}  "
+                    f"{tot_failed:>6}  {tot_total:>6}"
+                )
+
+                # Surface packers that produced nothing new but had failures.
+                problem = [r for r in executed if r["failed"] > 0 and r["packed"] == 0]
+                if problem:
+                    lines.append("")
+                    lines.append("[!] Packers that packed 0 files and had failures:")
+                    for r in problem:
+                        lines.append(
+                            f"    - {r['packer']}: {r['failed']} failed of {r['total']}"
+                        )
+            else:
+                lines.append("No packers produced output.")
+
+            # Packers that never ran (no targets, dry run, already packed, etc.).
+            if not_run:
+                lines.append("")
+                lines.append(f"[i] Packers not run ({len(not_run)}):")
+                for r in not_run:
+                    lines.append(f"    - {r['packer']}: {r['note']}")
+
+            lines.append("=" * 72)
+
+        report_text = "\n".join(lines)
+        print("\n" + report_text)
+
+        # Persist to packed_sources, overwriting any previous report.
+        try:
+            out_dir = self.main_dir / "packed_sources"
+            out_dir.mkdir(parents=True, exist_ok=True)
+            report_path = out_dir / "gui_packing_report.txt"
+            with open(report_path, "w", encoding="utf-8") as f:
+                f.write(report_text + "\n")
+            print(f"\n[*] Report written to: {report_path}")
+        except Exception as e:
+            print(f"[!] Warning: could not write report file: {e}")
 
 
 def build_packer_argparser(packer_name: str, parser: argparse.ArgumentParser):
@@ -2007,6 +2130,7 @@ Examples:
     else:
         print(f"Output directory: ../packed_sources/{args.packer}/ (default)")
 
+    runner = None
     try:
         runner = GUIWrapperRunner(
             source_dir=str(source_dir),
@@ -2041,8 +2165,11 @@ Examples:
                         packer_config=None,
                         output_dir=None,
                     )
+                    runner._record_report_row(
+                        packer_name, {file_path.name: success}, []
+                    )
                     if not success:
-                        any_failed = True
+                       any_failed = True
             else:
                 for packer_name in all_packers:
                     print(f"\n{'#' * 60}")
@@ -2069,18 +2196,13 @@ Examples:
                 print(f"[ERROR] File not found: {file_path}")
                 return 1
 
-            # Snapshot before single file
-            original_files = runner.snapshot_directory(file_path.parent)
-
             success = runner.run_packer(
                 args.packer,
                 file_path,
                 packer_config=packer_config,
                 output_dir=output_dir,
             )
-
-            # Cleanup after single file
-            runner.cleanup_new_files(file_path.parent, original_files)
+            runner._record_report_row(args.packer, {file_path.name: success}, [])
 
             return 0 if success else 1
 
@@ -2100,6 +2222,12 @@ Examples:
             return 1
         return 0
 
+    except KeyboardInterrupt:
+        # Ctrl+C: tear down every packer GUI we launched so none are left open,
+        # then fall through to the finally below which prints the partial report.
+        print("\n\n[!] Interrupted by user (Ctrl+C) — shutting down...")
+        close_all_windows()
+        return 130
     except FileNotFoundError as e:
         print(f"[ERROR] {e}")
         return 1
@@ -2109,6 +2237,11 @@ Examples:
 
         traceback.print_exc()
         return 1
+    finally:
+        # Always print the aggregated report — on success, error, or Ctrl+C —
+        # provided the runner got far enough to exist.
+        if runner is not None:
+            runner.print_final_report()
 
 
 if __name__ == "__main__":

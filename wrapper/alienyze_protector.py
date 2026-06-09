@@ -208,6 +208,9 @@ class AlienyzeProtector(BaseGUI):
         Returns:
             str: Path to protected file if successful, None otherwise
         """
+        # Interaction is complete; release the input lock so other packers can
+        # interact while this one watches its output file.
+        self.release_input()
         timeout = self.EXTRA_LONG_TIMEOUT
         file_path = Path(file_path)
         check_interval = self.LONG_TIMEOUT
@@ -328,7 +331,7 @@ class AlienyzeProtector(BaseGUI):
                         print(f"[DEBUG] Closing window: '{win.title}'")
                         win.activate()
                         time.sleep(0.2)
-                    except:
+                    except Exception:
                         pass
 
                 # Method 1: Alt+F4

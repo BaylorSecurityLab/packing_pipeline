@@ -47,6 +47,9 @@ class PECompact(BaseGUI):
         Watches the input file for lock release, requires N stable unlocked
         checks before declaring done.
         """
+        # Interaction is complete; release the input lock so other packers can
+        # interact while this one watches its output file.
+        self.release_input()
         timeout = self.EXTRA_LONG_TIMEOUT
         check_interval = self.LONG_TIMEOUT
         required_stable_checks = 5
