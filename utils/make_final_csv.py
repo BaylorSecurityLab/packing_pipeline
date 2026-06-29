@@ -2,19 +2,26 @@
 make_final_csv.py
 
 Reads the full verification results CSV produced by pack_verifier.py /
-extract_and_verify.py and writes a slim three-column CSV:
+extract_and_verify.py and writes a slim CSV:
 
-    sample_file   — relative path to the PE sample
+    zip_file      — flat zip filename as stored on disk (e.g. malware.exe.zip,
+                    malware_1.exe.zip for collisions) — primary lookup key
+    sample_file   — original relative path to the PE sample
     packer_label  — named packer (e.g. "upx", "vmprotect") or
                     "unknown" when packed but unidentified, or
                     "" when not packed
     packed        — True / False
 
+zip_file naming mirrors zip_samples.py exactly:
+  • First occurrence of a basename → basename + ".zip"  (e.g. setup.exe.zip)
+  • Subsequent collisions          → stem_N + ext + ".zip"  (e.g. setup_1.exe.zip)
+
+This means every row in this CSV maps 1-to-1 to a file in the flat zip directory.
+
 Rules
 -----
 * packed  = overall_packed == 'yes'   → True
             otherwise                 → False
-  (overall_packed uses an "any positive = packed" strategy across 5 detectors)
 
 * packer_label:
     - packed=True  + detected_packer_name non-empty → use the name
@@ -22,10 +29,8 @@ Rules
     - packed=False                                 → "" (empty)
 
   The name is ONLY used when packed=True.  The source CSV sometimes carries
-  a detected_packer_name on packed=False rows (name-extractor ran on raw
-  detector strings regardless of verdict — e.g. a non-packer YARA rule
-  "Armadillov1xxv2xx" can leave an "armadillo" artefact when the overall
-  verdict is still negative).  Those artefacts are silently dropped here.
+  a detected_packer_name on packed=False rows (name-extractor artefact).
+  Those are silently dropped here.
 
 Usage
 -----
@@ -34,9 +39,20 @@ Usage
 """
 
 import argparse
+import collections
 import csv
 import os
 import sys
+
+
+def _resolve_zip_name(basename: str, seen: collections.Counter) -> str:
+    """Return the flat zip filename for this sample, matching zip_samples.py logic."""
+    stem, ext = os.path.splitext(basename)
+    count = seen[basename]
+    seen[basename] += 1
+    if count == 0:
+        return basename + ".zip"          # setup.exe.zip
+    return f"{stem}_{count}{ext}.zip"    # setup_1.exe.zip
 
 
 def make_final_csv(input_path: str, output_path: str) -> None:
@@ -49,17 +65,26 @@ def make_final_csv(input_path: str, output_path: str) -> None:
 
     packed_count   = 0
     unpacked_count = 0
-    unknown_count  = 0  # packed but no name
-    named_count    = 0  # packed and named
+    unknown_count  = 0
+    named_count    = 0
+
+    seen_basenames = collections.Counter()
 
     with open(input_path, newline="", encoding="utf-8") as fin, \
          open(output_path, "w", newline="", encoding="utf-8") as fout:
 
         reader = csv.DictReader(fin)
-        writer = csv.DictWriter(fout, fieldnames=["sample_file", "packer_label", "packed"])
+        writer = csv.DictWriter(
+            fout,
+            fieldnames=["zip_file", "sample_file", "packer_label", "packed"],
+        )
         writer.writeheader()
 
         for row in reader:
+            sample_file = row.get("file", "")
+            basename    = os.path.basename(sample_file)
+            zip_file    = _resolve_zip_name(basename, seen_basenames)
+
             is_packed = row.get("overall_packed", "no") == "yes"
 
             if is_packed:
@@ -73,10 +98,11 @@ def make_final_csv(input_path: str, output_path: str) -> None:
                     unknown_count += 1
             else:
                 unpacked_count += 1
-                packer_label = ""   # no packer — label is meaningless
+                packer_label = ""
 
             writer.writerow({
-                "sample_file":  row.get("file", ""),
+                "zip_file":     zip_file,
+                "sample_file":  sample_file,
                 "packer_label": packer_label,
                 "packed":       is_packed,
             })
@@ -93,7 +119,7 @@ def make_final_csv(input_path: str, output_path: str) -> None:
 
 def main():
     parser = argparse.ArgumentParser(
-        description="Produce slim sample_file / packer_label / packed CSV from verification results."
+        description="Produce zip_file / sample_file / packer_label / packed CSV."
     )
     parser.add_argument("input",  help="Path to results.csv from pack_verifier / extract_and_verify")
     parser.add_argument("output", nargs="?", default=None,
