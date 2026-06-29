@@ -34,6 +34,12 @@ import subprocess
 import sys
 from multiprocessing import cpu_count
 
+# Force UTF-8 output so filenames with non-ASCII chars don't crash on Windows terminals
+if hasattr(sys.stdout, "reconfigure"):
+    sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+if hasattr(sys.stderr, "reconfigure"):
+    sys.stderr.reconfigure(encoding="utf-8", errors="replace")
+
 _7Z_CANDIDATES = [
     r"C:\Users\resbears\scoop\shims\7z.exe",
     r"C:\Program Files\7-Zip\7z.exe",
@@ -85,6 +91,13 @@ def _zip_one(seven_z, sample_path, zip_path, password):
     file_name = os.path.basename(sample_path)
 
     try:
+        # 7-Zip treats filenames starting with '@' as list-file references.
+        # Use -i!<name> include syntax to pass those as literal filenames.
+        if file_name.startswith("@"):
+            file_arg = [f"-i!{file_name}"]
+        else:
+            file_arg = [file_name]
+
         r = subprocess.run(
             [
                 seven_z, "a",
@@ -93,8 +106,7 @@ def _zip_one(seven_z, sample_path, zip_path, password):
                 "-mem=AES256",      # AES-256 encryption
                 "-mx=0",            # store only — fastest; packed files don't compress further
                 zip_path,
-                file_name,          # bare name → stored flat inside the zip
-            ],
+            ] + file_arg,
             capture_output=True,
             timeout=120,
             text=True,
