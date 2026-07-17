@@ -249,6 +249,14 @@ static uint64_t tb_flush_requests;
 static uint64_t block_context_misses;
 static uint64_t block_context_refreshes;
 static uint64_t block_context_cache_hits;
+/* Diagnostic-only descendant-enrollment counters (no behavior effect): explain
+ * why a spawned child does or does not enroll as a monitored job descendant. */
+static uint64_t descendant_enroll_attempts;
+static uint64_t descendant_read_failures;
+static uint64_t descendant_job_mismatch;
+static uint64_t descendant_createtime_reject;
+static uint64_t descendant_enrolled;
+static uint64_t unmonitored_block_rejects;
 
 static bool process_monitored(uint64_t pid, uint64_t eprocess);
 static bool user_address(uint64_t address);
@@ -1728,17 +1736,31 @@ static void update_monitored_descendant(const ThreadContext *context)
     }
 
     if (process_monitored(context->source_pid, context->source_eprocess) ||
-        !sample_started || !root_eprocess || !descendant_create_cutoff ||
-        !read_u64(context->source_eprocess + EPROCESS_CREATE_TIME,
+        !sample_started || !root_eprocess || !descendant_create_cutoff) {
+        return;
+    }
+    /* Same predicate as before, split only so a diagnostic counter attributes
+     * every non-enrollment to its exact cause.  Behavior is unchanged. */
+    descendant_enroll_attempts++;
+    if (!read_u64(context->source_eprocess + EPROCESS_CREATE_TIME,
                   &create_time) ||
-        !read_u64(context->source_eprocess + EPROCESS_JOB, &job) ||
-        job != root_job || create_time <= descendant_create_cutoff) {
+        !read_u64(context->source_eprocess + EPROCESS_JOB, &job)) {
+        descendant_read_failures++;
+        return;
+    }
+    if (job != root_job) {
+        descendant_job_mismatch++;
+        return;
+    }
+    if (create_time <= descendant_create_cutoff) {
+        descendant_createtime_reject++;
         return;
     }
 
     parent = process_parent(context->source_eprocess);
     monitor_pid(context->source_pid, context->source_eprocess, parent,
                 "job_descendant");
+    descendant_enrolled++;
 }
 
 static bool count_active_monitored_processes(uint64_t *count,
@@ -2211,6 +2233,7 @@ static void block_exec(unsigned int vcpu_index, void *userdata)
         vcpu_index < G_N_ELEMENTS(block_source_monitored_by_vcpu) &&
         !block_source_monitored_by_vcpu[vcpu_index] &&
         !block_source_is_root_by_vcpu[vcpu_index]) {
+        unmonitored_block_rejects++;
         return;
     }
 
@@ -2575,6 +2598,12 @@ static void plugin_exit(void *userdata)
                 ",\"block_context_misses\":%" PRIu64
                 ",\"block_context_refreshes\":%" PRIu64
                 ",\"block_context_cache_hits\":%" PRIu64
+                ",\"descendant_enroll_attempts\":%" PRIu64
+                ",\"descendant_read_failures\":%" PRIu64
+                ",\"descendant_job_mismatch\":%" PRIu64
+                ",\"descendant_createtime_reject\":%" PRIu64
+                ",\"descendant_enrolled\":%" PRIu64
+                ",\"unmonitored_block_rejects\":%" PRIu64
                 ",\"pending_exceptions\":%u"
                 ",\"ntdll_sha256\":\"%s\""
                 ",\"kernel_profile_guid_age\":\"%s\""
@@ -2604,6 +2633,12 @@ static void plugin_exit(void *userdata)
                 block_context_misses,
                 block_context_refreshes,
                 block_context_cache_hits,
+                descendant_enroll_attempts,
+                descendant_read_failures,
+                descendant_job_mismatch,
+                descendant_createtime_reject,
+                descendant_enrolled,
+                unmonitored_block_rejects,
                 g_hash_table_size(pending_exceptions), NTDLL_SHA256,
                 KERNEL_PROFILE_GUID_AGE,
                 saw_stop ? "true" : "false",

@@ -880,6 +880,38 @@ ideally the three cross-process channels now fire before the 30-minute maximum.
 Then rerun `validate_fixture_trace.py`. Staging the fixture into the critical
 qcow2 is the delicate offline step; do not attempt unattended without care.
 
+Run 025 result (2026-07-17, plugin `2bdd8594`, OLD staged fixture, clean base +
+disposable overlay, 3 GiB). The throughput optimization is a large confirmed
+win: exec_events 42,962 -> **170,314** (4x), write_events 5,522 -> **37,825**
+(6.8x), block_context_cache_hits 37.8M -> 131.8M, all integrity/failure counters
+zero, memory_buffer_overflows 0, exception dispatch+recovery 1/1. Crucially the
+guest no longer hits the hard 30-minute maximum — it now terminates via the
+NORMAL `two_minutes_idle` boundary (guest_idle=true, saw_stop=true, images
+clean). But the validator still returns the same nine errors: file_io=0 and
+virtual_memory_write=0, and no child was enrolled.
+
+Definitive diagnosis. Only root PID 2672 appears in exec events (all 170,314). A
+child WAS spawned — the trace's final events include root freeing memory in
+`target_pid=1368` — but PID 1368 never produced a single monitored exec event.
+The launcher's idle clock is `GetTickCount64()` GUEST wall time
+(`PACKER_IDLE_MILLISECONDS=120000` = 2 guest-minutes), reset only by new
+monitored execution. Because the instrumented guest advances ~50-100x slower
+than native while the guest clock tracks real time, the child cannot finish
+`CreateProcess`+loader and reach its shared-section payload within 2 guest-
+minutes; it never runs monitored code, the root stays blocked in
+`WaitForSingleObject`, and the idle timer trips. The wall is now
+child-bring-up-time vs. the guest-wall idle boundary — NOT raw per-block
+throughput (the child was cheap: unmonitored, fast-rejected) and NOT a channel
+implementation bug (all channels remain implemented; early ones verified clean).
+block_context_refreshes was 5.18M — full ETHREAD/EPROCESS reads on every first
+user block after a kernel transition, including background/child processes — a
+remaining cost sink worth a cheap ASID-based reject, but that touches descendant
+enrollment and must not be done blind (PID/CR3-reuse risk).
+
+Next: run 026 with zero-risk diagnostic counters (enroll attempts, job mismatch,
+create-time rejects, read failures, distinct non-root ASIDs, unmonitored user
+blocks) to prove WHY PID 1368 never enrolled before optimizing further.
+
 ### Windows recovery history
 
 1. Earlier hard-stopped runs caused Automatic Repair.
