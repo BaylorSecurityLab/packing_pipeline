@@ -530,6 +530,9 @@ typedef struct {
 } ThreadImmutable;
 static ThreadImmutable thread_immutable_by_vcpu[64];
 static uint64_t context_immutable_reuse;
+/* Bounds eager kernel-base discovery so a persistently-unresolvable scan cannot
+ * run on every kernel block indefinitely. */
+static uint64_t eager_kernel_discovery_attempts;
 
 static bool cached_current_context(unsigned int vcpu_index,
                                    ThreadContext *context)
@@ -2282,9 +2285,11 @@ static void block_exec(unsigned int vcpu_index, void *userdata)
      * sample_start never fired, and no trace was recorded.  Running it here
      * gives discovery the entire active period.  It self-limits: the guard stops
      * calling it once kernel_base is found. */
-    if (active && !kernel_base && !user_address(block->address)) {
+    if (active && !kernel_base && !user_address(block->address) &&
+        eager_kernel_discovery_attempts < 50000) {
         g_mutex_lock(&trace_lock);
         if (!kernel_base) {
+            eager_kernel_discovery_attempts++;
             discover_kernel_base(block->address);
         }
         g_mutex_unlock(&trace_lock);
