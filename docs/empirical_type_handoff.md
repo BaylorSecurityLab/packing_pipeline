@@ -986,6 +986,32 @@ complete under exact instrumentation even within 30 guest-minutes — beyond
 idle-window or context-refresh cost. This is likely a hardware-fundamental limit
 of exact byte-level tracing of a multi-process interaction on this host.
 
+Memory-thrash insight (runs 031-032, 2026-07-17). The "nondeterministic early
+stalls" (026:1, 028:1731, 031:11974 exec) are very likely HOST MEMORY THRASH, not
+inherent guest nondeterminism. A 3 GiB guest on this 3.8 GiB host leaves only
+tens of MiB free once the desktop + tools are counted; run 032 at 3 GiB froze at
+boot (302-byte trace, no progress, 30 MiB free) while runs that "progressed"
+(025/029: ~170k exec) happened to catch a momentarily-free host. Dropping the
+single-process runs to `--guest-memory 2G` leaves ~1.8 GiB host headroom and
+should make progress reliable. This may also mean the cross-process CreateProcess
+wall was partly thrash-amplified — worth retrying cross-process at 2 GiB once
+single-process is certified. RUN NOTHING heavy (NAS scans, extra QEMU)
+concurrently with a fixture run.
+
+Single-process certification path. `validation_fixture.c` gained `local_unmap()`
+(anonymous PAGE_EXECUTE_READWRITE section map/write/exec/unmap, no disk, no
+child); with `C:\Panda\single_process.txt` present the fixture runs
+local_self_modify (free) + local_unmap (unmap) + recovered_exception then exits
+cleanly (all-processes-exit stop). `validate_fixture_trace.py --single-process`
+certifies exactly that set — exec, write, free, unmap (both with RAM identity),
+RtlRaiseException dispatch+recovery, system-role tagging, monotonic order, zero
+integrity failures — deferring the child-requiring cross-process channels. Run
+031 reached only 2 errors (both unmap, because the heavy file-backed
+mapped_file_execute stalled before its UnmapViewOfFile); the lightweight
+local_unmap plus 2 GiB is expected to close them. On a clean stamp, write
+`ops/qemu/backend_validation.json` (certification_mode=single_process); it gates
+exact labels for single-process packers (UPX + Type I-III majority) only.
+
 Strategic implication: the child-REQUIRING channels (shared-RAM alias,
 NtWriteVirtualMemory remote write, disk-drop file_write/read) are blocked, but
 the SINGLE-PROCESS channels all work cleanly and repeatedly (exec, write,
