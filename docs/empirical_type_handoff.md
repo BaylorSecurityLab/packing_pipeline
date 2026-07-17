@@ -853,6 +853,33 @@ host-kill a live guest. The three genuinely cross-process channels still depend
 on making child-process spawn+trace fit the guest budget — the unsolved core
 performance problem.
 
+Plugin throughput optimization (2026-07-17). Run 024's summary showed 37.8M
+`block_context_cache_hits` versus only 42,962 root exec events: the root spends
+the 30-minute wait blocked in `WaitForSingleObject` while every OTHER Windows
+process's user blocks each took the global `trace_lock` and re-ran
+`update_monitored_descendant`. `block_exec` now records, per vCPU, the
+root/monitored verdict computed on the context-refreshing block and, on a
+subsequent cache hit (identical thread — identity only changes through a kernel
+transition, which invalidates the context), rejects an unmonitored, non-root
+user block BEFORE the lock and descendant bookkeeping. This is emission-exact:
+the refreshing block already ran `update_monitored_descendant` with the same
+context, so its enroll/monitored decision is final for the whole cache-hit run;
+no root or enrolled-descendant event is dropped, and per-block write eligibility
+is still cleared at the top of every block. It removes the dominant per-block
+cost of unrelated background processes during the child-spawn wait. It does NOT
+reduce the enrolled child's own loader cost — that remains and may still need a
+descendant pre-start fast path if run 025 still stalls. Rebuilt plugin SHA-256
+`2bdd85941ee40880d36fba4820a848e74bbf35661cfb932c9f319d21b99b4d4b`. Gate green:
+66 tests, ruff clean, plugin builds, and marker/buffer/exception smokes all
+pass. Unproven against the real multi-process Windows load until fixture 025.
+
+Next measurement (fixture 025): stage the reordered fixture
+(`3b2a4f30…`, host-side plugin needs no staging) and run with the new plugin;
+read the summary for whether `mapped_file`/`file_io`/`invalidation`(unmap) and
+ideally the three cross-process channels now fire before the 30-minute maximum.
+Then rerun `validate_fixture_trace.py`. Staging the fixture into the critical
+qcow2 is the delicate offline step; do not attempt unattended without care.
+
 ### Windows recovery history
 
 1. Earlier hard-stopped runs caused Automatic Repair.

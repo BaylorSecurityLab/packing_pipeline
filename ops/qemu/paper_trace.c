@@ -178,6 +178,15 @@ typedef struct {
 static RegisterSet registers_by_vcpu[64];
 static ThreadContext block_context_by_vcpu[64];
 static bool block_context_valid_by_vcpu[64];
+/* Cached "does this vCPU's current thread belong to the root or a monitored
+ * descendant" verdict, valid exactly while block_context_valid_by_vcpu is set.
+ * A cached context is identical across consecutive user blocks (identity only
+ * changes through a kernel transition, which invalidates the context), so the
+ * monitored/root verdict computed on the refreshing block is final for the
+ * whole run of cache hits.  This lets an unmonitored, non-root user block be
+ * rejected before the global trace lock and descendant bookkeeping. */
+static bool block_source_monitored_by_vcpu[64];
+static bool block_source_is_root_by_vcpu[64];
 static bool block_write_eligible_by_vcpu[64];
 static struct qemu_plugin_scoreboard *memory_trace_scoreboard;
 static qemu_plugin_u64 memory_trace_enabled;
@@ -2172,11 +2181,13 @@ static void block_exec(unsigned int vcpu_index, void *userdata)
         !kernel_pc_relevant(block->address)) {
         return;
     }
+    bool context_cache_hit = false;
     if (user_address(block->address) &&
         vcpu_index < G_N_ELEMENTS(block_context_valid_by_vcpu) &&
         block_context_valid_by_vcpu[vcpu_index]) {
         context = block_context_by_vcpu[vcpu_index];
         block_context_cache_hits++;
+        context_cache_hit = true;
     } else {
         if (!current_context(vcpu_index, &context)) {
             context_failures++;
@@ -2188,10 +2199,31 @@ static void block_exec(unsigned int vcpu_index, void *userdata)
             block_context_valid_by_vcpu[vcpu_index] = true;
         }
     }
+
+    /* Throughput fast path: on a cache hit the source thread, and therefore the
+     * root/monitored verdict recorded by the refreshing block, are unchanged.
+     * An unmonitored, non-root user block produces no trace event, so reject it
+     * before taking the global lock or re-running descendant bookkeeping.  This
+     * removes the dominant per-block cost incurred by every unrelated Windows
+     * process once sample recording has started, without dropping any event
+     * from the root or any enrolled descendant. */
+    if (context_cache_hit &&
+        vcpu_index < G_N_ELEMENTS(block_source_monitored_by_vcpu) &&
+        !block_source_monitored_by_vcpu[vcpu_index] &&
+        !block_source_is_root_by_vcpu[vcpu_index]) {
+        return;
+    }
+
     cache_thread_identity(&context);
 
     g_mutex_lock(&trace_lock);
     update_monitored_descendant(&context);
+    if (vcpu_index < G_N_ELEMENTS(block_source_monitored_by_vcpu)) {
+        block_source_is_root_by_vcpu[vcpu_index] =
+            (context.source_pid == root_pid);
+        block_source_monitored_by_vcpu[vcpu_index] =
+            process_monitored(context.source_pid, context.source_eprocess);
+    }
     if (!user_address(block->address)) {
         if (active &&
             (process_monitored(context.source_pid,
