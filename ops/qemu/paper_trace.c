@@ -1102,6 +1102,54 @@ static bool discover_kernel_base(uint64_t pc)
     return false;
 }
 
+/* Deterministic, KPTI-independent kernel-base discovery from a known EPROCESS.
+ * Backward-scanning from a kernel PC fails on a KPTI guest because syscall entry
+ * PCs land in the KVA-shadow trampoline, not contiguous with ntoskrnl.  Instead
+ * walk the ActiveProcessLinks list (which the plugin can read from any resolved
+ * EPROCESS without kernel_base): PsActiveProcessHead is a global INSIDE ntoskrnl
+ * threaded into that circular list, so the list entry E for which
+ * (E - PS_ACTIVE_PROCESS_HEAD_RVA) is a page-aligned ntoskrnl PE header IS the
+ * head, and kernel_base = E - PS_ACTIVE_PROCESS_HEAD_RVA exactly.  No scanning,
+ * no lucky code sample. */
+static bool discover_kernel_base_from_eprocess(uint64_t eprocess)
+{
+    uint64_t link;
+    uint64_t minimum_size =
+        MAX(MAX(NT_FREE_VIRTUAL_MEMORY_RVA, NT_UNMAP_VIEW_RVA),
+            MAX(MAX(NT_UNMAP_VIEW_EX_RVA, NT_WRITE_FILE_RVA),
+                MAX(NT_READ_FILE_RVA, NT_WRITE_VIRTUAL_MEMORY_RVA))) +
+        UINT64_C(0x1000);
+
+    if (!canonical_kernel_pointer(eprocess) ||
+        !read_u64(eprocess + EPROCESS_ACTIVE_LINKS, &link)) {
+        return false;
+    }
+    for (unsigned int index = 0;
+         index < 65536 && canonical_kernel_pointer(link); index++) {
+        uint64_t base = link - PS_ACTIVE_PROCESS_HEAD_RVA;
+        uint16_t dos_magic;
+        uint32_t pe_offset;
+        uint32_t signature;
+        uint32_t image_size;
+
+        if (base < link && (base & UINT64_C(0xfff)) == 0 &&
+            canonical_kernel_pointer(base) &&
+            read_u16(base, &dos_magic) && dos_magic == UINT16_C(0x5a4d) &&
+            read_u32(base + 0x3c, &pe_offset) && pe_offset <= 0x1000 &&
+            read_u32(base + pe_offset, &signature) &&
+            signature == UINT32_C(0x00004550) &&
+            read_u32(base + pe_offset + 0x18 + 0x38, &image_size) &&
+            image_size >= minimum_size) {
+            kernel_base = base;
+            return true;
+        }
+        if (!read_u64(link, &link)) {
+            return false;
+        }
+    }
+    return false;
+}
+
 static PendingInvalidation *allocate_invalidation(void)
 {
     for (size_t index = 0; index < G_N_ELEMENTS(pending_invalidations); index++) {
@@ -2366,6 +2414,18 @@ static void block_exec(unsigned int vcpu_index, void *userdata)
             block_context_by_vcpu[vcpu_index] = context;
             block_context_valid_by_vcpu[vcpu_index] = true;
         }
+    }
+
+    /* Seed kernel_base deterministically from the resolved EPROCESS (any
+     * process's ActiveProcessLinks reaches PsActiveProcessHead inside ntoskrnl).
+     * This does not depend on sampling an ntoskrnl code block, so it works on the
+     * fast KPTI guest where the backward scan cannot. */
+    if (!kernel_base && canonical_kernel_pointer(context.source_eprocess)) {
+        g_mutex_lock(&trace_lock);
+        if (!kernel_base) {
+            discover_kernel_base_from_eprocess(context.source_eprocess);
+        }
+        g_mutex_unlock(&trace_lock);
     }
 
     /* Throughput fast path: on a cache hit the source thread, and therefore the
