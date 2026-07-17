@@ -52,11 +52,21 @@ Until P1 is green, **every one of the 1,356 runs would return
 
 ### P2 — Sample availability: NAS access + regenerate 29 empty conditions
 
-- NAS credentials are never stored in-repo; staging needs
-  `PACKER_NAS_USERNAME` / `PACKER_NAS_PASSWORD` in the environment (user-supplied,
-  per session).
-- The 29 empty conditions (verified by live recursive audit,
-  `nas-empty-audit.jsonl`) have **no qualifying executable on the NAS**:
+**Status (2026-07-17): NAS access now CONFIRMED WORKING.** Credentials are never
+stored in-repo; staging reads `PACKER_NAS_USERNAME` / `PACKER_NAS_PASSWORD` from
+the environment (kept in the gitignored `.env`; template in `.env.example`).
+`//10.100.99.29/samples/benign_packed` has 116 family/version entries.
+Spot-checked populated families are well-stocked and stageable (petite 533,
+mpress 614, beroexepacker 972, molebox 679 executables). So the 226 populated
+conditions (452 payloads) can be staged once P1 is green.
+
+- A credentialed live recursive audit (2026-07-17,
+  `empirical_results/full_matrix/nas-credentialed-audit.json`) **re-confirms the
+  29 empty conditions are genuinely empty** — their testcase directories exist
+  but contain zero executables; kkrunchy `_003_NEW` is empty while `_001/_002`
+  hold 83/73, and 6 of 7 pezor testcases are empty while `002_self_inject_32`
+  holds 67. Not a layout/credential mismatch — the samples were never generated.
+- The 29 empty conditions have **no qualifying executable on the NAS**:
   - amber (13), pezor (6 of 7), hxor_packer (4), hyperion (2), alushpacker (1),
     fsg (1, GUI), simpledpack (1), kkrunchy `_NEW` (1).
 - The declared packer binary/wrapper for 28 of these exists in-repo, but this
