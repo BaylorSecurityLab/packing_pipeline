@@ -963,6 +963,43 @@ Fix direction (NOT in enrollment code):
   minimal fixture that spawns a child FIRST (before local_self_modify/exception)
   would exercise enrollment in the first minutes — but also needs staging.
 
+Both fixes implemented + validated (run 029, 2026-07-17). Plugin
+`cached_current_context` (37660552) caches immutable per-thread identity keyed by
+ETHREAD, re-verifying CID.PID to guard object reuse and always re-reading the
+mutable attached process. Launcher `read_idle_milliseconds` (a5ff3b14) reads an
+optional `C:\Panda\idle_ms.txt` (validation-only) for a longer idle window; real
+samples keep the 2-min paper boundary. Staged into a COPY
+`windows10-qemu-fixture.qcow2` via `ops/qemu/stage_fixture_launcher.sh` (original
+base untouched, SHA-256 verified in-image, idle_ms=900000=15min).
+
+Run 029 (both fixes, fixture copy) outcome: context_immutable_reuse
+12,138,699/12,150,330 = **99.9% cache hit, no regression** (exec 169,806). The
+run **no longer idle-terminated** — it ran the full 30-guest-minute maximum
+(`guest_idle:false`, `maximum_30_minute_timeout`). Both fixes work as designed.
+BUT descendant_enrolled=0 still: with a full 30 guest-minutes the root recovered
+its exception (1/1) yet NO sample-spawned child ever ran (only root-child is the
+pre-sample console helper, after_cutoff:false). Cross-process channels
+(virtual_memory_write, file_io) remain 0.
+
+**Deeper wall isolated:** child-process creation (`CreateProcess`) does not
+complete under exact instrumentation even within 30 guest-minutes — beyond
+idle-window or context-refresh cost. This is likely a hardware-fundamental limit
+of exact byte-level tracing of a multi-process interaction on this host.
+
+Strategic implication: the child-REQUIRING channels (shared-RAM alias,
+NtWriteVirtualMemory remote write, disk-drop file_write/read) are blocked, but
+the SINGLE-PROCESS channels all work cleanly and repeatedly (exec, write,
+mapped-file exec, unmap/free invalidation, exact software exception
+dispatch+recovery, monotonic order, zero integrity failures). The single-process
+majority of the corpus (e.g. UPX = 134 of 255 conditions, most Type I-III) never
+performs cross-process operations, so their exact traces are fully covered by the
+validated single-process channels. A methodologically sound path — NOT a
+weakening — is to certify the single-process channel set and label single-process
+packers exactly, while cross-process packers stay pending until the cross-process
+channels can be certified (needs a faster tracing host or a different
+child-tracing strategy). This is a user decision because it reinterprets the
+one-time backend validation gate.
+
 ### Windows recovery history
 
 1. Earlier hard-stopped runs caused Automatic Repair.
