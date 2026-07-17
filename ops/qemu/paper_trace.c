@@ -2366,7 +2366,23 @@ static void block_exec(unsigned int vcpu_index, void *userdata)
     if (context.source_pid == root_pid) {
         if (!root_entry) {
             if (learn_root_entry(vcpu_index, block->address)) {
-                root_asid = context.attached_asid;
+                /* Derive root_asid from the root PROCESS's OWN directory table,
+                 * not the transient attached_asid.  If this block is learned
+                 * while the root thread is momentarily attached to another
+                 * process (an early-init KeStackAttach, common on a fast guest),
+                 * attached_asid is that other process's CR3, so every later root
+                 * block fails the asid gate and sample_start never fires.  The
+                 * source process's own directory table is invariant and matches
+                 * current_asid whenever the root runs its own user code. */
+                uint64_t own = 0;
+                if ((read_u64(context.source_eprocess +
+                              KPROCESS_USER_DIRECTORY_TABLE, &own) && own) ||
+                    read_u64(context.source_eprocess +
+                             KPROCESS_DIRECTORY_TABLE, &own)) {
+                    root_asid = own & ~UINT64_C(0xfff);
+                } else {
+                    root_asid = context.attached_asid;
+                }
             }
         }
         if (!sample_started && root_image_base &&
