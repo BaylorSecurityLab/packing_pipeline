@@ -1071,7 +1071,13 @@ static bool discover_kernel_base(uint64_t pc)
                 MAX(NT_READ_FILE_RVA, NT_WRITE_VIRTUAL_MEMORY_RVA))) +
         UINT64_C(0x1000);
 
-    for (unsigned int index = 0; index < 128 && canonical_kernel_pointer(candidate);
+    /* Scan backward for the ntoskrnl PE header.  Kernel PCs (drivers, HAL,
+     * scheduler, syscall stubs) sit ABOVE ntoskrnl's base, so scanning down
+     * reaches it — but the distance varies, and a range that happened to be
+     * enough on one boot (256 MiB) left kernel_base=0 on a faster guest that
+     * sampled a more distant kernel PC first.  Cover the whole plausible kernel
+     * layout (8192 * 2 MiB = 16 GiB); the loop stops at the first PE header. */
+    for (unsigned int index = 0; index < 8192 && canonical_kernel_pointer(candidate);
          index++, candidate -= UINT64_C(0x200000)) {
         if (!read_u16(candidate, &dos_magic) || dos_magic != UINT16_C(0x5a4d) ||
             !read_u32(candidate + 0x3c, &pe_offset) || pe_offset > 0x1000 ||
