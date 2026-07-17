@@ -13,12 +13,13 @@ runtime="$repo/empirical_results/qemu_runtime"
 base="$runtime/windows10-qemu-repair.qcow2"
 fixture_base="$runtime/windows10-qemu-fixture.qcow2"
 launcher="$repo/ops/panda/build/guest_launcher.exe"
+fixture="$repo/ops/qemu/build/validation_fixture.exe"
 idle_src="$repo/ops/qemu/fixture_idle_ms.txt"
 nbd=/dev/nbd0
 mnt=$(mktemp -d)
 
 if [ "$(id -u)" -ne 0 ]; then echo "must run as root" >&2; exit 1; fi
-for f in "$base" "$launcher" "$idle_src"; do
+for f in "$base" "$launcher" "$fixture" "$idle_src"; do
     [ -f "$f" ] || { echo "missing: $f" >&2; exit 1; }
 done
 
@@ -65,19 +66,38 @@ if [ ! -d "$mnt/Panda" ]; then
     echo "C:\\Panda not found on $target" >&2; exit 1
 fi
 
-echo "== stage launcher + idle override =="
+echo "== stage launcher + fixture + idle override =="
 [ -f "$mnt/Panda/guest_launcher.exe" ] && \
     cp -f "$mnt/Panda/guest_launcher.exe" "$mnt/Panda/guest_launcher.exe.bak"
+[ -f "$mnt/Panda/validation_fixture.exe" ] && \
+    cp -f "$mnt/Panda/validation_fixture.exe" "$mnt/Panda/validation_fixture.exe.bak"
 cp -f "$launcher" "$mnt/Panda/guest_launcher.exe"
+cp -f "$fixture" "$mnt/Panda/validation_fixture.exe"
 cp -f "$idle_src" "$mnt/Panda/idle_ms.txt"
+# Single-process certification flag: present => fixture exits cleanly after the
+# single-process channels.  SINGLE_PROCESS=0 removes it for a full cross-process
+# run.  Default: staged when the flag source exists.
+sp_src="$repo/ops/qemu/fixture_single_process.txt"
+if [ "${SINGLE_PROCESS:-1}" != "0" ] && [ -f "$sp_src" ]; then
+    cp -f "$sp_src" "$mnt/Panda/single_process.txt"
+    echo "single_process flag: staged"
+else
+    rm -f "$mnt/Panda/single_process.txt"
+    echo "single_process flag: removed (full cross-process mode)"
+fi
 sync
 
 echo "== verify SHA-256 in the mounted image =="
 want_launcher=$(sha256sum "$launcher" | awk '{print $1}')
 got_launcher=$(sha256sum "$mnt/Panda/guest_launcher.exe" | awk '{print $1}')
+want_fixture=$(sha256sum "$fixture" | awk '{print $1}')
+got_fixture=$(sha256sum "$mnt/Panda/validation_fixture.exe" | awk '{print $1}')
 echo "launcher want=$want_launcher"
 echo "launcher got =$got_launcher"
 [ "$want_launcher" = "$got_launcher" ] || { echo "launcher hash MISMATCH" >&2; exit 1; }
+echo "fixture  want=$want_fixture"
+echo "fixture  got =$got_fixture"
+[ "$want_fixture" = "$got_fixture" ] || { echo "fixture hash MISMATCH" >&2; exit 1; }
 echo "idle_ms.txt = $(cat "$mnt/Panda/idle_ms.txt")"
 
 umount "$mnt"

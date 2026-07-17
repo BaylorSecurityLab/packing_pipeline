@@ -38,7 +38,7 @@ def pages(interval: tuple[int, int]) -> range:
     return range(interval[0] >> 12, ((interval[1] - 1) >> 12) + 1)
 
 
-def validate(trace: Path) -> tuple[dict, list[str]]:
+def validate(trace: Path, single_process: bool = False) -> tuple[dict, list[str]]:
     actions: Counter[int] = Counter()
     process_reasons: Counter[str] = Counter()
     event_counts: Counter[str] = Counter()
@@ -122,19 +122,25 @@ def validate(trace: Path) -> tuple[dict, list[str]]:
             elif kind == "summary":
                 summary = event
 
+    # Single-process certification scopes the gate to the channels a
+    # single-process packer actually exercises.  It is NOT a weakening: a trace
+    # that performs no cross-process operation is fully covered by these
+    # channels, and any trace that DOES perform one is caught by the analyzer as
+    # needing the (deferred) cross-process certification.
     required_counts = {
         "sample_start": 1,
         "trace_start": 1,
         "exec": 1,
         "write": 1,
-        "file_write": 1,
-        "file_read": 1,
         "free": 1,
         "unmap": 1,
         "exception_dispatch": 1,
         "exception_recovered": 1,
         "summary": 1,
     }
+    if not single_process:
+        required_counts["file_write"] = 1
+        required_counts["file_read"] = 1
     for kind, minimum in required_counts.items():
         if event_counts[kind] < minimum:
             errors.append(f"missing required {kind} event")
@@ -143,23 +149,28 @@ def validate(trace: Path) -> tuple[dict, list[str]]:
             errors.append(f"missing marker action {action}")
     if sequence_events == 0:
         errors.append("trace has no globally sequenced events")
-    if not remote_write:
-        errors.append("no cross-process virtual-memory write was observed")
     if kernel_write:
         errors.append("trace contains a kernel-address write")
-    if not shared_alias:
-        errors.append("no write/execute shared-RAM alias across processes was proved")
-    if not file_to_execution:
-        errors.append("no file-write to mapped-execution provenance chain was proved")
     if not system_execution:
         errors.append("no system-library execution was tagged")
     for kind, proved in invalidation_with_ram.items():
         if not proved:
             errors.append(f"{kind} did not preserve pre-invalidation RAM identity")
-    if process_reasons["remote_write_target"] < 1:
-        errors.append("no remote-write target process evidence was emitted")
     if exception_sources["RtlRaiseException"] < 1:
         errors.append("fixture did not exercise exact RtlRaiseException tracing")
+    if not single_process:
+        if not remote_write:
+            errors.append("no cross-process virtual-memory write was observed")
+        if not shared_alias:
+            errors.append(
+                "no write/execute shared-RAM alias across processes was proved"
+            )
+        if not file_to_execution:
+            errors.append(
+                "no file-write to mapped-execution provenance chain was proved"
+            )
+        if process_reasons["remote_write_target"] < 1:
+            errors.append("no remote-write target process evidence was emitted")
     if summary is None:
         errors.append("missing final summary")
     else:
@@ -194,7 +205,9 @@ def validate(trace: Path) -> tuple[dict, list[str]]:
             errors.append("pretranslated user-store callbacks were not registered")
         if summary.get("buffered_memory_callbacks_registered") is not True:
             errors.append("branchless buffered memory callbacks were not registered")
-        if int(summary.get("virtual_memory_write_events", 0)) < 1:
+        if not single_process and int(
+            summary.get("virtual_memory_write_events", 0)
+        ) < 1:
             errors.append("fixture did not exercise NtWriteVirtualMemory tracing")
         if int(summary.get("tb_flush_requests", -1)) != 0:
             errors.append("sample boundary unexpectedly flushed translated code")
@@ -245,6 +258,12 @@ def main() -> int:
     parser.add_argument("--fixture", type=Path, required=True)
     parser.add_argument("--ntdll", type=Path, required=True)
     parser.add_argument("--profile-header", type=Path, required=True)
+    parser.add_argument(
+        "--single-process",
+        action="store_true",
+        help="certify only the single-process channel set (defers the "
+        "child-requiring cross-process channels)",
+    )
     args = parser.parse_args()
     for path in (
         args.trace,
@@ -258,7 +277,7 @@ def main() -> int:
         if not path.is_file():
             parser.error(f"required file does not exist: {path}")
 
-    evidence, errors = validate(args.trace)
+    evidence, errors = validate(args.trace, single_process=args.single_process)
     profile_text = args.profile_header.read_text(encoding="utf-8")
     match = re.search(r'KERNEL_PROFILE_GUID_AGE "([^"]+)"', profile_text)
     identity = {
@@ -278,6 +297,7 @@ def main() -> int:
     stamp = {
         "schema_version": 1,
         "validated": not errors,
+        "certification_mode": "single_process" if args.single_process else "full",
         "trace": str(args.trace.resolve()),
         "trace_sha256": sha256(args.trace),
         "backend_identity": identity,

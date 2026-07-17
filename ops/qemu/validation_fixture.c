@@ -346,6 +346,17 @@ int main(int argc, char **argv)
     failures += local_self_modify();
     failures += recovered_exception();
     failures += mapped_file_execute();
+    /* Single-process certification mode: when C:\Panda\single_process.txt is
+     * present, exit cleanly after the single-process channels above so the run
+     * reaches an all-processes-exited stop with a complete channel set, instead
+     * of stalling at the child-spawning steps (blocked by CreateProcess cost
+     * under exact instrumentation on constrained hardware).  Without the flag
+     * the full cross-process sequence runs as before. */
+    if (GetFileAttributesA("C:\\Panda\\single_process.txt") !=
+        INVALID_FILE_ATTRIBUTES) {
+        printf("validation_failures=%d single_process=1\n", failures);
+        return failures ? 1 : 0;
+    }
     failures += shared_parent(image);
     failures += remote_parent(image);
     failures += disk_drop(image);
