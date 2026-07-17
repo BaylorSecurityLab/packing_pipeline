@@ -194,6 +194,10 @@ static struct qemu_plugin_mem_buffer *memory_event_buffer;
 static FILE *trace_file;
 static GMutex trace_lock;
 static GHashTable *monitored_pids;
+/* Diagnostic-only: dedup set so each distinct candidate process emits one
+ * descendant_debug record (pid, parent, job vs root_job) at its first
+ * enrollment attempt.  No behavior effect. */
+static GHashTable *debugged_pids;
 static GHashTable *mapped_page_cache;
 static GHashTable *pending_exceptions;
 static GHashTable *thread_identities;
@@ -1748,6 +1752,26 @@ static void update_monitored_descendant(const ThreadContext *context)
         descendant_read_failures++;
         return;
     }
+    /* Diagnostic: one record per distinct candidate process, capturing exactly
+     * why it does or does not qualify as a job descendant of the root.  This
+     * reveals whether a real child of the root (parent == root_pid) ever runs
+     * and whether its job matches root_job. */
+    if (!g_hash_table_contains(debugged_pids,
+                               GUINT_TO_POINTER((guint)context->source_pid))) {
+        g_hash_table_add(debugged_pids,
+                         GUINT_TO_POINTER((guint)context->source_pid));
+        fprintf(trace_file,
+                "{\"event\":\"descendant_debug\",\"seq\":%" PRIu64
+                ",\"pid\":%" PRIu64 ",\"parent_pid\":%" PRIu64
+                ",\"job\":%" PRIu64 ",\"root_job\":%" PRIu64
+                ",\"create_time\":%" PRIu64 ",\"cutoff\":%" PRIu64
+                ",\"job_matches\":%s,\"after_cutoff\":%s}\n",
+                ++sequence_number, context->source_pid,
+                process_parent(context->source_eprocess), job, root_job,
+                create_time, descendant_create_cutoff,
+                job == root_job ? "true" : "false",
+                create_time > descendant_create_cutoff ? "true" : "false");
+    }
     if (job != root_job) {
         descendant_job_mismatch++;
         return;
@@ -2648,6 +2672,7 @@ static void plugin_exit(void *userdata)
     }
     g_mutex_unlock(&trace_lock);
     g_hash_table_destroy(monitored_pids);
+    g_hash_table_destroy(debugged_pids);
     g_hash_table_destroy(mapped_page_cache);
     g_hash_table_destroy(pending_exceptions);
     g_hash_table_destroy(thread_identities);
@@ -2685,6 +2710,7 @@ QEMU_PLUGIN_EXPORT int qemu_plugin_install(qemu_plugin_id_t id,
     }
     setvbuf(trace_file, NULL, _IOFBF, 1024 * 1024);
     monitored_pids = g_hash_table_new(g_direct_hash, g_direct_equal);
+    debugged_pids = g_hash_table_new(g_direct_hash, g_direct_equal);
     mapped_page_cache = g_hash_table_new_full(
         mapped_page_hash, mapped_page_equal, g_free, g_free);
     pending_exceptions = g_hash_table_new_full(
