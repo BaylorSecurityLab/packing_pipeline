@@ -21,6 +21,33 @@ class ClassifierTests(unittest.TestCase):
         base.update(changes)
         return Evidence(**base)
 
+    def test_single_process_cert_rejects_cross_process_trace(self):
+        # A normal single-process trace still classifies under a single-process
+        # certification.
+        self.assertEqual(
+            classify(self.evidence(cross_process_certified=False)).complexity_type,
+            "TYPE_I",
+        )
+        # But if the same trace shows cross-process activity, the single-process
+        # certification must refuse to label it.
+        self.assertEqual(
+            classify(
+                self.evidence(
+                    cross_process_activity=True, cross_process_certified=False
+                )
+            ).complexity_type,
+            "UNRESOLVED_UNCERTIFIED_CROSS_PROCESS",
+        )
+        # A fully-certified backend labels the cross-process trace normally.
+        self.assertEqual(
+            classify(
+                self.evidence(
+                    cross_process_activity=True, cross_process_certified=True
+                )
+            ).complexity_type,
+            "TYPE_I",
+        )
+
     def test_paper_hierarchy(self):
         self.assertEqual(classify(self.evidence()).complexity_type, "TYPE_I")
         self.assertEqual(classify(self.evidence(layers=4)).complexity_type, "TYPE_II")

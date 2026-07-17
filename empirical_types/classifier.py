@@ -82,6 +82,18 @@ def classify(e: Evidence) -> Classification:
         return Classification(
             UNRESOLVED["trace_loss"], 1.0, e, "required trace events are missing"
         )
+    if e.cross_process_activity and not e.cross_process_certified:
+        # The sample created/enrolled/wrote into another process, but the backend
+        # was only certified for the single-process channel set.  Refuse to label
+        # rather than risk a Type derived from a trace whose cross-process
+        # behavior this backend may not have fully observed.
+        return Classification(
+            UNRESOLVED["uncertified_cross_process"],
+            1.0,
+            e,
+            "cross-process activity observed under a single-process-only backend "
+            "certification",
+        )
     if e.taxonomy_basis == "paper_runtime_heuristic":
         if e.layers == 0:
             return Classification(

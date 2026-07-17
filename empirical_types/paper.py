@@ -60,6 +60,7 @@ def analyze_paper_jsonl(path: Path, sample_id: str) -> Evidence:
     root_pid: int | None = None
     max_layer = -1
     last_sequence = -1
+    cross_process_activity = False
 
     def number(value: int | str) -> int:
         return int(value, 0) if isinstance(value, str) else int(value)
@@ -225,6 +226,15 @@ def analyze_paper_jsonl(path: Path, sample_id: str) -> Evidence:
                 root_pid = int(event["pid"])
             elif kind == "root_image":
                 root_pid = int(event["pid"])
+            # Positive detection of a process-creation/injection attempt by the
+            # sample.  A single-process-certified backend may not observe a
+            # child's activity, so ABSENCE of child events must not be read as
+            # "single-process".  An enrolled descendant, a post-sample-start
+            # candidate process, or a cross-process write all prove otherwise.
+            if kind == "process" and str(event.get("reason", "")) != "root_marker":
+                cross_process_activity = True
+            elif kind == "descendant_debug" and event.get("after_cutoff") is True:
+                cross_process_activity = True
             if kind in {
                 "process",
                 "prestart_exec",
@@ -519,6 +529,7 @@ def analyze_paper_jsonl(path: Path, sample_id: str) -> Evidence:
         candidate_code_bytes=total_candidate,
         candidate_multiframe_bytes=candidate_multiframe,
         all_code_flagged_packer=all_code_packer,
+        cross_process_activity=cross_process_activity or bool(process_interactions),
         linear_transition_model=linear,
         packer_to_application_transitions=packer_to_app,
         application_to_packer_transitions=app_to_packer,
