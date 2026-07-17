@@ -2324,6 +2324,24 @@ static void block_exec(unsigned int vcpu_index, void *userdata)
             context_failures++;
             return;
         }
+        /* Validate the gs_base/KPCR-derived identity against the live CR3.  For
+         * a USER block the running process's user directory table
+         * (current_asid) must equal the resolved attached_asid.  A mismatch
+         * means the thread context was sampled during a transient SWAPGS/KPCR
+         * window — a fast-guest hazard that otherwise misattributes the block to
+         * the wrong process and can hide the root's own first blocks entirely.
+         * Reject the bogus resolution so it is neither cached nor acted on; the
+         * next block retries with a good read.  (Kernel blocks legitimately run
+         * on the kernel CR3 while attached_asid is the user table, so this check
+         * applies to user blocks only.) */
+        if (user_address(block->address)) {
+            uint64_t live_asid;
+            if (!current_asid(vcpu_index, &live_asid) ||
+                live_asid != context.attached_asid) {
+                context_failures++;
+                return;
+            }
+        }
         block_context_refreshes++;
         /* Only USER blocks may (re)validate the per-vCPU user-thread cache; a
          * kernel block must never, or it would undo the kernel-block
