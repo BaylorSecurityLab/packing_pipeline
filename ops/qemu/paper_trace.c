@@ -533,6 +533,8 @@ static uint64_t context_immutable_reuse;
 /* Bounds eager kernel-base discovery so a persistently-unresolvable scan cannot
  * run on every kernel block indefinitely. */
 static uint64_t eager_kernel_discovery_attempts;
+static uint64_t discover_calls;
+static uint64_t discover_reads_ok;
 static bool root_debug_emitted;
 
 static bool cached_current_context(unsigned int vcpu_index,
@@ -1079,9 +1081,14 @@ static bool discover_kernel_base(uint64_t pc)
      * robust than 256 MiB, but bounded so a persistently-unresolved scan cannot
      * crawl the guest with thousands of reads per kernel block.  The loop stops
      * at the first ntoskrnl-sized PE header. */
+    discover_calls++;
     for (unsigned int index = 0; index < 512 && canonical_kernel_pointer(candidate);
          index++, candidate -= UINT64_C(0x200000)) {
-        if (!read_u16(candidate, &dos_magic) || dos_magic != UINT16_C(0x5a4d) ||
+        if (!read_u16(candidate, &dos_magic)) {
+            continue;
+        }
+        discover_reads_ok++;
+        if (dos_magic != UINT16_C(0x5a4d) ||
             !read_u32(candidate + 0x3c, &pe_offset) || pe_offset > 0x1000 ||
             !read_u32(candidate + pe_offset, &signature) ||
             signature != UINT32_C(0x00004550) ||
@@ -2774,6 +2781,8 @@ static void plugin_exit(void *userdata)
                 ",\"context_immutable_reuse\":%" PRIu64
                 ",\"eager_kernel_discovery_attempts\":%" PRIu64
                 ",\"kernel_base\":%" PRIu64
+                ",\"discover_calls\":%" PRIu64
+                ",\"discover_reads_ok\":%" PRIu64
                 ",\"pending_exceptions\":%u"
                 ",\"ntdll_sha256\":\"%s\""
                 ",\"kernel_profile_guid_age\":\"%s\""
@@ -2812,6 +2821,8 @@ static void plugin_exit(void *userdata)
                 context_immutable_reuse,
                 eager_kernel_discovery_attempts,
                 kernel_base,
+                discover_calls,
+                discover_reads_ok,
                 g_hash_table_size(pending_exceptions), NTDLL_SHA256,
                 KERNEL_PROFILE_GUID_AGE,
                 saw_stop ? "true" : "false",
