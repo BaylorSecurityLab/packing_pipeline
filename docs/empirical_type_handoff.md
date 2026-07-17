@@ -55,6 +55,33 @@ fast-reject, root_asid, eager discovery) was in flight to check whether the 2 Gi
 nondeterminism is a plugin bug (which would persist at higher RAM) rather than
 pure timing; check its findings before the first post-resize run.
 
+Supervisor (fable) guidance folded in:
+- DONE (host-independent): cross-process guardrail. The analyzer now positively
+  detects a process-creation/injection attempt (enrolled descendant, post-cutoff
+  candidate via `descendant_debug` after_cutoff, or any cross-process write) and
+  `classify()` hard-fails it to `UNRESOLVED_UNCERTIFIED_CROSS_PROCESS` under a
+  single-process-only stamp. So a single-process stamp can never silently label a
+  cross-process packer. Every accepted label must record the stamp mode.
+- TODO before the pilot (host-independent, recommended): add a HARDWARE-fault
+  raise + VEH recovery step to the single-process fixture (e.g. guard-page or
+  access-violation caught by a vectored handler, in-process, no child). The
+  fixture only exercised the software `RtlRaiseException` path; the processor
+  fault-vector path has only a bare-metal `#UD` smoke, yet real Type III/VI
+  packers use access violations / int3 / guard pages. Cheapest high-value close.
+- Post-resize ORDER: re-baseline (rebuild + full gate + hashes) -> boot sanity at
+  3-4 GiB (confirm no thrash, deterministic sample_start; abandon the 2 GiB
+  operating point, don't chase its nondeterminism) -> single-process cert + stamp
+  -> ALSO attempt one FULL cross-process fixture run (the CreateProcess wall was
+  plausibly thrash-amplified; one hour is cheap and if it certifies the scoping
+  question evaporates) -> pilot ONE real UPX sample (require
+  paper_label_eligible=true, sanity-check the Type I verdict + analyzer memory)
+  -> complete ONE condition end-to-end (2 payloads x n=3 -> finalize -> verify)
+  -> only then scale to the ~134 single-process conditions.
+- Watch: the 2-guest-minute idle boundary under 50-100x slowdown can truncate a
+  real unpacking mid-flight and still look "normal" -> scrutinize stop reasons in
+  the pilot, prefer all-processes-exit evidence; benchmark analyzer per-byte-state
+  memory on a large trace before the full matrix.
+
 ## Hard current checkpoint
 
 - Accepted paper-eligible labels: **0**.
