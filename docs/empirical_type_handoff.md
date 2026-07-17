@@ -73,10 +73,27 @@ intermittently samples during a transient SWAPGS/KPCR window and never attribute
 a block to the root PID. This is precisely the race the STABLE (slower,
 thrash-free) regime avoids, which is why 029/031 reached sample_start reliably at
 3 GiB. Conclusion: do NOT keep grinding 2 GiB; run at 4 GiB on the resized host.
-If the race ever recurs there, the fix is to validate the gs_base/KPCR read
-(e.g. confirm CR3==KPROCESS dir table, or read via a syscall-entry anchor) rather
-than trust an arbitrary-boundary register sample. Runs 039-041 diagnostics:
-root_debug event + kernel_base/eager_kernel_discovery_attempts summary fields.
+Runs 039-041 diagnostics: root_debug event + kernel_base summary field.
+
+Runs 042-044: the context race IS fixed; kernel_base call-frequency is the last
+2 GiB blocker. The suggested CR3-consistency fix was implemented and WORKS: a
+user block whose resolved attached_asid != live current_asid (a SWAPGS/KPCR
+sampling window) is rejected and retried. Runs 042/044 confirmed the root is now
+learned reliably on the fast guest (root_asid set and matching current_asid,
+where it was 0 before). The ONLY remaining 2 GiB blocker is kernel_base=0:
+discover_kernel_base scans backward from a kernel PC for the ntoskrnl PE header,
+which only works from a PC inside ntoskrnl; on the fast guest the fixture exits
+before enough kernel blocks (the root's own syscalls) are sampled after root_asid
+is learned, so discovery is barely called. Widening the scan (256 MiB -> 16 GiB)
+did not help (it's a call-FREQUENCY problem, not range) and 16 GiB risked
+crawling the guest, so it is set to a bounded 1 GiB. QEMU does NOT expose the
+LSTAR MSR to plugins (only fs/gs/kernel_gs base + segments), so a deterministic
+MSR-anchored discovery would need a QEMU patch (exposing IA32_LSTAR =
+KiSystemCall64 in ntoskrnl, then scan back). Current plugin state on branch:
+CR3-validation + reviewer's two fixes + 1 GiB kernel scan; 67 tests + smokes
+green. The stable >=4 GiB regime (029/031) samples enough kernel blocks for
+discovery, so certification should complete there. If 4 GiB ever still shows
+kernel_base=0, the clean fix is the LSTAR QEMU-patch anchor.
 
 Supervisor (fable) guidance folded in:
 - DONE (host-independent): cross-process guardrail. The analyzer now positively
