@@ -912,6 +912,57 @@ Next: run 026 with zero-risk diagnostic counters (enroll attempts, job mismatch,
 create-time rejects, read failures, distinct non-root ASIDs, unmonitored user
 blocks) to prove WHY PID 1368 never enrolled before optimizing further.
 
+Runs 026-028 (2026-07-17). Run 026 was a host-thrash artifact: concurrent NAS
+scans on this 3.8 GiB host pushed the 3 GiB guest into swap (352 MiB free) and
+crawled it to 1 exec in 15 min. Lesson: run NOTHING heavy alongside a fixture
+run. Closed cleanly via HMP; host recovered to 3 GiB free.
+
+Run 027 (clean host) counters: exec 113,499, descendant_enroll_attempts 58,077,
+descendant_job_mismatch 57,948, descendant_createtime_reject 129,
+descendant_read_failures 0, descendant_enrolled 0, unmonitored_block_rejects
+26.3M. This REFUTED the timing hypothesis: enrollment IS attempted 58k times;
+almost all fail the job check.
+
+Run 028 added per-process `descendant_debug` records and settled it decisively.
+Of 32 distinct processes evaluated (root PID 2800): every background process has
+job=0 (correctly rejected); the ONLY child of the root is PID 2932 with
+job==root_job (matches!) but `after_cutoff:false` — created ~51 s BEFORE
+sample_start, i.e. the OS-spawned console/startup helper that run 011's
+create-time cutoff exists to exclude. Correctly rejected. ZERO processes had
+`after_cutoff:true`, and exec_events was only 1,731: the root STALLED right after
+sample_start and never reached `CreateProcess`, so no sample-spawned child ever
+existed. **The enrollment predicate (job + create-time cutoff) is CORRECT, not
+the bug.**
+
+Real blocker, now isolated to two throughput/liveness modes, NOT enrollment:
+1. Progress-then-idle (025:170k, 027:113k exec): root reaches the exception but
+   the guest is too slow to finish `CreateProcess` + child bring-up within the
+   launcher's 2-guest-minute idle window (`GetTickCount64`,
+   `PACKER_IDLE_MILLISECONDS=120000`), so the child never spawns/runs before
+   idle.
+2. Early stall (026:1, 028:1,731 exec): the root stops executing entirely soon
+   after sample_start — a nondeterministic guest hang (026 was thrash; 028 was a
+   clean host, so ~1-in-2 of clean runs stall). Extending the idle window does
+   NOT help this mode; it must be tamed for reliable iteration.
+
+Fix direction (NOT in enrollment code):
+- For mode 1: the 2-minute idle is a paper rule for real samples, but the
+  cross-process VALIDATION FIXTURE deliberately spawns children and blocks in
+  WaitForSingleObject, so its launcher legitimately needs a longer idle window.
+  This is a `guest_launcher.c` change (raise/parameterize
+  `PACKER_IDLE_MILLISECONDS` for validation only) requiring the delicate offline
+  staging of the launcher into the qcow2. Do NOT change the 2-min boundary for
+  real packer samples.
+- For mode 2: reduce guest-side cost / nondeterminism. The 5.18M context
+  refreshes (full ETHREAD/EPROCESS walks, incl. background processes) are a
+  plugin-only throughput target: nearly all background processes are created
+  before the cutoff (run 028: every debug record `after_cutoff:false`), so a
+  process confirmed created-before-cutoff can be cached as permanently
+  non-descendant and skip the walk. Safe if guarded by (eprocess, create_time).
+- Iterating on hour-long, nondeterministic full-fixture runs is inefficient; a
+  minimal fixture that spawns a child FIRST (before local_self_modify/exception)
+  would exercise enrollment in the first minutes — but also needs staging.
+
 ### Windows recovery history
 
 1. Earlier hard-stopped runs caused Automatic Repair.
