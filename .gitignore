@@ -15,6 +15,11 @@ venv/
 /manifest/~$packer_catalog.xlsx
 packed_sources/
 benign_sources
+empirical_results/
+ops/qemu/*.so
+ops/qemu/build/
+ops/panda/build/
+*.egg-info/
 .claude
 
 # --- PEzor build artifacts / vendored dependencies ---

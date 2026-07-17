@@ -1,0 +1,800 @@
+diff --git a/accel/tcg/cpu-exec.c b/accel/tcg/cpu-exec.c
+index 2572112..9158026 100644
+--- a/accel/tcg/cpu-exec.c
++++ b/accel/tcg/cpu-exec.c
+@@ -442,6 +442,7 @@ cpu_tb_exec(CPUState *cpu, TranslationBlock *itb, int *tb_exit)
+     ret = tcg_qemu_tb_exec(cpu_env(cpu), tb_ptr);
+     cpu->neg.can_do_io = true;
+     qemu_plugin_disable_mem_helpers(cpu);
++    qemu_plugin_flush_mem_buffers(cpu);
+     /*
+      * TODO: Delay swapping back to the read-write region of the TB
+      * until we actually need to modify the TB.  The read-only copy,
+diff --git a/accel/tcg/cputlb.c b/accel/tcg/cputlb.c
+index 7f7c208..76fb8cd 100644
+--- a/accel/tcg/cputlb.c
++++ b/accel/tcg/cputlb.c
+@@ -1591,6 +1591,7 @@ bool tlb_plugin_lookup(CPUState *cpu, vaddr addr, int mmu_idx,
+ 
+     full = &cpu->neg.tlb.d[mmu_idx].fulltlb[index];
+     data->phys_addr = full->phys_addr | (addr & ~TARGET_PAGE_MASK);
++    data->ram_addr = full->xlat_offset + addr;
+ 
+     /* We must have an iotlb entry for MMIO */
+     if (tlb_addr & TLB_MMIO) {
+diff --git a/accel/tcg/plugin-gen.c b/accel/tcg/plugin-gen.c
+index 1ffcb4b..e4d7fd1 100644
+--- a/accel/tcg/plugin-gen.c
++++ b/accel/tcg/plugin-gen.c
+@@ -142,8 +142,10 @@ static TCGv_ptr gen_plugin_u64_ptr(qemu_plugin_u64 entry)
+     size_t entry_size = g_array_get_element_size(arr);
+ 
+     TCGv_i32 cpu_index = gen_cpu_index();
+-    tcg_gen_muli_i32(cpu_index, cpu_index, entry_size);
+-    tcg_gen_ext_i32_ptr(ptr, cpu_index);
++    TCGv_i32 scaled_index = tcg_temp_ebb_new_i32();
++    tcg_gen_muli_i32(scaled_index, cpu_index, entry_size);
++    tcg_gen_ext_i32_ptr(ptr, scaled_index);
++    tcg_temp_free_i32(scaled_index);
+     tcg_temp_free_i32(cpu_index);
+     tcg_gen_addi_ptr(ptr, ptr, (intptr_t) base_ptr);
+ 
+@@ -248,6 +250,70 @@ static void gen_mem_cb(struct qemu_plugin_regular_cb *cb,
+     tcg_temp_free_i32(clear_flags);
+ }
+ 
++static void gen_mem_buffered_cb(struct qemu_plugin_buffered_mem_cb *cb,
++                                qemu_plugin_meminfo_t meminfo, TCGv_i64 addr)
++{
++    qemu_plugin_u64 buffer_base = {
++        .score = cb->buffer->score,
++        .offset = 0,
++    };
++    TCGv_ptr base = gen_plugin_u64_ptr(buffer_base);
++    TCGv_ptr event_ptr = tcg_temp_ebb_new_ptr();
++    TCGv_ptr event_offset = tcg_temp_ebb_new_ptr();
++    TCGv_i64 count = tcg_temp_ebb_new_i64();
++    TCGv_i64 slot = tcg_temp_ebb_new_i64();
++    TCGv_i64 match = tcg_temp_ebb_new_i64();
++    TCGv_i64 next = tcg_temp_ebb_new_i64();
++    TCGv_i64 condition_value = tcg_temp_ebb_new_i64();
++    TCGv_i64 capacity = tcg_constant_i64(cb->buffer->capacity);
++    TCGv_i64 overflow_limit = tcg_constant_i64(cb->buffer->capacity + 1);
++
++    tcg_gen_ld_i64(count, base, 0);
++    tcg_gen_movcond_i64(TCG_COND_LEU, slot, count, capacity,
++                        count, capacity);
++    tcg_gen_muli_i64(slot, slot,
++                     sizeof(struct qemu_plugin_mem_buffer_entry));
++    tcg_gen_trunc_i64_ptr(event_offset, slot);
++    tcg_gen_add_ptr(event_ptr, base, event_offset);
++    tcg_gen_addi_ptr(event_ptr, event_ptr, sizeof(uint64_t));
++
++    tcg_gen_st_i64(addr, event_ptr,
++                   offsetof(struct qemu_plugin_mem_buffer_entry, vaddr));
++    tcg_gen_st_i64(tcg_constant_i64((uintptr_t)cb->f.vcpu_mem), event_ptr,
++                   offsetof(struct qemu_plugin_mem_buffer_entry, callback));
++    tcg_gen_st_i64(tcg_constant_i64((uintptr_t)cb->userp), event_ptr,
++                   offsetof(struct qemu_plugin_mem_buffer_entry, userp));
++    tcg_gen_st_i32(tcg_constant_i32(meminfo), event_ptr,
++                   offsetof(struct qemu_plugin_mem_buffer_entry, meminfo));
++    tcg_gen_st_i32(tcg_constant_i32(
++                       tcg_call_to_qemu_plugin_cb_flags(cb->info->flags)),
++                   event_ptr,
++                   offsetof(struct qemu_plugin_mem_buffer_entry, cb_flags));
++
++    if (cb->cond == QEMU_PLUGIN_COND_ALWAYS) {
++        tcg_gen_movi_i64(match, 1);
++    } else {
++        TCGv_ptr condition_ptr = gen_plugin_u64_ptr(cb->entry);
++        tcg_gen_ld_i64(condition_value, condition_ptr, 0);
++        tcg_gen_setcondi_i64(plugin_cond_to_tcgcond(cb->cond), match,
++                             condition_value, cb->imm);
++        tcg_temp_free_ptr(condition_ptr);
++    }
++    tcg_gen_add_i64(next, count, match);
++    tcg_gen_movcond_i64(TCG_COND_LEU, next, next, overflow_limit,
++                        next, overflow_limit);
++    tcg_gen_st_i64(next, base, 0);
++
++    tcg_temp_free_i64(condition_value);
++    tcg_temp_free_i64(next);
++    tcg_temp_free_i64(match);
++    tcg_temp_free_i64(slot);
++    tcg_temp_free_i64(count);
++    tcg_temp_free_ptr(event_offset);
++    tcg_temp_free_ptr(event_ptr);
++    tcg_temp_free_ptr(base);
++}
++
+ static void inject_cb(struct qemu_plugin_dyn_cb *cb)
+ 
+ {
+@@ -279,6 +345,11 @@ static void inject_mem_cb(struct qemu_plugin_dyn_cb *cb,
+             gen_mem_cb(&cb->regular, meminfo, addr);
+         }
+         break;
++    case PLUGIN_CB_MEM_BUFFERED:
++        if (rw & cb->buffered_mem.rw) {
++            gen_mem_buffered_cb(&cb->buffered_mem, meminfo, addr);
++        }
++        break;
+     case PLUGIN_CB_INLINE_ADD_U64:
+     case PLUGIN_CB_INLINE_STORE_U64:
+         if (rw & cb->inline_insn.rw) {
+diff --git a/include/plugins/qemu-plugin.h b/include/plugins/qemu-plugin.h
+index 3e913cd..7d66f59 100644
+--- a/include/plugins/qemu-plugin.h
++++ b/include/plugins/qemu-plugin.h
+@@ -304,12 +304,25 @@ void qemu_plugin_register_vcpu_discon_cb(qemu_plugin_id_t id,
+                                          qemu_plugin_vcpu_discon_cb_t cb,
+                                          void *userdata);
+ 
++/**
++ * qemu_plugin_vcpu_exception_index() - current architecture exception index
++ *
++ * This is valid only from a QEMU_PLUGIN_DISCON_EXCEPTION callback.  It allows
++ * a system-emulation plugin to distinguish architecturally different
++ * synchronous exceptions (for example, x86 page faults from invalid-opcode
++ * faults) without treating routine demand paging as an application failure.
++ */
++QEMU_PLUGIN_API
++int qemu_plugin_vcpu_exception_index(void);
++
+ /** struct qemu_plugin_tb - Opaque handle for a translation block */
+ struct qemu_plugin_tb;
+ /** struct qemu_plugin_insn - Opaque handle for a translated instruction */
+ struct qemu_plugin_insn;
+ /** struct qemu_plugin_scoreboard - Opaque handle for a scoreboard */
+ struct qemu_plugin_scoreboard;
++/** struct qemu_plugin_mem_buffer - Opaque buffered-memory event queue. */
++struct qemu_plugin_mem_buffer;
+ 
+ /**
+  * typedef qemu_plugin_u64 - uint64_t member of an entry in a scoreboard
+@@ -637,6 +650,29 @@ uint64_t qemu_plugin_insn_vaddr(const struct qemu_plugin_insn *insn);
+ QEMU_PLUGIN_API
+ void *qemu_plugin_insn_haddr(const struct qemu_plugin_insn *insn);
+ 
++/**
++ * qemu_plugin_insn_ram_addr() - return stable RAM identity of instruction
++ * @insn: opaque instruction handle from qemu_plugin_tb_get_insn()
++ *
++ * Returns the RAMBlock offset used by QEMU's translated-code cache. Unlike a
++ * guest physical address, this identity is identical for aliases of the same
++ * RAM byte. Returns UINT64_MAX for I/O or synthetic instructions.
++ */
++QEMU_PLUGIN_API
++uint64_t qemu_plugin_insn_ram_addr(const struct qemu_plugin_insn *insn);
++
++/**
++ * qemu_plugin_insn_ram_addr_at() - return RAM identity at instruction offset
++ * @insn: opaque instruction handle from qemu_plugin_tb_get_insn()
++ * @offset: byte offset within the instruction
++ *
++ * This variant preserves the mapping of an instruction that crosses a guest
++ * virtual page boundary backed by non-contiguous RAM pages.
++ */
++QEMU_PLUGIN_API
++uint64_t qemu_plugin_insn_ram_addr_at(const struct qemu_plugin_insn *insn,
++                                      size_t offset);
++
+ /**
+  * typedef qemu_plugin_meminfo_t - opaque memory transaction handle
+  *
+@@ -734,6 +770,27 @@ bool qemu_plugin_hwaddr_is_io(const struct qemu_plugin_hwaddr *haddr);
+ QEMU_PLUGIN_API
+ uint64_t qemu_plugin_hwaddr_phys_addr(const struct qemu_plugin_hwaddr *haddr);
+ 
++/**
++ * qemu_plugin_hwaddr_ram_addr() - return stable RAM identity for an access
++ * @haddr: address handle from qemu_plugin_get_hwaddr()
++ *
++ * The result is directly comparable to qemu_plugin_insn_ram_addr().
++ */
++QEMU_PLUGIN_API
++uint64_t qemu_plugin_hwaddr_ram_addr(const struct qemu_plugin_hwaddr *haddr);
++
++/**
++ * qemu_plugin_phys_addr_ram_addr() - convert guest physical to RAM identity
++ * @addr: guest physical address in the current vCPU address space
++ *
++ * Returns the stable RAMBlock offset used by translated-code and memory-access
++ * callbacks.  This lets plugins invalidate provenance for pages whose virtual
++ * mappings are about to be removed.  Returns UINT64_MAX for MMIO/unmapped
++ * addresses and in user-mode emulation.
++ */
++QEMU_PLUGIN_API
++uint64_t qemu_plugin_phys_addr_ram_addr(uint64_t addr);
++
+ /*
+  * Returns a string representing the device. The string is valid for
+  * the lifetime of the plugin.
+@@ -780,6 +837,52 @@ void qemu_plugin_register_vcpu_mem_cb(struct qemu_plugin_insn *insn,
+                                       enum qemu_plugin_mem_rw rw,
+                                       void *userdata);
+ 
++/**
++ * qemu_plugin_register_vcpu_mem_buffered_cond_cb() - buffer memory events
++ * @insn: handle for instruction to instrument
++ * @cb: memory callback
++ * @flags: register access required by @cb
++ * @rw: monitor reads, writes or both
++ * @cond: per-vCPU scoreboard condition controlling event retention
++ * @entry: first operand for @cond
++ * @imm: second operand for @cond
++ * @userdata: opaque callback data
++ *
++ * @buffer: buffer created by qemu_plugin_mem_buffer_new()
++ *
++ * Retained events are appended without a mid-instruction branch and delivered
++ * after the translated block returns, before another vCPU can execute.  This
++ * avoids a C call on rejected memory operations while retaining event order.
++ * qemu_plugin_mem_get_value() is not available from buffered callbacks.
++ */
++QEMU_PLUGIN_API
++void qemu_plugin_register_vcpu_mem_buffered_cond_cb(
++    struct qemu_plugin_insn *insn,
++    qemu_plugin_vcpu_mem_cb_t cb,
++    enum qemu_plugin_cb_flags flags,
++    enum qemu_plugin_mem_rw rw,
++    enum qemu_plugin_cond cond,
++    qemu_plugin_u64 entry,
++    uint64_t imm,
++    struct qemu_plugin_mem_buffer *buffer,
++    void *userdata);
++
++/**
++ * qemu_plugin_mem_buffer_new() - allocate per-vCPU memory-event buffers
++ * @capacity: maximum retained events between translated-block exits
++ */
++QEMU_PLUGIN_API
++struct qemu_plugin_mem_buffer *qemu_plugin_mem_buffer_new(size_t capacity);
++
++/** Free a memory-event buffer after execution has stopped. */
++QEMU_PLUGIN_API
++void qemu_plugin_mem_buffer_free(struct qemu_plugin_mem_buffer *buffer);
++
++/** Return the cumulative number of buffer-overflow occurrences. */
++QEMU_PLUGIN_API
++uint64_t qemu_plugin_mem_buffer_overflow_count(
++    const struct qemu_plugin_mem_buffer *buffer);
++
+ /**
+  * qemu_plugin_register_vcpu_mem_inline_per_vcpu() - inline op for mem access
+  * @insn: handle for instruction to instrument
+@@ -799,6 +902,16 @@ void qemu_plugin_register_vcpu_mem_inline_per_vcpu(
+     qemu_plugin_u64 entry,
+     uint64_t imm);
+ 
++/**
++ * qemu_plugin_request_tb_flush() - queue a complete translated-code flush
++ *
++ * The flush runs at a safe CPU work boundary after the current callback.  A
++ * plugin can use this when an instrumentation phase changes and already
++ * translated blocks must be rebuilt with a different callback set.
++ */
++QEMU_PLUGIN_API
++void qemu_plugin_request_tb_flush(void);
++
+ /**
+  * qemu_plugin_request_time_control() - request the ability to control time
+  *
+diff --git a/include/qemu/plugin-memory.h b/include/qemu/plugin-memory.h
+index 6065ec7..3980eec 100644
+--- a/include/qemu/plugin-memory.h
++++ b/include/qemu/plugin-memory.h
+@@ -15,6 +15,7 @@ struct qemu_plugin_hwaddr {
+     bool is_io;
+     bool is_store;
+     hwaddr phys_addr;
++    ram_addr_t ram_addr;
+     MemoryRegion *mr;
+ };
+ 
+diff --git a/include/qemu/plugin.h b/include/qemu/plugin.h
+index 9c2ec8c..38145c6 100644
+--- a/include/qemu/plugin.h
++++ b/include/qemu/plugin.h
+@@ -70,6 +70,7 @@ enum plugin_dyn_cb_type {
+     PLUGIN_CB_REGULAR,
+     PLUGIN_CB_COND,
+     PLUGIN_CB_MEM_REGULAR,
++    PLUGIN_CB_MEM_BUFFERED,
+     PLUGIN_CB_INLINE_ADD_U64,
+     PLUGIN_CB_INLINE_STORE_U64,
+ };
+@@ -96,6 +97,17 @@ struct qemu_plugin_conditional_cb {
+     uint64_t imm;
+ };
+ 
++struct qemu_plugin_buffered_mem_cb {
++    void *userp;
++    union qemu_plugin_cb_sig f;
++    TCGHelperInfo *info;
++    enum qemu_plugin_mem_rw rw;
++    enum qemu_plugin_cond cond;
++    qemu_plugin_u64 entry;
++    uint64_t imm;
++    struct qemu_plugin_mem_buffer *buffer;
++};
++
+ /*
+  * A dynamic callback has an insertion point that is determined at run-time.
+  * Usually the insertion point is somewhere in the code cache; think for
+@@ -106,6 +118,7 @@ struct qemu_plugin_dyn_cb {
+     union {
+         struct qemu_plugin_regular_cb regular;
+         struct qemu_plugin_conditional_cb cond;
++        struct qemu_plugin_buffered_mem_cb buffered_mem;
+         struct qemu_plugin_inline_cb inline_insn;
+     };
+ };
+@@ -128,6 +141,21 @@ struct qemu_plugin_scoreboard {
+     QLIST_ENTRY(qemu_plugin_scoreboard) entry;
+ };
+ 
++struct qemu_plugin_mem_buffer_entry {
++    uint64_t vaddr;
++    uint64_t callback;
++    uint64_t userp;
++    uint32_t meminfo;
++    uint32_t cb_flags;
++};
++
++struct qemu_plugin_mem_buffer {
++    struct qemu_plugin_scoreboard *score;
++    size_t capacity;
++    uint64_t overflows;
++    QLIST_ENTRY(qemu_plugin_mem_buffer) entry;
++};
++
+ /* Internal context for this TranslationBlock */
+ struct qemu_plugin_tb {
+     GPtrArray *insns;
+@@ -179,6 +207,8 @@ void qemu_plugin_vcpu_mem_cb(CPUState *cpu, uint64_t vaddr,
+                              uint64_t value_high,
+                              MemOpIdx oi, enum qemu_plugin_mem_rw rw);
+ 
++void qemu_plugin_flush_mem_buffers(CPUState *cpu);
++
+ void qemu_plugin_flush_cb(void);
+ 
+ void qemu_plugin_atexit_cb(void);
+@@ -300,6 +330,9 @@ static inline void qemu_plugin_vcpu_mem_cb(CPUState *cpu, uint64_t vaddr,
+                                            enum qemu_plugin_mem_rw rw)
+ { }
+ 
++static inline void qemu_plugin_flush_mem_buffers(CPUState *cpu)
++{ }
++
+ static inline void qemu_plugin_flush_cb(void)
+ { }
+ 
+diff --git a/plugins/api-system.c b/plugins/api-system.c
+index fbf905c..ba0ab02 100644
+--- a/plugins/api-system.c
++++ b/plugins/api-system.c
+@@ -17,6 +17,7 @@
+ #include "hw/core/boards.h"
+ #include "qemu/plugin-memory.h"
+ #include "qemu/plugin.h"
++#include "exec/tb-flush.h"
+ 
+ /*
+  * In system mode we cannot trace the binary being executed so the
+@@ -80,6 +81,43 @@ uint64_t qemu_plugin_hwaddr_phys_addr(const struct qemu_plugin_hwaddr *haddr)
+     return 0;
+ }
+ 
++uint64_t qemu_plugin_hwaddr_ram_addr(const struct qemu_plugin_hwaddr *haddr)
++{
++    if (haddr && !haddr->is_io) {
++        return haddr->ram_addr;
++    }
++    return UINT64_MAX;
++}
++
++uint64_t qemu_plugin_phys_addr_ram_addr(uint64_t addr)
++{
++    CPUState *cpu = current_cpu;
++    hwaddr translated;
++    hwaddr length = 1;
++    int as_idx;
++    AddressSpace *as;
++    MemoryRegion *mr;
++
++    g_assert(cpu);
++    as_idx = cpu_asidx_from_attrs(cpu, MEMTXATTRS_UNSPECIFIED);
++    as = cpu_get_address_space(cpu, as_idx);
++    if (!as) {
++        return UINT64_MAX;
++    }
++    mr = address_space_translate(as, addr, &translated, &length, false,
++                                 MEMTXATTRS_UNSPECIFIED);
++    if (!mr || !memory_region_is_ram(mr)) {
++        return UINT64_MAX;
++    }
++    return memory_region_get_ram_addr(mr) + translated;
++}
++
++void qemu_plugin_request_tb_flush(void)
++{
++    g_assert(current_cpu);
++    queue_tb_flush(current_cpu);
++}
++
+ const char *qemu_plugin_hwaddr_device_name(const struct qemu_plugin_hwaddr *h)
+ {
+     if (h && h->is_io) {
+diff --git a/plugins/api-user.c b/plugins/api-user.c
+index 28704a8..8d7027d 100644
+--- a/plugins/api-user.c
++++ b/plugins/api-user.c
+@@ -35,6 +35,22 @@ uint64_t qemu_plugin_hwaddr_phys_addr(const struct qemu_plugin_hwaddr *haddr)
+     return 0;
+ }
+ 
++uint64_t qemu_plugin_hwaddr_ram_addr(const struct qemu_plugin_hwaddr *haddr)
++{
++    return UINT64_MAX;
++}
++
++uint64_t qemu_plugin_phys_addr_ram_addr(uint64_t addr)
++{
++    return UINT64_MAX;
++}
++
++void qemu_plugin_request_tb_flush(void)
++{
++    qemu_log_mask(LOG_UNIMP,
++                  "user-mode cannot request a system translation flush");
++}
++
+ const char *qemu_plugin_hwaddr_device_name(const struct qemu_plugin_hwaddr *h)
+ {
+     return g_intern_static_string("Invalid");
+diff --git a/plugins/api.c b/plugins/api.c
+index eb982f9..d1269f2 100644
+--- a/plugins/api.c
++++ b/plugins/api.c
+@@ -185,6 +185,24 @@ void qemu_plugin_register_vcpu_mem_cb(struct qemu_plugin_insn *insn,
+     plugin_register_vcpu_mem_cb(&insn->mem_cbs, cb, flags, rw, udata);
+ }
+ 
++void qemu_plugin_register_vcpu_mem_buffered_cond_cb(
++    struct qemu_plugin_insn *insn,
++    qemu_plugin_vcpu_mem_cb_t cb,
++    enum qemu_plugin_cb_flags flags,
++    enum qemu_plugin_mem_rw rw,
++    enum qemu_plugin_cond cond,
++    qemu_plugin_u64 entry,
++    uint64_t imm,
++    struct qemu_plugin_mem_buffer *buffer,
++    void *udata)
++{
++    if (cond == QEMU_PLUGIN_COND_NEVER || !buffer) {
++        return;
++    }
++    plugin_register_vcpu_mem_buffered_cond_cb(
++        &insn->mem_cbs, cb, flags, rw, cond, entry, imm, buffer, udata);
++}
++
+ void qemu_plugin_register_vcpu_mem_inline_per_vcpu(
+     struct qemu_plugin_insn *insn,
+     enum qemu_plugin_mem_rw rw,
+@@ -315,6 +333,37 @@ void *qemu_plugin_insn_haddr(const struct qemu_plugin_insn *insn)
+     }
+ }
+ 
++uint64_t qemu_plugin_insn_ram_addr_at(const struct qemu_plugin_insn *insn,
++                                      size_t offset)
++{
++    const DisasContextBase *db = tcg_ctx->plugin_db;
++    vaddr page0_last = db->pc_first | ~qemu_target_page_mask();
++    tb_page_addr_t page;
++    vaddr base;
++    vaddr address;
++
++    if (db->fake_insn || offset >= insn->len) {
++        return UINT64_MAX;
++    }
++    address = insn->vaddr + offset;
++    if (address <= page0_last) {
++        page = tb_page_addr0(db->tb);
++        base = db->pc_first & qemu_target_page_mask();
++    } else {
++        page = tb_page_addr1(db->tb);
++        base = page0_last + 1;
++    }
++    if (page == (tb_page_addr_t)-1) {
++        return UINT64_MAX;
++    }
++    return page + address - base;
++}
++
++uint64_t qemu_plugin_insn_ram_addr(const struct qemu_plugin_insn *insn)
++{
++    return qemu_plugin_insn_ram_addr_at(insn, 0);
++}
++
+ char *qemu_plugin_insn_disas(const struct qemu_plugin_insn *insn)
+ {
+     return plugin_disas(tcg_ctx->cpu, tcg_ctx->plugin_db,
+@@ -642,6 +691,16 @@ bool qemu_plugin_translate_vaddr(uint64_t vaddr, uint64_t *hwaddr)
+ #endif
+ }
+ 
++int qemu_plugin_vcpu_exception_index(void)
++{
++#ifdef CONFIG_SOFTMMU
++    g_assert(current_cpu);
++    return current_cpu->exception_index;
++#else
++    return -1;
++#endif
++}
++
+ struct qemu_plugin_scoreboard *qemu_plugin_scoreboard_new(size_t element_size)
+ {
+     return plugin_scoreboard_new(element_size);
+@@ -652,6 +711,22 @@ void qemu_plugin_scoreboard_free(struct qemu_plugin_scoreboard *score)
+     plugin_scoreboard_free(score);
+ }
+ 
++struct qemu_plugin_mem_buffer *qemu_plugin_mem_buffer_new(size_t capacity)
++{
++    return plugin_mem_buffer_new(capacity);
++}
++
++void qemu_plugin_mem_buffer_free(struct qemu_plugin_mem_buffer *buffer)
++{
++    plugin_mem_buffer_free(buffer);
++}
++
++uint64_t qemu_plugin_mem_buffer_overflow_count(
++    const struct qemu_plugin_mem_buffer *buffer)
++{
++    return buffer ? qatomic_read(&buffer->overflows) : 0;
++}
++
+ void *qemu_plugin_scoreboard_find(struct qemu_plugin_scoreboard *score,
+                                   unsigned int vcpu_index)
+ {
+@@ -694,4 +769,3 @@ uint64_t qemu_plugin_u64_sum(qemu_plugin_u64 entry)
+     }
+     return total;
+ }
+-
+diff --git a/plugins/core.c b/plugins/core.c
+index 1113bfe..321f72c 100644
+--- a/plugins/core.c
++++ b/plugins/core.c
+@@ -471,6 +471,38 @@ void plugin_register_vcpu_mem_cb(GArray **arr,
+     dyn_cb->regular = regular_cb;
+ }
+ 
++void plugin_register_vcpu_mem_buffered_cond_cb(
++    GArray **arr,
++    qemu_plugin_vcpu_mem_cb_t cb,
++    enum qemu_plugin_cb_flags flags,
++    enum qemu_plugin_mem_rw rw,
++    enum qemu_plugin_cond cond,
++    qemu_plugin_u64 entry,
++    uint64_t imm,
++    struct qemu_plugin_mem_buffer *buffer,
++    void *udata)
++{
++    static TCGHelperInfo info[4] = {
++        [QEMU_PLUGIN_CB_NO_REGS].flags = TCG_CALL_NO_RWG,
++        [QEMU_PLUGIN_CB_R_REGS].flags = TCG_CALL_NO_WG,
++        [QEMU_PLUGIN_CB_RW_REGS].flags = 0,
++        [QEMU_PLUGIN_CB_RW_REGS_PC].flags = 0,
++        [0 ... 3].typemask =
++            (dh_typemask(void, 0) | dh_typemask(i32, 1) |
++             (__builtin_types_compatible_p(qemu_plugin_meminfo_t, uint32_t)
++              ? dh_typemask(i32, 2) : dh_typemask(s32, 2)) |
++             dh_typemask(i64, 3) | dh_typemask(ptr, 4))
++    };
++    assert((unsigned)flags < ARRAY_SIZE(info));
++    struct qemu_plugin_dyn_cb *dyn_cb = plugin_get_dyn_cb(arr);
++    struct qemu_plugin_buffered_mem_cb buffered_cb = {
++        .userp = udata, .f.vcpu_mem = cb, .cond = cond, .entry = entry,
++        .imm = imm, .rw = rw, .info = &info[flags], .buffer = buffer,
++    };
++    dyn_cb->type = PLUGIN_CB_MEM_BUFFERED;
++    dyn_cb->buffered_mem = buffered_cb;
++}
++
+ /*
+  * Disable CFI checks.
+  * The callback function has been loaded from an external library so we do not
+@@ -712,6 +744,125 @@ void exec_inline_op(enum plugin_dyn_cb_type type,
+     }
+ }
+ 
++static bool plugin_cond_matches(enum qemu_plugin_cond cond,
++                                qemu_plugin_u64 entry, uint64_t imm,
++                                int cpu_index)
++{
++    char *ptr = entry.score->data->data;
++    size_t elem_size = g_array_get_element_size(entry.score->data);
++    uint64_t val = *(uint64_t *)(ptr + entry.offset +
++                                cpu_index * elem_size);
++
++    switch (cond) {
++    case QEMU_PLUGIN_COND_EQ:
++        return val == imm;
++    case QEMU_PLUGIN_COND_NE:
++        return val != imm;
++    case QEMU_PLUGIN_COND_LT:
++        return val < imm;
++    case QEMU_PLUGIN_COND_LE:
++        return val <= imm;
++    case QEMU_PLUGIN_COND_GT:
++        return val > imm;
++    case QEMU_PLUGIN_COND_GE:
++        return val >= imm;
++    case QEMU_PLUGIN_COND_ALWAYS:
++        return true;
++    case QEMU_PLUGIN_COND_NEVER:
++        return false;
++    default:
++        g_assert_not_reached();
++    }
++}
++
++static void plugin_mem_buffer_append(
++    struct qemu_plugin_buffered_mem_cb *cb, int cpu_index,
++    qemu_plugin_meminfo_t meminfo, uint64_t vaddr)
++{
++    char *element;
++    uint64_t *count;
++    size_t slot;
++    struct qemu_plugin_mem_buffer_entry *events;
++
++    if (!plugin_cond_matches(cb->cond, cb->entry, cb->imm, cpu_index)) {
++        return;
++    }
++    element = cb->buffer->score->data->data +
++              cpu_index * g_array_get_element_size(cb->buffer->score->data);
++    count = (uint64_t *)element;
++    slot = MIN(*count, cb->buffer->capacity);
++    events = (struct qemu_plugin_mem_buffer_entry *)(element +
++                                                     sizeof(*count));
++    events[slot] = (struct qemu_plugin_mem_buffer_entry){
++        .vaddr = vaddr,
++        .callback = (uintptr_t)cb->f.vcpu_mem,
++        .userp = (uintptr_t)cb->userp,
++        .meminfo = meminfo,
++        .cb_flags = tcg_call_to_qemu_plugin_cb_flags(cb->info->flags),
++    };
++    if (*count <= cb->buffer->capacity) {
++        (*count)++;
++    }
++}
++
++QEMU_DISABLE_CFI
++void qemu_plugin_flush_mem_buffers(CPUState *cpu)
++{
++    struct qemu_plugin_mem_buffer *buffer, *next;
++
++    QLIST_FOREACH_SAFE_RCU(buffer, &plugin.mem_buffers, entry, next) {
++        char *element = buffer->score->data->data +
++            cpu->cpu_index * g_array_get_element_size(buffer->score->data);
++        uint64_t *count = (uint64_t *)element;
++        uint64_t retained = MIN(*count, buffer->capacity);
++        struct qemu_plugin_mem_buffer_entry *events =
++            (struct qemu_plugin_mem_buffer_entry *)(element + sizeof(*count));
++
++        if (*count > buffer->capacity) {
++            qatomic_inc(&buffer->overflows);
++        }
++        for (uint64_t index = 0; index < retained; index++) {
++            qemu_plugin_vcpu_mem_cb_t cb =
++                (qemu_plugin_vcpu_mem_cb_t)(uintptr_t)events[index].callback;
++            qemu_plugin_set_cb_flags(cpu, events[index].cb_flags);
++            cb(cpu->cpu_index, events[index].meminfo,
++               events[index].vaddr,
++               (void *)(uintptr_t)events[index].userp);
++        }
++        *count = 0;
++    }
++    qemu_plugin_set_cb_flags(cpu, QEMU_PLUGIN_CB_NO_REGS);
++}
++
++struct qemu_plugin_mem_buffer *plugin_mem_buffer_new(size_t capacity)
++{
++    struct qemu_plugin_mem_buffer *buffer;
++    size_t element_size;
++
++    g_return_val_if_fail(capacity > 0, NULL);
++    g_return_val_if_fail(capacity <
++                         (SIZE_MAX - sizeof(uint64_t)) /
++                         sizeof(struct qemu_plugin_mem_buffer_entry), NULL);
++    element_size = sizeof(uint64_t) +
++                   (capacity + 1) *
++                   sizeof(struct qemu_plugin_mem_buffer_entry);
++    buffer = g_new0(struct qemu_plugin_mem_buffer, 1);
++    buffer->capacity = capacity;
++    buffer->score = plugin_scoreboard_new(element_size);
++    QLIST_INSERT_HEAD_RCU(&plugin.mem_buffers, buffer, entry);
++    return buffer;
++}
++
++void plugin_mem_buffer_free(struct qemu_plugin_mem_buffer *buffer)
++{
++    if (!buffer) {
++        return;
++    }
++    QLIST_REMOVE_RCU(buffer, entry);
++    plugin_scoreboard_free(buffer->score);
++    g_free(buffer);
++}
++
+ QEMU_DISABLE_CFI
+ void qemu_plugin_vcpu_mem_cb(CPUState *cpu, uint64_t vaddr,
+                              uint64_t value_low,
+@@ -744,6 +895,13 @@ void qemu_plugin_vcpu_mem_cb(CPUState *cpu, uint64_t vaddr,
+                 qemu_plugin_set_cb_flags(cpu, QEMU_PLUGIN_CB_NO_REGS);
+             }
+             break;
++        case PLUGIN_CB_MEM_BUFFERED:
++            if (rw & cb->buffered_mem.rw) {
++                plugin_mem_buffer_append(&cb->buffered_mem,
++                                         cpu->cpu_index,
++                                         make_plugin_meminfo(oi, rw), vaddr);
++            }
++            break;
+         case PLUGIN_CB_INLINE_ADD_U64:
+         case PLUGIN_CB_INLINE_STORE_U64:
+             if (rw & cb->inline_insn.rw) {
+@@ -847,6 +1005,7 @@ static void __attribute__((__constructor__)) plugin_init(void)
+     plugin.id_ht = g_hash_table_new(g_int64_hash, g_int64_equal);
+     plugin.cpu_ht = g_hash_table_new(g_int_hash, g_int_equal);
+     QLIST_INIT(&plugin.scoreboards);
++    QLIST_INIT(&plugin.mem_buffers);
+     plugin.scoreboard_alloc_size = 16; /* avoid frequent reallocation */
+     QTAILQ_INIT(&plugin.ctxs);
+     qht_init(&plugin.dyn_cb_arr_ht, plugin_dyn_cb_arr_cmp, 16,
+diff --git a/plugins/plugin.h b/plugins/plugin.h
+index c901016..0a4a27b 100644
+--- a/plugins/plugin.h
++++ b/plugins/plugin.h
+@@ -33,6 +33,7 @@ struct qemu_plugin_state {
+      */
+     GHashTable *cpu_ht;
+     QLIST_HEAD(, qemu_plugin_scoreboard) scoreboards;
++    QLIST_HEAD(, qemu_plugin_mem_buffer) mem_buffers;
+     size_t scoreboard_alloc_size;
+     DECLARE_BITMAP(mask, QEMU_PLUGIN_EV_MAX);
+     /*
+@@ -110,6 +111,17 @@ void plugin_register_vcpu_mem_cb(GArray **arr,
+                                  enum qemu_plugin_mem_rw rw,
+                                  void *udata);
+ 
++void plugin_register_vcpu_mem_buffered_cond_cb(
++    GArray **arr,
++    qemu_plugin_vcpu_mem_cb_t cb,
++    enum qemu_plugin_cb_flags flags,
++    enum qemu_plugin_mem_rw rw,
++    enum qemu_plugin_cond cond,
++    qemu_plugin_u64 entry,
++    uint64_t imm,
++    struct qemu_plugin_mem_buffer *buffer,
++    void *udata);
++
+ void exec_inline_op(enum plugin_dyn_cb_type type,
+                     struct qemu_plugin_inline_cb *cb,
+                     int cpu_index);
+@@ -120,6 +132,10 @@ struct qemu_plugin_scoreboard *plugin_scoreboard_new(size_t element_size);
+ 
+ void plugin_scoreboard_free(struct qemu_plugin_scoreboard *score);
+ 
++struct qemu_plugin_mem_buffer *plugin_mem_buffer_new(size_t capacity);
++
++void plugin_mem_buffer_free(struct qemu_plugin_mem_buffer *buffer);
++
+ /**
+  * qemu_plugin_fillin_mode_info() - populate mode specific info
+  * info: pointer to qemu_info_t structure

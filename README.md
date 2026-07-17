@@ -106,6 +106,16 @@ Updates the `last_updated`, `version`, and `maintainer` fields in `packer_corpus
 uv run utils/update_manifest.py
 ```
 
+## Phase 4: Empirical Type I–VI collection
+
+The manifest's complexity labels are hypotheses, not measured truth. DRAKVUF
+results remain useful behavioral diagnostics but are not accepted as Type I–VI
+evidence. Paper-faithful labels require the two-vCPU upstream-QEMU tracer,
+complete ordered basic-block/write/IPC evidence, and a passing eligibility
+gate. Backend details and validation status are in
+[`ops/qemu/README.md`](ops/qemu/README.md); the collection workflow is in
+[`docs/empirical_type_collection.md`](docs/empirical_type_collection.md).
+
 ---
 
 # ⚙️ Configuration (packer_corpus.yaml)
