@@ -246,6 +246,7 @@ def analyze_paper_jsonl(path: Path, sample_id: str) -> Evidence:
                 "exception_dispatch",
                 "exception_recovered",
                 "descendant_debug",
+                "root_debug",
                 "summary",
             }:
                 continue

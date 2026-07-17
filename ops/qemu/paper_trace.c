@@ -533,6 +533,7 @@ static uint64_t context_immutable_reuse;
 /* Bounds eager kernel-base discovery so a persistently-unresolvable scan cannot
  * run on every kernel block indefinitely. */
 static uint64_t eager_kernel_discovery_attempts;
+static bool root_debug_emitted;
 
 static bool cached_current_context(unsigned int vcpu_index,
                                    ThreadContext *context)
@@ -2278,24 +2279,12 @@ static void block_exec(unsigned int vcpu_index, void *userdata)
     if (!armed) {
         return;
     }
-    /* Discover the kernel base eagerly from the moment the plugin is active, on
-     * ANY kernel block — not only after root_asid is learned.  The old
-     * placement gave discovery a window only between root_asid learning and
-     * sample_start; on a fast guest (e.g. a 2 GiB VM that boots without swap
-     * thrash) the fixture can run and exit inside that window before a kernel PC
-     * near ntoskrnl happens to appear, so kernel_base stayed 0, snapshot/
-     * sample_start never fired, and no trace was recorded.  Running it here
-     * gives discovery the entire active period.  It self-limits: the guard stops
-     * calling it once kernel_base is found. */
-    if (active && !kernel_base && !user_address(block->address) &&
-        eager_kernel_discovery_attempts < 50000) {
-        g_mutex_lock(&trace_lock);
-        if (!kernel_base) {
-            eager_kernel_discovery_attempts++;
-            discover_kernel_base(block->address);
-        }
-        g_mutex_unlock(&trace_lock);
-    }
+    /* Kernel-base discovery scans backward from a kernel PC for the ntoskrnl PE
+     * header, so it only succeeds from a PC INSIDE ntoskrnl (a syscall handler),
+     * not an arbitrary driver/scheduler PC.  It therefore runs below, on the
+     * kernel blocks executed once the root is running (its syscalls land in
+     * ntoskrnl).  An earlier "eager from activation" variant burned its budget
+     * on far-from-ntoskrnl boot PCs and left kernel_base=0 — reverted. */
     if (active && !sample_started && root_asid) {
         if (!user_address(block->address)) {
             g_mutex_lock(&trace_lock);
@@ -2383,6 +2372,20 @@ static void block_exec(unsigned int vcpu_index, void *userdata)
         return;
     }
     if (context.source_pid == root_pid) {
+        if (!root_debug_emitted && user_address(block->address)) {
+            uint64_t live = 0;
+            current_asid(vcpu_index, &live);
+            root_debug_emitted = true;
+            fprintf(trace_file,
+                    "{\"event\":\"root_debug\",\"seq\":%" PRIu64
+                    ",\"pid\":%" PRIu64 ",\"address\":%" PRIu64
+                    ",\"current_asid\":%" PRIu64 ",\"root_asid\":%" PRIu64
+                    ",\"attached_pid\":%" PRIu64 ",\"image_base\":%" PRIu64
+                    ",\"image_size\":%" PRIu64 ",\"kernel_base\":%" PRIu64 "}\n",
+                    ++sequence_number, context.source_pid, block->address, live,
+                    root_asid, context.attached_pid, root_image_base,
+                    root_image_size, kernel_base);
+        }
         if (!root_entry) {
             learn_root_entry(vcpu_index, block->address);
         }
@@ -2743,6 +2746,8 @@ static void plugin_exit(void *userdata)
                 ",\"descendant_enrolled\":%" PRIu64
                 ",\"unmonitored_block_rejects\":%" PRIu64
                 ",\"context_immutable_reuse\":%" PRIu64
+                ",\"eager_kernel_discovery_attempts\":%" PRIu64
+                ",\"kernel_base\":%" PRIu64
                 ",\"pending_exceptions\":%u"
                 ",\"ntdll_sha256\":\"%s\""
                 ",\"kernel_profile_guid_age\":\"%s\""
@@ -2779,6 +2784,8 @@ static void plugin_exit(void *userdata)
                 descendant_enrolled,
                 unmonitored_block_rejects,
                 context_immutable_reuse,
+                eager_kernel_discovery_attempts,
+                kernel_base,
                 g_hash_table_size(pending_exceptions), NTDLL_SHA256,
                 KERNEL_PROFILE_GUID_AGE,
                 saw_stop ? "true" : "false",
