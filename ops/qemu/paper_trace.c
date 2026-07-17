@@ -472,24 +472,14 @@ static bool current_ethread(unsigned int vcpu_index, uint64_t *ethread)
     return false;
 }
 
-static bool current_context(unsigned int vcpu_index, ThreadContext *context)
+/* Resolve the process a thread is currently ATTACHED to.  Unlike the thread's
+ * owning process, this changes at runtime via KeStackAttachProcess, so it must
+ * be re-read on every context resolution even when the thread is unchanged. */
+static bool resolve_attached_process(ThreadContext *context)
 {
-    uint64_t source_eprocess_pid;
-
-    if (!current_ethread(vcpu_index, &context->ethread) ||
-        !read_u64(context->ethread + ETHREAD_CID + CLIENT_ID_PID,
-                  &context->source_pid) ||
-        !read_u64(context->ethread + ETHREAD_CID + CLIENT_ID_TID,
-                  &context->tid) ||
-        !read_u64(context->ethread + KTHREAD_PROCESS,
-                  &context->source_eprocess) ||
-        !read_u64(context->ethread + KTHREAD_APC_STATE + KAPC_STATE_PROCESS,
+    if (!read_u64(context->ethread + KTHREAD_APC_STATE + KAPC_STATE_PROCESS,
                   &context->attached_eprocess) ||
-        !canonical_kernel_pointer(context->source_eprocess) ||
         !canonical_kernel_pointer(context->attached_eprocess) ||
-        !read_u64(context->source_eprocess + EPROCESS_PID,
-                  &source_eprocess_pid) ||
-        source_eprocess_pid != context->source_pid ||
         !read_u64(context->attached_eprocess + EPROCESS_PID,
                   &context->attached_pid)) {
         return false;
@@ -502,6 +492,81 @@ static bool current_context(unsigned int vcpu_index, ThreadContext *context)
         }
     }
     context->attached_asid &= ~UINT64_C(0xfff);
+    return true;
+}
+
+static bool current_context(unsigned int vcpu_index, ThreadContext *context)
+{
+    uint64_t source_eprocess_pid;
+
+    if (!current_ethread(vcpu_index, &context->ethread) ||
+        !read_u64(context->ethread + ETHREAD_CID + CLIENT_ID_PID,
+                  &context->source_pid) ||
+        !read_u64(context->ethread + ETHREAD_CID + CLIENT_ID_TID,
+                  &context->tid) ||
+        !read_u64(context->ethread + KTHREAD_PROCESS,
+                  &context->source_eprocess) ||
+        !canonical_kernel_pointer(context->source_eprocess) ||
+        !read_u64(context->source_eprocess + EPROCESS_PID,
+                  &source_eprocess_pid) ||
+        source_eprocess_pid != context->source_pid) {
+        return false;
+    }
+    return resolve_attached_process(context);
+}
+
+/* Per-vCPU cache of a thread's IMMUTABLE identity (owning process/PID/TID keyed
+ * by ETHREAD).  A refresh after a kernel block is usually the same thread
+ * (syscall/interrupt return), so this skips the owning-process reads and only
+ * re-reads the mutable attached process.  Re-verifying the PID guards against
+ * ETHREAD-object reuse: a stale entry whose PID no longer matches falls through
+ * to the full walk. */
+typedef struct {
+    uint64_t ethread;
+    uint64_t source_pid;
+    uint64_t tid;
+    uint64_t source_eprocess;
+    bool valid;
+} ThreadImmutable;
+static ThreadImmutable thread_immutable_by_vcpu[64];
+static uint64_t context_immutable_reuse;
+
+static bool cached_current_context(unsigned int vcpu_index,
+                                   ThreadContext *context)
+{
+    uint64_t ethread;
+    uint64_t verify_pid;
+
+    if (!current_ethread(vcpu_index, &ethread)) {
+        return false;
+    }
+    if (vcpu_index < G_N_ELEMENTS(thread_immutable_by_vcpu)) {
+        ThreadImmutable *imm = &thread_immutable_by_vcpu[vcpu_index];
+        if (imm->valid && imm->ethread == ethread &&
+            read_u64(ethread + ETHREAD_CID + CLIENT_ID_PID, &verify_pid) &&
+            verify_pid == imm->source_pid) {
+            context->ethread = ethread;
+            context->source_pid = imm->source_pid;
+            context->tid = imm->tid;
+            context->source_eprocess = imm->source_eprocess;
+            if (!resolve_attached_process(context)) {
+                return false;
+            }
+            context_immutable_reuse++;
+            return true;
+        }
+    }
+    if (!current_context(vcpu_index, context)) {
+        return false;
+    }
+    if (vcpu_index < G_N_ELEMENTS(thread_immutable_by_vcpu)) {
+        ThreadImmutable *imm = &thread_immutable_by_vcpu[vcpu_index];
+        imm->ethread = context->ethread;
+        imm->source_pid = context->source_pid;
+        imm->tid = context->tid;
+        imm->source_eprocess = context->source_eprocess;
+        imm->valid = true;
+    }
     return true;
 }
 
@@ -2235,7 +2300,7 @@ static void block_exec(unsigned int vcpu_index, void *userdata)
         block_context_cache_hits++;
         context_cache_hit = true;
     } else {
-        if (!current_context(vcpu_index, &context)) {
+        if (!cached_current_context(vcpu_index, &context)) {
             context_failures++;
             return;
         }
@@ -2628,6 +2693,7 @@ static void plugin_exit(void *userdata)
                 ",\"descendant_createtime_reject\":%" PRIu64
                 ",\"descendant_enrolled\":%" PRIu64
                 ",\"unmonitored_block_rejects\":%" PRIu64
+                ",\"context_immutable_reuse\":%" PRIu64
                 ",\"pending_exceptions\":%u"
                 ",\"ntdll_sha256\":\"%s\""
                 ",\"kernel_profile_guid_age\":\"%s\""
@@ -2663,6 +2729,7 @@ static void plugin_exit(void *userdata)
                 descendant_createtime_reject,
                 descendant_enrolled,
                 unmonitored_block_rejects,
+                context_immutable_reuse,
                 g_hash_table_size(pending_exceptions), NTDLL_SHA256,
                 KERNEL_PROFILE_GUID_AGE,
                 saw_stop ? "true" : "false",
