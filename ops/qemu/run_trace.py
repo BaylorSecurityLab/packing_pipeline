@@ -45,9 +45,10 @@ def main() -> int:
     parser.add_argument("--host-timeout", type=int, default=3600)
     parser.add_argument(
         "--guest-memory",
-        choices=("2G", "3G", "4G"),
         default="3G",
-        help="fixed guest RAM allocation (default: 3G for this 3.8 GiB host)",
+        help="fixed guest RAM allocation, e.g. 2G/2560M/3G (default 3G). On this "
+        "3.8 GiB host, 3G risks boot-time swap thrash and 2G has shown a "
+        "kernel-discovery boot quirk; 2560M is the reliable middle ground.",
     )
     parser.add_argument("--qemu", type=Path)
     parser.add_argument("--plugin", type=Path)
