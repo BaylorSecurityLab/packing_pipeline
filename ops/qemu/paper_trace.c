@@ -2273,6 +2273,22 @@ static void block_exec(unsigned int vcpu_index, void *userdata)
     if (!armed) {
         return;
     }
+    /* Discover the kernel base eagerly from the moment the plugin is active, on
+     * ANY kernel block — not only after root_asid is learned.  The old
+     * placement gave discovery a window only between root_asid learning and
+     * sample_start; on a fast guest (e.g. a 2 GiB VM that boots without swap
+     * thrash) the fixture can run and exit inside that window before a kernel PC
+     * near ntoskrnl happens to appear, so kernel_base stayed 0, snapshot/
+     * sample_start never fired, and no trace was recorded.  Running it here
+     * gives discovery the entire active period.  It self-limits: the guard stops
+     * calling it once kernel_base is found. */
+    if (active && !kernel_base && !user_address(block->address)) {
+        g_mutex_lock(&trace_lock);
+        if (!kernel_base) {
+            discover_kernel_base(block->address);
+        }
+        g_mutex_unlock(&trace_lock);
+    }
     if (active && !sample_started && root_asid) {
         if (!user_address(block->address)) {
             g_mutex_lock(&trace_lock);
