@@ -2272,6 +2272,8 @@ static void block_exec(unsigned int vcpu_index, void *userdata)
     if (!user_address(block->address) &&
         vcpu_index < G_N_ELEMENTS(block_context_valid_by_vcpu)) {
         block_context_valid_by_vcpu[vcpu_index] = false;
+        block_source_is_root_by_vcpu[vcpu_index] = false;
+        block_source_monitored_by_vcpu[vcpu_index] = false;
     }
     if (!armed) {
         return;
@@ -2314,9 +2316,17 @@ static void block_exec(unsigned int vcpu_index, void *userdata)
         return;
     }
     bool context_cache_hit = false;
+    uint64_t current_thread = 0;
+    bool have_current_thread = current_ethread(vcpu_index, &current_thread);
+    /* A cache hit is trusted ONLY when the vCPU's current ETHREAD still equals
+     * the cached thread.  Without this re-check a stale cached context/verdict
+     * from a different thread could be reused (and, via the fast path below,
+     * suppress the root's own first blocks).  This mirrors the ETHREAD/PID
+     * re-verification cached_current_context already does. */
     if (user_address(block->address) &&
         vcpu_index < G_N_ELEMENTS(block_context_valid_by_vcpu) &&
-        block_context_valid_by_vcpu[vcpu_index]) {
+        block_context_valid_by_vcpu[vcpu_index] && have_current_thread &&
+        block_context_by_vcpu[vcpu_index].ethread == current_thread) {
         context = block_context_by_vcpu[vcpu_index];
         block_context_cache_hits++;
         context_cache_hit = true;
@@ -2326,7 +2336,11 @@ static void block_exec(unsigned int vcpu_index, void *userdata)
             return;
         }
         block_context_refreshes++;
-        if (vcpu_index < G_N_ELEMENTS(block_context_by_vcpu)) {
+        /* Only USER blocks may (re)validate the per-vCPU user-thread cache; a
+         * kernel block must never, or it would undo the kernel-block
+         * invalidation above and let a stale non-root verdict persist. */
+        if (user_address(block->address) &&
+            vcpu_index < G_N_ELEMENTS(block_context_by_vcpu)) {
             block_context_by_vcpu[vcpu_index] = context;
             block_context_valid_by_vcpu[vcpu_index] = true;
         }
@@ -2370,27 +2384,25 @@ static void block_exec(unsigned int vcpu_index, void *userdata)
     }
     if (context.source_pid == root_pid) {
         if (!root_entry) {
-            if (learn_root_entry(vcpu_index, block->address)) {
-                /* Derive root_asid from the root PROCESS's OWN directory table,
-                 * not the transient attached_asid.  If this block is learned
-                 * while the root thread is momentarily attached to another
-                 * process (an early-init KeStackAttach, common on a fast guest),
-                 * attached_asid is that other process's CR3, so every later root
-                 * block fails the asid gate and sample_start never fires.  The
-                 * source process's own directory table is invariant and matches
-                 * current_asid whenever the root runs its own user code. */
-                uint64_t own = 0;
-                if ((read_u64(context.source_eprocess +
-                              KPROCESS_USER_DIRECTORY_TABLE, &own) && own) ||
-                    read_u64(context.source_eprocess +
-                             KPROCESS_DIRECTORY_TABLE, &own)) {
-                    root_asid = own & ~UINT64_C(0xfff);
-                } else {
-                    root_asid = context.attached_asid;
-                }
+            learn_root_entry(vcpu_index, block->address);
+        }
+        /* Learn root_asid from the LIVE CR3 while the root runs its OWN user
+         * code (source == attached, so CR3 is the root's own user directory
+         * table).  current_asid returns exactly the value the pre-sample asid
+         * gate compares against, so this can never latch onto the wrong table:
+         * deriving it from EPROCESS.DirectoryTable could pick the kernel table
+         * on a KPTI guest and reject every image block forever, and deriving it
+         * from a transient attached_asid picks another process's CR3.  Guarded
+         * by !root_asid, but only set from an own-process user block, so it is
+         * effectively re-derived until a correct value appears. */
+        if (!root_asid && user_address(block->address) &&
+            context.source_pid == context.attached_pid) {
+            uint64_t live;
+            if (current_asid(vcpu_index, &live)) {
+                root_asid = live;
             }
         }
-        if (!sample_started && root_image_base &&
+        if (!sample_started && root_asid && root_image_base &&
             block->address >= root_image_base &&
             block->address - root_image_base < root_image_size) {
             if (!snapshot_latest_process_create_time(
