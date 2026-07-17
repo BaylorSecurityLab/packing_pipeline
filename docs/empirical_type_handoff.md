@@ -24,6 +24,37 @@ YAML condition using:
 Do not accept DRAKVUF-only or qualitative/YAML-hypothesis labels as empirical
 types. DRAKVUF may remain a diagnostic/orchestration source only.
 
+## RESUME AFTER RAM INCREASE (2026-07-17)
+
+The VM is being resized from 3.8 GiB/2 vCPU to more RAM (target >= 8 GiB, ideally
+12-16) so the 3-4 GiB Windows guest runs without swap thrash — the wall that
+blocked certification. After reboot, resume here:
+
+1. `free -m` — confirm the OS now sees the new RAM (a reboot is needed; hotplug
+   to 16 GiB is unreliable). Also confirm `nproc`.
+2. Everything is committed on branch `feature/empirical-type-backend`. Build
+   artifacts are gitignored; rebuild if missing:
+   `ops/qemu/build_plugin.sh`, `ops/panda/build_guest_launcher.sh`,
+   `ops/qemu/build_validation_fixture.sh`.
+3. The fixture image copy `empirical_results/qemu_runtime/windows10-qemu-fixture.qcow2`
+   already has the single-process fixture (`2797e32e…`), the idle-override
+   launcher (`a5ff3b14…`), `idle_ms.txt=900000`, and `single_process.txt` staged.
+   Re-stage if needed: `sudo ops/qemu/stage_fixture_launcher.sh` (SINGLE_PROCESS=1).
+4. Run the single-process certification at 3G or 4G now that RAM allows it:
+   `run_trace.py … --guest-memory 4G --host-timeout 1200`, then
+   `validate_fixture_trace.py --single-process … <trace> ops/qemu/backend_validation.json`.
+   It was 2 unmap-events from passing; with a stable (non-thrash) guest speed the
+   detection races that plagued 2 GiB should not recur (029/031 reached
+   sample_start reliably at 3 GiB when it booted).
+5. On a clean stamp, run a real packed pilot (existing UPX sample) through
+   `classify-paper-trace` requiring `paper_label_eligible=true`, then scale via the
+   plan/collect/finalize pipeline. NAS creds are in the gitignored `.env`.
+
+NOTE: a fable code-review of the session's paper_trace.c changes (context-cache,
+fast-reject, root_asid, eager discovery) was in flight to check whether the 2 GiB
+nondeterminism is a plugin bug (which would persist at higher RAM) rather than
+pure timing; check its findings before the first post-resize run.
+
 ## Hard current checkpoint
 
 - Accepted paper-eligible labels: **0**.
