@@ -55,6 +55,29 @@ fast-reject, root_asid, eager discovery) was in flight to check whether the 2 Gi
 nondeterminism is a plugin bug (which would persist at higher RAM) rather than
 pure timing; check its findings before the first post-resize run.
 
+Reviewer (fable) fixes applied + residual race (runs 039-041). The fable review
+found two REAL defects (not mere timing), both fixed and committed: (1) stale
+per-vCPU context/verdict suppressing the root's own blocks — only user blocks now
+validate the context cache, cache hits re-verify the live ETHREAD, verdicts clear
+on invalidation; (2) `root_asid` latching the kernel directory table under KPTI —
+now learned from the live CR3 while the root runs its own user code. A third issue
+was MY eager-kernel-discovery change, which burned its 50k budget on boot PCs far
+from ntoskrnl and left kernel_base=0 (run 040) — reverted to the original
+placement that worked at 3 GiB. After all three: run 039 learned the root
+correctly (root_asid/image/entry set — proving the fixes work), but run 041 still
+hit the "root never learned" variant (root_asid=0, no root_debug). root_pid is
+confirmed correct (rbx = the fixture PID the launcher passes, not the launcher).
+So the residual is a context-resolution race: the plugin reads thread identity
+(gs_base->KPCR->ETHREAD) at arbitrary TB boundaries and, on the fast 2 GiB guest,
+intermittently samples during a transient SWAPGS/KPCR window and never attributes
+a block to the root PID. This is precisely the race the STABLE (slower,
+thrash-free) regime avoids, which is why 029/031 reached sample_start reliably at
+3 GiB. Conclusion: do NOT keep grinding 2 GiB; run at 4 GiB on the resized host.
+If the race ever recurs there, the fix is to validate the gs_base/KPCR read
+(e.g. confirm CR3==KPROCESS dir table, or read via a syscall-entry anchor) rather
+than trust an arbitrary-boundary register sample. Runs 039-041 diagnostics:
+root_debug event + kernel_base/eager_kernel_discovery_attempts summary fields.
+
 Supervisor (fable) guidance folded in:
 - DONE (host-independent): cross-process guardrail. The analyzer now positively
   detects a process-creation/injection attempt (enrolled descendant, post-cutoff
