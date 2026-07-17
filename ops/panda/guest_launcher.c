@@ -87,6 +87,27 @@ static void write_status(const char *path, const char *state, DWORD detail,
     fclose(handle);
 }
 
+/* The 2-minute idle boundary is the paper's rule for real packer samples, which
+ * run to a quiescent tail.  The cross-process VALIDATION FIXTURE instead spawns
+ * cooperating children and blocks in WaitForSingleObject, and under exact
+ * instrumentation a child's CreateProcess+bring-up can exceed 2 guest-minutes.
+ * Only the fixture setup provides C:\Panda\idle_ms.txt, so real-sample runs keep
+ * the 2-minute boundary while the fixture gets a longer, validation-only window.
+ * The value is clamped to [2 min, 30 min] and never exceeds the 30-minute max. */
+static uint64_t read_idle_milliseconds(void) {
+    uint64_t idle = PACKER_IDLE_MILLISECONDS;
+    FILE *override_file = fopen("C:\\Panda\\idle_ms.txt", "r");
+    if (override_file != NULL) {
+        unsigned long long value = 0;
+        if (fscanf(override_file, "%llu", &value) == 1 &&
+            value >= PACKER_IDLE_MILLISECONDS && value <= UINT64_C(1800000)) {
+            idle = (uint64_t)value;
+        }
+        fclose(override_file);
+    }
+    return idle;
+}
+
 static int run_sample(int argc, char **argv) {
     STARTUPINFOA startup;
     PROCESS_INFORMATION process;
@@ -94,6 +115,7 @@ static int run_sample(int argc, char **argv) {
     HANDLE job = NULL;
     char *command_line = NULL;
     DWORD timeout_seconds;
+    uint64_t idle_milliseconds;
     DWORD wait_result;
     DWORD child_exit_code = STILL_ACTIVE;
     DWORD stop_detail = 0;
@@ -115,6 +137,7 @@ static int run_sample(int argc, char **argv) {
         write_status(argv[4], "invalid_timeout", timeout_seconds, 0);
         return 2;
     }
+    idle_milliseconds = read_idle_milliseconds();
     write_status(argv[4], "starting", timeout_seconds, 0);
 
     ZeroMemory(&startup, sizeof(startup));
@@ -232,7 +255,7 @@ static int run_sample(int argc, char **argv) {
                 break;
             }
             if (sample_started &&
-                now - last_execution >= PACKER_IDLE_MILLISECONDS) {
+                now - last_execution >= idle_milliseconds) {
                 wait_result = WAIT_TIMEOUT;
                 stop_detail = PACKER_STOP_IDLE_FLAG | WAIT_TIMEOUT;
                 break;
