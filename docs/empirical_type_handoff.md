@@ -1012,6 +1012,39 @@ local_unmap plus 2 GiB is expected to close them. On a clean stamp, write
 `ops/qemu/backend_validation.json` (certification_mode=single_process); it gates
 exact labels for single-process packers (UPX + Type I-III majority) only.
 
+Runs 032-038: the host RAM ceiling is the hard wall (2026-07-17). Attempting to
+run the lightweight single-process fixture surfaced a hardware trap with no
+reliable operating point on this 3.8 GiB host:
+- 3 GiB: reaches sample_start when it boots (029/031), but boot now reliably
+  swap-thrashes to a freeze (032/033/038: trace frozen at 302 B, ~32 MiB free),
+  even after dropping caches. QEMU+plugin overhead + a 3 GiB guest + desktop
+  exceeds RAM at boot.
+- 2.5 GiB: also thrashes at boot.
+- 2 GiB: boots without thrash but the root/sample-start detection fails
+  NONDETERMINISTICALLY — run 036 learned the root yet sample_start never fired;
+  run 037 never learned the root at all (root_asid=0, root_image_base=0) despite
+  28.6M executed blocks. Same binary, different failures per boot: a
+  timing-fragile detection path the fast guest breaks in varying ways.
+So the single-process certification, which reached only 2 unmap-related errors at
+3 GiB (run 031), cannot be completed here because no memory size gives BOTH a
+non-thrashing boot AND reliable sample_start.
+
+Robustness fixes committed during this arc (correct regardless of host, and
+needed on a larger-RAM host too): eager kernel_base discovery from activation
+(bounded to 50k attempts); root_asid derived from the root process's own
+directory table instead of transient attached_asid. These did not overcome the
+nondeterminism on this box.
+
+Recommendation: run the backend on a host with >= 8 GiB RAM. There, a 3-4 GiB
+guest boots without thrash and runs at a stable speed, which is the regime where
+sample_start reliably fired (029/031) and where the lightweight single-process
+fixture should certify (it is 2 unmap-events away). Everything else — the
+paper-faithful classifier/byte-state machine, NAS staging (verified working),
+plan/audit/finalize/verify pipeline, single-process certification framework
+(fixture flag mode + `validate_fixture_trace.py --single-process`), and the
+image-staging tooling — is built, tested (66 green), and ready to run the moment
+the backend has adequate RAM.
+
 Strategic implication: the child-REQUIRING channels (shared-RAM alias,
 NtWriteVirtualMemory remote write, disk-drop file_write/read) are blocked, but
 the SINGLE-PROCESS channels all work cleanly and repeatedly (exec, write,
