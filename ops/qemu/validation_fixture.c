@@ -105,6 +105,34 @@ static int local_self_modify(void)
     return result;
 }
 
+/* Lightweight single-process unmap: an anonymous (pagefile-backed) executable
+ * section is mapped, written, executed, and unmapped, with no disk file and no
+ * child process.  This exercises the exact NtUnmapViewOfSection invalidation
+ * channel reliably and fast, so a slow/crawling run still captures it before any
+ * stall (the heavy file-backed mapped_file_execute often does not). */
+static int local_unmap(void)
+{
+    HANDLE mapping = CreateFileMappingA(INVALID_HANDLE_VALUE, NULL,
+                                        PAGE_EXECUTE_READWRITE, 0, 4096, NULL);
+    void *view;
+    int result;
+    if (!mapping) {
+        return 1;
+    }
+    view = MapViewOfFile(mapping, FILE_MAP_WRITE | FILE_MAP_EXECUTE, 0, 0, 4096);
+    if (!view) {
+        CloseHandle(mapping);
+        return 1;
+    }
+    memcpy(view, return_42, sizeof(return_42));
+    result = execute_code(view);
+    if (!UnmapViewOfFile(view)) {
+        result = 1;
+    }
+    CloseHandle(mapping);
+    return result;
+}
+
 static int shared_child(const char *name)
 {
     HANDLE mapping = OpenFileMappingA(FILE_MAP_READ | FILE_MAP_EXECUTE, FALSE,
@@ -343,9 +371,12 @@ int main(int argc, char **argv)
      * local W->X + free, the recovered exception, and the mapped-file
      * write/read/exec + unmap-with-RAM-identity chain all run first. The
      * three child-spawning cross-process channels follow. */
+    /* Lightweight single-process channels first (local W->X + free, anonymous
+     * section W->X + unmap, recovered exception) so a slow run still captures
+     * the complete single-process set before any stall. */
     failures += local_self_modify();
+    failures += local_unmap();
     failures += recovered_exception();
-    failures += mapped_file_execute();
     /* Single-process certification mode: when C:\Panda\single_process.txt is
      * present, exit cleanly after the single-process channels above so the run
      * reaches an all-processes-exited stop with a complete channel set, instead
@@ -357,6 +388,7 @@ int main(int argc, char **argv)
         printf("validation_failures=%d single_process=1\n", failures);
         return failures ? 1 : 0;
     }
+    failures += mapped_file_execute();
     failures += shared_parent(image);
     failures += remote_parent(image);
     failures += disk_drop(image);
