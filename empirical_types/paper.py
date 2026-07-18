@@ -374,15 +374,31 @@ def analyze_paper_jsonl(path: Path, sample_id: str) -> Evidence:
                             file_writer_layer[file_key],
                             source_keys,
                         )
+            # Ugarte et al. III-E define a byte's layer as the highest layer that
+            # modified THAT AREA OF MEMORY.  The virtual writer layer is that
+            # (same-process, memory-area-exact).  physical_writer_layer additionally
+            # captures CROSS-PROCESS shared-RAM injection (process A writes a
+            # physical page that process B executes at a different VA).  Apply the
+            # physical layer to a byte ONLY when a DIFFERENT process wrote that
+            # physical: a same-process physical alias / reused RAM offset
+            # (observed: an unpacker stub whose never-written code page shares a
+            # physical offset with its own write targets) is NOT an unpacking layer
+            # and must not falsely promote the stub -- doing so manufactured
+            # spurious layer transitions and broke the linear Type-I topology.
+            def _byte_layer(memory_key: tuple[int, int],
+                            physical_key: int | None) -> int:
+                virtual = writer_layer.get(memory_key, -1)
+                physical = -1
+                if physical_key is not None and any(
+                    source[0] != pid
+                    for source in physical_writers.get(physical_key, ())
+                ):
+                    physical = physical_writer_layer.get(physical_key, -1)
+                return max(virtual, physical) + 1
+
             layer = max(
                 (
-                    max(
-                        writer_layer.get(memory_key, -1),
-                        physical_writer_layer.get(physical_key, -1)
-                        if physical_key is not None
-                        else -1,
-                    )
-                    + 1
+                    _byte_layer(memory_key, physical_key)
                     for memory_key, physical_key in zip(
                         memory_keys, block_physical_keys, strict=True
                     )
