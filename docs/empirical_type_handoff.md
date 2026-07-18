@@ -75,6 +75,39 @@ timeout to push through the crawl on good boots (slow, may still truncate);
 Everything above is committed on feature/empirical-type-backend. Backend identity
 unchanged (plugin d694329d) so the single_process cert still holds.
 
+## ★ 2026-07-18 CENTRAL BLOCKER FIXED (fable panel + F1) ★
+
+Ran a fable panel per the user's direction (code-reviewer + web-search + supervisor,
+all model=fable). Diagnosis: the freeze on executing freshly-written code is (a) QEMU
+x86 precise-SMC forcing 1-insn-TB retranslation storms when code writes its own
+executing page, multiplied by (b) an UNCONDITIONAL per-block guest memory read
+`current_ethread` (KPCR->PRCB->CurrentThread) paid across the write->execute block
+storm. NOT a stale-verdict reject (caches are per-vCPU-by-thread, ruled out from
+source). Full evidence: empirical_results/qemu_runtime/certified/crawl_empirical_evidence.md.
+
+Implemented + committed (plugin d694329d -> **93ab58ef**):
+- F1: cache the ETHREAD read inside current_ethread, keyed on the live
+  (gs_base,k_gs_base) register pair (user pair (TEB,KPCR) vs kernel pair (KPCR,TEB)
+  are swapped, so the first user block after any kernel block -- hence any thread
+  switch -- misses and re-reads; consecutive same-thread user blocks hit).
+  Behavior-preserving; kernel-block invalidation kept as defense.
+- F5: non-behavioral summary counters monitored_user_pagefaults / _repeats to make
+  the otherwise-invisible OEP #PF loop diagnosable.
+- Deferred (validated but not yet applied): F2 intern+repopulate BlockInfo/
+  InstructionInfo to kill the translate_block retranslation LEAK (needed for long
+  matrix runs, OOM risk); F3 O(1) kernel filter; F4 rejected (breaks ordered stream).
+
+RESULT (pilot3, real UPX 3.95 sample, plugin 93ab58ef): the unpacked code at
+0x401000 NOW EXECUTES (W->X captured; was never before). F5: 17 page faults, 0
+repeats => NOT a fault loop, the freeze was pure throughput. Classifier: layers=2
+(was 1), forward_transitions=5 (was 0). Only UNRESOLVED because trace_complete=False
+(plugin SHA changed, cert stale).
+
+NEXT: re-certify plugin 93ab58ef (cert_retry_loop.sh, running) -> re-run UPX pilot
+-> first real Type label. Then apply F2 (leak) before scaling the matrix, and pick
+better pilot samples (ansi2knr is a tiny stdin filter; a self-running payload gives
+a cleaner application layer).
+
 ## Final objective
 
 Produce paper-faithful empirical Deep Packer Inspection labels for every usable
