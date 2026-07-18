@@ -636,6 +636,21 @@ def pack_single_file(args):
     command_list = []
     is_wsl_command = raw_parts[0].lower() == "wsl" if raw_parts else False
 
+    # Shell scripts invoked by WSL (e.g. PEzor's pezor_wrap.sh) can't tolerate
+    # Windows-style CRLF line endings -- bash on Linux reads the \r as part of
+    # the token, silently corrupting keywords like `if`/`fi`/`then` and failing
+    # with "unexpected end of file from 'if' command". Strip CRs at the source
+    # path before WSL sees the file. No-op for non-shell-script packers.
+    if is_wsl_command and packer_bin.lower().endswith((".sh", ".bash")):
+        try:
+            with open(packer_bin, "rb") as f:
+                content = f.read()
+            if b"\r\n" in content:
+                with open(packer_bin, "wb") as f:
+                    f.write(content.replace(b"\r\n", b"\n"))
+        except OSError as e:
+            return False, f"Failed to normalize shell script line endings: {e}"
+
     # Prepare values for substitution
     # Use short paths for Windows binaries to avoid space issues
     val_bin = packer_bin
