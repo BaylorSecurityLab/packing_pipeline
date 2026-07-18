@@ -149,6 +149,31 @@ If you need to update the tools or inputs, go into their respective folders (`pa
 
 ---
 
+# 🏷️ Automatic Empirical Type Labeling (Deep Packer Inspection)
+
+Beyond *generating* the packed corpus, this repository now includes a subsystem
+that assigns each packed sample its exact **Ugarte et al. Type I–VI** label
+("SoK: Deep Packer Inspection") **empirically, from a real dynamic trace** — not
+from static heuristics. A packed sample is executed inside an instrumented
+Windows 10 guest under an upstream **QEMU 11 TCG plugin** that records every
+executed basic block and memory store; the write→execute **layer-production
+topology** is reconstructed and the Type is read off it. A label is emitted only
+when a purpose-built certification fixture passes and, per condition, only on
+**exact consensus** across `n = 3 executions × ≥2 distinct payloads`.
+
+- **How to install & run it (all prerequisites, step by step):**
+  [`docs/AUTOMATIC_LABELING.md`](docs/AUTOMATIC_LABELING.md)
+- **The final packer → empirical Type document (generated):**
+  [`docs/EMPIRICAL_TYPE_LABELS.md`](docs/EMPIRICAL_TYPE_LABELS.md)
+
+Key components: `ops/qemu/` (QEMU build, `paper_trace.c` plugin, staging,
+`run_trace.py`, `run_condition_matrix.py`, `cert_retry_loop.sh`),
+`empirical_types/` (the paper's Section III-E classifier + `finalize`), and
+`ops/qemu/backend_validation.json` (the certification stamp). Regenerate the
+label document with `python3 ops/qemu/build_label_document.py`.
+
+---
+
 # 👥 Maintainers
 
 **Leal Security Lab** (Baylor University)
