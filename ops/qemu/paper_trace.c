@@ -188,6 +188,18 @@ static bool block_context_valid_by_vcpu[64];
 static bool block_source_monitored_by_vcpu[64];
 static bool block_source_is_root_by_vcpu[64];
 static bool block_write_eligible_by_vcpu[64];
+/* F1 throughput: cache the KPCR->CurrentThread guest read inside current_ethread,
+ * keyed on the live (gs_base, k_gs_base) register pair.  The user-mode pair is
+ * (TEB, KPCR) and the kernel-mode pair is (KPCR, TEB) -- swapped -- so the first
+ * user block after ANY kernel block (hence after any thread switch, which must
+ * run kernel code) always misses and re-reads the live ETHREAD; consecutive
+ * user blocks of the same thread hit.  This removes the dominant per-block guest
+ * memory read paid across the write->execute block-entry storm without changing
+ * which ETHREAD is resolved.  Kernel-block invalidation is kept as defense. */
+static uint64_t ethread_cache_gs_by_vcpu[64];
+static uint64_t ethread_cache_kgs_by_vcpu[64];
+static uint64_t ethread_cache_value_by_vcpu[64];
+static bool ethread_cache_valid_by_vcpu[64];
 static struct qemu_plugin_scoreboard *memory_trace_scoreboard;
 static qemu_plugin_u64 memory_trace_enabled;
 static struct qemu_plugin_mem_buffer *memory_event_buffer;
@@ -261,6 +273,14 @@ static uint64_t descendant_job_mismatch;
 static uint64_t descendant_createtime_reject;
 static uint64_t descendant_enrolled;
 static uint64_t unmonitored_block_rejects;
+/* F5 diagnostic-only (no behavior effect): count user-mode #PF (14) and #NM (7)
+ * discontinuities that occur while a monitored thread is current, and how many
+ * are repeat faults at the same from_pc with no intervening progress -- the
+ * signature of a fault-on-entry loop at a just-written (OEP) page, which is
+ * otherwise invisible because those vectors are excluded from exception tracing. */
+static uint64_t monitored_user_pagefaults;
+static uint64_t monitored_user_pagefault_repeats;
+static uint64_t monitored_user_pagefault_last_pc_by_vcpu[64];
 
 static bool process_monitored(uint64_t pid, uint64_t eprocess);
 static bool user_address(uint64_t address);
@@ -458,6 +478,18 @@ static bool current_ethread(unsigned int vcpu_index, uint64_t *ethread)
         candidates[1] = 0;
     }
 
+    /* F1: reuse the last resolved ETHREAD when the (gs_base, k_gs_base) pair is
+     * unchanged on this vCPU (same thread on the same CPU => same ETHREAD),
+     * skipping the KPCR->CurrentThread guest read.  Populated only on a
+     * successful resolution below, so a bogus (0,0) pair never matches. */
+    if (vcpu_index < G_N_ELEMENTS(ethread_cache_valid_by_vcpu) &&
+        ethread_cache_valid_by_vcpu[vcpu_index] &&
+        ethread_cache_gs_by_vcpu[vcpu_index] == candidates[0] &&
+        ethread_cache_kgs_by_vcpu[vcpu_index] == candidates[1]) {
+        *ethread = ethread_cache_value_by_vcpu[vcpu_index];
+        return true;
+    }
+
     for (size_t index = 0; index < G_N_ELEMENTS(candidates); index++) {
         kpcr = candidates[index];
         if (!canonical_kernel_pointer(kpcr) ||
@@ -465,6 +497,12 @@ static bool current_ethread(unsigned int vcpu_index, uint64_t *ethread)
             continue;
         }
         if (canonical_kernel_pointer(*ethread)) {
+            if (vcpu_index < G_N_ELEMENTS(ethread_cache_valid_by_vcpu)) {
+                ethread_cache_gs_by_vcpu[vcpu_index] = candidates[0];
+                ethread_cache_kgs_by_vcpu[vcpu_index] = candidates[1];
+                ethread_cache_value_by_vcpu[vcpu_index] = *ethread;
+                ethread_cache_valid_by_vcpu[vcpu_index] = true;
+            }
             return true;
         }
         *ethread = 0;
@@ -2142,6 +2180,22 @@ static void vcpu_discontinuity(unsigned int vcpu_index,
         return;
     }
     exception_index = qemu_plugin_vcpu_exception_index();
+    /* F5 diagnostic (counts only, emits nothing): a monitored thread taking
+     * #PF/#NM here, and especially repeat faults at the same from_pc, is the
+     * fault-on-entry-loop signature at a just-written page.  This must run
+     * before the switch below, which drops those vectors. */
+    if ((exception_index == 14 || exception_index == 7) &&
+        vcpu_index < G_N_ELEMENTS(block_source_monitored_by_vcpu) &&
+        (block_source_is_root_by_vcpu[vcpu_index] ||
+         block_source_monitored_by_vcpu[vcpu_index])) {
+        monitored_user_pagefaults++;
+        if (vcpu_index < G_N_ELEMENTS(monitored_user_pagefault_last_pc_by_vcpu)) {
+            if (monitored_user_pagefault_last_pc_by_vcpu[vcpu_index] == from_pc) {
+                monitored_user_pagefault_repeats++;
+            }
+            monitored_user_pagefault_last_pc_by_vcpu[vcpu_index] = from_pc;
+        }
+    }
     /* x86 user-visible faults that represent application exceptions.  In
      * particular, exclude #PF (14) and #NM (7): Windows uses them routinely
      * for demand paging and lazy architectural state, and neither means that
@@ -2338,6 +2392,8 @@ static void block_exec(unsigned int vcpu_index, void *userdata)
         block_context_valid_by_vcpu[vcpu_index] = false;
         block_source_is_root_by_vcpu[vcpu_index] = false;
         block_source_monitored_by_vcpu[vcpu_index] = false;
+        /* F1 defense: drop the cached ETHREAD read on kernel blocks too. */
+        ethread_cache_valid_by_vcpu[vcpu_index] = false;
     }
     if (!armed) {
         return;
@@ -2839,6 +2895,8 @@ static void plugin_exit(void *userdata)
                 ",\"descendant_enrolled\":%" PRIu64
                 ",\"unmonitored_block_rejects\":%" PRIu64
                 ",\"context_immutable_reuse\":%" PRIu64
+                ",\"monitored_user_pagefaults\":%" PRIu64
+                ",\"monitored_user_pagefault_repeats\":%" PRIu64
                 ",\"eager_kernel_discovery_attempts\":%" PRIu64
                 ",\"kernel_base\":%" PRIu64
                 ",\"discover_calls\":%" PRIu64
@@ -2879,6 +2937,8 @@ static void plugin_exit(void *userdata)
                 descendant_enrolled,
                 unmonitored_block_rejects,
                 context_immutable_reuse,
+                monitored_user_pagefaults,
+                monitored_user_pagefault_repeats,
                 eager_kernel_discovery_attempts,
                 kernel_base,
                 discover_calls,
