@@ -14,24 +14,33 @@ from pathlib import Path
 REPO = Path(__file__).resolve().parents[2]
 QEMU = REPO / "empirical_results/qemu_runtime/qemu-build/qemu-system-x86_64"
 PLUGIN = REPO / "ops/qemu/paper_trace.so"
-RUNS = REPO / "empirical_results/qemu_runtime/matrix_runs"
 
-# The UPX 3.95 DEFAULT condition (from manifest/empirical_types.yaml).
-CONDITION = {
-    "packer_family": "UPX",
-    "packer_version": "3.95",
-    "test_case_id": "UPX_V395_001_DEFAULT",
-    "configuration_id": "upx_v395_001_default-348ddc970297",
-    "type_hypothesis": None,
+# Default: UPX 3.95 DEFAULT.  Override via a --config JSON with keys
+# {condition:{...}, payloads:[[image, packed_sha256, name], ...], reps, runs_dir}.
+_DEFAULT = {
+    "condition": {
+        "packer_family": "UPX", "packer_version": "3.95",
+        "test_case_id": "UPX_V395_001_DEFAULT",
+        "configuration_id": "upx_v395_001_default-348ddc970297",
+        "type_hypothesis": None,
+    },
+    "payloads": [
+        ["empirical_results/qemu_runtime/windows10-qemu-upxpilot.qcow2",
+         "3b26652eb16587e35e7fe8670a9df1b2bc1cf4f7075c48baf9a445f65986d47f", "ansi2knr"],
+        ["empirical_results/qemu_runtime/windows10-qemu-upxpilot2.qcow2",
+         "b2070461ca787fe43c346f530d0387bbfc446cf5fb266ab38a2594c2a5af0542", "cksum"],
+    ],
+    "reps": 3,
+    "runs_dir": "empirical_results/qemu_runtime/matrix_runs",
 }
-# (image, packed_sha256, short-name) -- two DISTINCT packed payloads.
-PAYLOADS = [
-    (REPO / "empirical_results/qemu_runtime/windows10-qemu-upxpilot.qcow2",
-     "3b26652eb16587e35e7fe8670a9df1b2bc1cf4f7075c48baf9a445f65986d47f", "ansi2knr"),
-    (REPO / "empirical_results/qemu_runtime/windows10-qemu-upxpilot2.qcow2",
-     "b2070461ca787fe43c346f530d0387bbfc446cf5fb266ab38a2594c2a5af0542", "cksum"),
-]
-REPS = 3
+
+_cfg = _DEFAULT
+if len(sys.argv) > 1:
+    _cfg = json.loads(Path(sys.argv[1]).read_text())
+CONDITION = _cfg["condition"]
+PAYLOADS = [(REPO / p[0], p[1], p[2]) for p in _cfg["payloads"]]
+REPS = int(_cfg.get("reps", 3))
+RUNS = REPO / _cfg.get("runs_dir", "empirical_results/qemu_runtime/matrix_runs")
 
 
 def run_one(image: Path, sha: str, name: str, rep: int) -> str:
