@@ -1,10 +1,14 @@
 #!/bin/sh
-# Retry the single-process certification.  Good boots (see runs 046/048/049/
-# 052/054) complete every channel in a few minutes; bad boots start and then
-# crawl mid-run (the guest freezes inside local_self_modify, adding ~1 root
-# block per minute while system code idle-spins).  This loop fast-fails a boot
-# that stops advancing its root-block count and lets a good boot run to
-# completion + validate.  Stops on the first VALIDATED: true.
+# Retry the single-process certification.  Good boots (runs 046/048/049/052/054)
+# complete every channel in a few minutes; bad boots either never reach
+# sample_start or start then crawl mid-run (guest freezes inside
+# local_self_modify, ~1 root block/min while system code idle-spins).
+#
+# CRITICAL: each attempt runs in its OWN process group (setsid) so a fast-fail
+# kills run_trace.py AND its qemu child.  Leaking qemus piles up host load and
+# starves later boots into a death spiral (observed: 2 orphans -> load 9 -> all
+# subsequent boots miss sample_start).  kill_group + a hard qemu sweep between
+# attempts guarantee a clean slate.  Stops on the first VALIDATED: true.
 set -u
 repo=$(CDPATH= cd -- "$(dirname -- "$0")/../.." && pwd)
 cd "$repo"
@@ -14,36 +18,41 @@ PLUGIN=ops/qemu/paper_trace.so
 
 execs() { grep -c '"event":"exec"' "$1" 2>/dev/null | head -1; }
 has()   { grep -q "\"event\":\"$2\"" "$1" 2>/dev/null; }
+kill_group() {  # kill the runner's whole process group (runner + qemu child)
+  kill -TERM "-$1" 2>/dev/null; sleep 4; kill -KILL "-$1" 2>/dev/null; sleep 1
+}
+sweep() {  # belt-and-suspenders: no qemu/runner may survive between attempts
+  ps ax -o pid,command | grep -E 'qemu-system-x86_64 -name paper|run_trace\.py' \
+    | grep -v grep | awk '{print $1}' | xargs -r kill -KILL 2>/dev/null
+  sleep 2
+}
 
-for attempt in 1 2 3 4 5 6 7 8 9 10 11 12; do
+for attempt in 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15; do
+  sweep
   D=empirical_results/qemu_runtime/cert_attempt_$attempt
   rm -rf "$D"; mkdir -p "$D"
-  echo "=== attempt $attempt: launching ==="
-  uv run python ops/qemu/run_trace.py "$FB" "$D/work.qcow2" "$D/trace.jsonl" \
+  echo "=== attempt $attempt: launching (load $(cut -d' ' -f1 /proc/loadavg)) ==="
+  setsid uv run python ops/qemu/run_trace.py "$FB" "$D/work.qcow2" "$D/trace.jsonl" \
     --meta "$D/meta.json" --log "$D/qemu.log" --monitor "$D/monitor.sock" \
     --host-timeout 1200 --guest-memory 4G --qemu "$QEMU" --plugin "$PLUGIN" \
     > "$D/runner.out" 2>&1 &
   RP=$!
 
-  # wait for sample_start (max ~9 min of boot)
   started=0
-  for i in $(seq 1 18); do
+  for i in $(seq 1 20); do
     sleep 30
     kill -0 $RP 2>/dev/null || break
     if has "$D/trace.jsonl" sample_start; then started=1; break; fi
   done
   if [ "$started" != 1 ]; then
-    echo "attempt $attempt: no sample_start, killing"
-    kill -TERM $RP 2>/dev/null; sleep 5; continue
+    echo "attempt $attempt: no sample_start, killing group"
+    kill_group $RP; continue
   fi
 
-  # progress watchdog: sample root-block count every 45s.  A good boot keeps
-  # advancing and produces free+unmap+exception within ~8 min; a crawler adds
-  # <40 root blocks per interval.  Two stalled intervals -> kill and retry.
   prev=$(execs "$D/trace.jsonl"); stalls=0; done_ok=0
   for i in $(seq 1 16); do
     sleep 45
-    if ! kill -0 $RP 2>/dev/null; then done_ok=1; break; fi   # run ended
+    if ! kill -0 $RP 2>/dev/null; then done_ok=1; break; fi
     if has "$D/trace.jsonl" free && has "$D/trace.jsonl" unmap \
        && has "$D/trace.jsonl" exception_dispatch; then
       echo "attempt $attempt: all channels present, waiting for exit"
@@ -52,11 +61,10 @@ for attempt in 1 2 3 4 5 6 7 8 9 10 11 12; do
     cur=$(execs "$D/trace.jsonl"); grow=$((cur - prev)); prev=$cur
     if [ "$grow" -lt 40 ]; then
       stalls=$((stalls + 1))
-      echo "attempt $attempt: stall $stalls (grow=$grow, exec=$cur)"
-      [ "$stalls" -ge 2 ] && { echo "attempt $attempt: CRAWLER, killing"; kill -TERM $RP 2>/dev/null; sleep 5; break; }
+      echo "attempt $attempt: stall $stalls (grow=$grow exec=$cur)"
+      [ "$stalls" -ge 2 ] && { echo "attempt $attempt: CRAWLER, killing group"; kill_group $RP; break; }
     else
-      stalls=0
-      echo "attempt $attempt: advancing (grow=$grow, exec=$cur)"
+      stalls=0; echo "attempt $attempt: advancing (grow=$grow exec=$cur)"
     fi
   done
   [ "$done_ok" = 1 ] || continue
@@ -73,10 +81,11 @@ for attempt in 1 2 3 4 5 6 7 8 9 10 11 12; do
     --profile-header ops/qemu/win10_profile.h 2>&1)
   if echo "$out" | grep -q '"validated": true'; then
     echo "===== CERTIFIED on attempt $attempt (dir $D) ====="
-    exit 0
+    sweep; exit 0
   fi
   echo "attempt $attempt: completed but NOT validated:"
   echo "$out" | python3 -c "import sys,json; d=json.load(sys.stdin); [print('  ERR:',e) for e in d.get('errors',[])]" 2>/dev/null | head
 done
+sweep
 echo "===== all attempts exhausted without certification ====="
 exit 1
