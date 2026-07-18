@@ -432,6 +432,7 @@ def pack_single_file(args):
         dependencies,
         config,
         project_file,
+        packer_name,
     ) = args
 
     filename = os.path.basename(src_path)
@@ -599,6 +600,25 @@ def pack_single_file(args):
     pack_env = os.environ.copy()
     pack_env["TEMP"] = os.path.abspath(local_temp)
     pack_env["TMP"] = os.path.abspath(local_temp)
+
+    # amber v2.0 shells out to `go build` to compile a runtime stub. The prebuilt
+    # amber.exe is from the GOPATH era (no go.mod); Go 1.21+ defaults to module
+    # mode outside GOPATH and refuses the build. GO111MODULE=off restores the
+    # legacy behavior so v2.0's stub compiles. The Go toolchain must also be on
+    # PATH -- prefer Scoop's shim, then fall back to other common installs.
+    if packer_name.lower() == "amber_v2.0":
+        pack_env["GO111MODULE"] = "off"
+        go_path_candidates = [
+            r"C:\Users\Towshi\scoop\shims",
+            r"C:\Program Files\Go\bin",
+            r"C:\Go\bin",
+        ]
+        existing = pack_env.get("PATH", "")
+        prepend = []
+        for p in go_path_candidates:
+            if os.path.isdir(p) and any(f.lower() == "go.exe" for f in os.listdir(p)):
+                prepend.append(p)
+        pack_env["PATH"] = ";".join(prepend + [existing]) if prepend else existing
 
     # In-place packers modify a single file (named via {in} or {out}). Stage that
     # file inside local_temp so dst_path stays untouched until success.
@@ -913,6 +933,7 @@ def run_packing(packer_name_input, max_size_kb=0, config=None, workers=1):
                         dependencies,
                         config,
                         project_file_path,
+                        packer_name_input,
                     )
                 )
 
