@@ -171,8 +171,11 @@ PACKER_SETTINGS = {
         # WSL VM and crash it (host-level Wsl/Service/E_UNEXPECTED). Gate jobs by
         # estimated RAM instead. Budget stays under the VM's ~9.3 GB usable so the
         # VM never OOMs. max_workers is just an upper ceiling on wsl.exe launches;
-        # the memory gate is the real throttle.
+        # the memory gate is the real throttle. wsl_workers is the default
+        # concurrent wsl.exe count; --workers on the CLI overrides it (capped at
+        # max_workers) and the runner logs the effective value at start-up.
         "max_workers": 8,
+        "wsl_workers": 4,
         "mem_budget_mb": 7500,
         "mem_floor_mb": 250,
         "mem_per_input_mb": 60,
@@ -686,6 +689,11 @@ def pack_single_file(args):
         gate_held = gate.acquire(est_mb)
 
     try:
+        # cwd = packer binary's directory. Hyperion (v1.2 and v2.3.1) shells out
+        # to Fasm\FASM.EXE with relative paths under Src\FasmContainer32\, so it
+        # MUST run from its own dir or it fails with "Could not open output file
+        # Src\FasmContainer32\infile.asm". Don't change this without re-testing
+        # hyperion on at least one small sample.
         cwd = os.path.dirname(packer_bin)
 
         # DEBUG: Uncomment the next line to see exactly what runs
@@ -759,7 +767,7 @@ def pack_single_file(args):
             _silent_remove(leftover)
 
 
-def run_packing(packer_name_input, max_size_kb=0, config=None, workers=1):
+def run_packing(packer_name_input, max_size_kb=0, config=None, workers=1, wsl_workers=None):
     _cancel_event.clear()
     if config is None:
         config = load_yaml(YAML_CONFIG_FILE)
@@ -778,9 +786,26 @@ def run_packing(packer_name_input, max_size_kb=0, config=None, workers=1):
         print(f"[!] Packer definition not found for: {packer_name_input}")
         return []
 
+    pk_settings = get_packer_settings(packer_name_input)
+
     # Some packers (e.g. PEzor) can't tolerate the global worker count because
     # each job spawns a heavy WSL/compile subprocess. Honor a per-packer cap.
-    pk_settings = get_packer_settings(packer_name_input)
+    # wsl_workers_override (None unless the user passed --wsl-workers) takes
+    # precedence over the packer's wsl_workers default; falls back to that
+    # default if neither the override nor --workers exceeds the floor.
+    wsl_workers_default = pk_settings.get("wsl_workers")
+    if wsl_workers is not None:
+        workers = wsl_workers
+        print(
+            f"[*] {packer_name_input} wsl_workers override: {workers} "
+            f"(packer cap={pk_settings.get('max_workers')})"
+        )
+    elif wsl_workers_default is not None and workers < wsl_workers_default:
+        print(
+            f"[*] {packer_name_input} defaulting to wsl_workers={wsl_workers_default} "
+            f"(use --wsl-workers N to override; cap={pk_settings.get('max_workers')})"
+        )
+        workers = wsl_workers_default
     max_workers_cap = pk_settings.get("max_workers")
     if max_workers_cap and workers > max_workers_cap:
         print(
@@ -1117,6 +1142,14 @@ if __name__ == "__main__":
         help=f"Number of parallel threads (default: {default_workers})",
     )
     parser.add_argument(
+        "--wsl-workers",
+        type=int,
+        default=None,
+        help="Override the per-packer WSL worker count (e.g. PEzor; default 4). "
+        "Caps at the per-packer max_workers ceiling. Has no effect on packers "
+        "that don't define a wsl_workers setting.",
+    )
+    parser.add_argument(
         "--verify",
         action="store_true",
         help="Run pack verification after packing to delete unverified samples.",
@@ -1177,7 +1210,13 @@ if __name__ == "__main__":
     all_results = []
     for p in packer_bar:
         packer_bar.set_postfix_str(p)
-        rows = run_packing(p, args.max_size_kb, main_config, args.workers)
+        rows = run_packing(
+            p,
+            args.max_size_kb,
+            main_config,
+            args.workers,
+            wsl_workers=args.wsl_workers,
+        )
         all_results.extend(rows or [])
         tqdm.write("=" * 40)
     packer_bar.close()

@@ -14,7 +14,6 @@ packer-corpus/
 │   └── manifest/         # JSON tracking files (processed_ids.json, x64.json)
 ├── packers/              # [Submodule] Packer binaries (Linked to 'tools' repo)
 │   └── exe32pack/
-├── packed_sources/       # [Submodule] Output artifacts (Linked to 'outputs' repo)
 ├── manifest/             # Configuration
 │   └── packer_corpus.yaml # Main definition file for packers and test cases
 ├── utils/                # Python Automation Scripts
@@ -24,6 +23,8 @@ packer-corpus/
 ├── pyproject.toml        # Dependency definitions
 └── uv.lock               # Lockfile for reproducible builds
 ```
+
+Note: `packed_sources/` (the generated output artifacts) is **not committed to this repo** — it's produced by GitHub Actions runs and published to a separate `outputs` repo.
 
 # 🚀 Prerequisites & Installation
 
@@ -56,8 +57,8 @@ The runner also sets `GO111MODULE=off` automatically for `amber_v2.0`, so you do
 
 Because this repo uses submodules, you must use the `--recurse-submodules` flag to pull the linked projects immediately.
 ```powershell
-git clone --recurse-submodules git@gitlab.ecs.baylor.edu:leal-security-lab/automated-packing/corpus.git
-cd corpus
+git clone --recurse-submodules https://github.com/BaylorSecurityLab/packing_pipeline.git
+cd packing_pipeline
 ```
 
 **Already cloned without submodules?** Run this to fix it:
@@ -72,19 +73,22 @@ Initialize the environment and install dependencies defined in `pyproject.toml`.
 uv sync
 ```
 
-## 6. Pack the SimpleDpack shell DLLs (required)
+## 6. Install WSL2 (required for PEzor)
 
-SimpleDpack loads `simpledpackshell.dll` (and the 64-bit variant) from its own directory via `LoadLibrary`. The prebuilt `SimpleDpack.exe` ships without the DLL, so every invocation segfaults on `GetModuleInformation(NULL, ...)`.
+PEzor shells into WSL2 to compile its C++ stub. Other packers are pure Windows binaries and don't need WSL.
 
-Download both DLLs from the upstream release and drop them next to the binary:
 ```powershell
-$dest = "packers/SimpleDpack"
-Invoke-WebRequest -OutFile "$dest/simpledpackshell.dll" `
-  "https://github.com/YuriSizuku/win-SimpleDpack/releases/download/v0.5.3/simpledpackshell.dll"
-Invoke-WebRequest -OutFile "$dest/simpledpackshell64.dll" `
-  "https://github.com/YuriSizuku/win-SimpleDpack/releases/download/v0.5.3/simpledpackshell64.dll"
+wsl --install
+# Reboot if prompted, then set the default distro:
+wsl --set-default-version 2
 ```
-Without these the packer exits with Windows error code `0xC0000005` (ACCESS_VIOLATION) on every input.
+
+Inside WSL, install the build toolchain PEzor needs (clang, make, git):
+```bash
+wsl -d Ubuntu-26.04 -u root -- bash -c 'apt-get update && apt-get install -y build-essential clang git'
+```
+
+Verify with `wsl --status` — you should see `Default Version: 2`.
 
 ---
 
@@ -121,6 +125,18 @@ Some shareware packers (like evaluation versions) have strict file size limits. 
 # Only pack files smaller than 80KB
 uv run utils/packer_runner.py exe32pack --max-size-kb 80
 ```
+
+### PEzor WSL worker count:
+
+PEzor shells into WSL2 and compiles C++ per job. By default it runs **4 concurrent `wsl.exe` invocations**; bump it with `--wsl-workers N` (the runner caps N at the per-packer ceiling of 8 and logs the effective value at start-up):
+```powershell
+# Default 4 — fine for most boxes
+uv run utils/packer_runner.py pezor
+
+# Custom worker count (capped at 8 by the runner's per-packer ceiling)
+uv run utils/packer_runner.py pezor --wsl-workers 6
+```
+The memory-budget scheduler (see `memory/pezor-memory-gate.md`) is the real throttle for PEzor — the worker count is just an upper bound on simultaneous `wsl.exe` launches. If you raise `--wsl-workers` and the WSL VM OOMs, lower it.
 
 ## Phase 3: Manifest Maintenance
 
@@ -159,45 +175,6 @@ The `packed_sources/` directory will contain obfuscated binaries that will trigg
 ## Git Submodules:
 
 If you need to update the tools or inputs, go into their respective folders (`packers/` or `benign_sources/`), pull changes, and then commit the new reference in the main repo.
-
----
-
-# 🩺 Per-Packer Gotchas
-
-These are real failures I hit and the fixes — keep them in mind when a packer reports `0 packed / N failed` with no obvious error.
-
-### amber v2.0 — needs Go on PATH
-
-- amber v2.0 shells `go build` to compile its runtime stub. Without `go.exe` discoverable the build fails immediately.
-- The prebuilt amber.exe is GOPATH-era, so Go 1.21+ (default module mode) rejects it. The runner sets `GO111MODULE=off` automatically.
-- amber v2.0 also **modifies the input file in place** (no `*_packed.exe` sidecar like v3.x). The manifest is set to `output_behavior: in_place` — don't "fix" it back to `input_dir_suffix`.
-
-### hyperion (v1.2 and v2.3.1) — must run from its own directory
-
-- hyperion spawns `Fasm\FASM.EXE` with relative paths (`Src\FasmContainer32\main.asm`). If the CWD is anywhere else, it fails with `Could not open output file Src\FasmContainer32\infile.asm`.
-- The runner already sets `cwd = os.path.dirname(packer_bin)`, so this works automatically — but don't refactor that path logic without re-testing.
-
-### hxor_packer — needs `unpackerLoadEXE.exe` sibling
-
-- The packer prompts "Press any key" interactively; you must pass `<S> <D>` on the command line.
-- It also looks for `unpackerLoadEXE.exe` in the current directory. The runner's CWD = packer dir handles this; verify both files are present in `packers/hxor_packer/`.
-
-### SimpleDpack — needs the shell DLL
-
-- See **Install step 6** above. Without `simpledpackshell.dll` next to `SimpleDpack.exe`, every pack exits with `0xC0000005` (ACCESS_VIOLATION).
-
-### FSG — GUI only, must run on an interactive desktop
-
-- Use `python wrapper/gui_runner.py --packer fsg_v1.0` (or `python wrapper/fsg.py --file-path …`) on a real desktop session — the wrapper drives pyautogui.
-- FSG refuses files that have a TLS directory (`.tls` section). The GUI runner auto-detects the TLS error dialog and skips them; the CLI runner cannot help here.
-
-### kkrunchy 0.23a `--new` frontend — broken upstream
-
-- The experimental frontend hangs forever at "preprocessing, filtering & reslicing". This testcase was removed from `manifest/packer_corpus.yaml` — use only `--good` (default) and `--best`.
-
-### PEzor — memory-budget scheduler
-
-- See `memory/pezor-memory-gate.md` for the WSL memory-gate implementation that prevents VM crashes on large inputs.
 
 ---
 
