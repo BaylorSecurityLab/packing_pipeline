@@ -233,7 +233,25 @@ def analyze_paper_jsonl(path: Path, sample_id: str) -> Evidence:
             # candidate process, or a cross-process write all prove otherwise.
             if kind == "process" and str(event.get("reason", "")) != "root_marker":
                 cross_process_activity = True
-            elif kind == "descendant_debug" and event.get("after_cutoff") is True:
+            elif (
+                kind == "descendant_debug"
+                and event.get("after_cutoff") is True
+                # Only a post-cutoff process that is actually the sample's
+                # descendant proves cross-process activity: a direct child
+                # (parent_pid == root) or one that joined the root's job
+                # (job_matches).  A bystander system process (different parent,
+                # no job match) that merely happens to start during the run is
+                # NOT the sample injecting/spawning, and must not force every
+                # real-guest trace to UNRESOLVED — a real Windows guest always
+                # spawns unrelated processes during a multi-minute run.
+                and (
+                    event.get("job_matches") is True
+                    or (
+                        root_pid is not None
+                        and event.get("parent_pid") == root_pid
+                    )
+                )
+            ):
                 cross_process_activity = True
             if kind in {
                 "process",
