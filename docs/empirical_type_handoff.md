@@ -40,11 +40,40 @@ the plugin correctly excludes). The loop's root-block watchdog kills crawlers at
 ~8 min. This crawl rate is the real PERF WALL for scaling to the full matrix and
 must be addressed before 226–1300 conditions are feasible.
 
-**NEXT: UPX pilot** — pack a benign PE with `packers/upx/` -> sample.exe; stage
-into a pilot image (place sample.exe + launcher 8361d9c3 in C:\Panda, edit the
-SYSTEM hive PandaPilot ImagePath to sample-mode via `hivexsh`, per
-`ops/panda/panda_pilot_live.reg`, and REMOVE single_process.txt); run_trace ->
-classify-paper-trace -> first exact Type I label. Then scale the matrix.
+## ★ 2026-07-18 UPX PILOT RAN e2e — and isolated the CENTRAL blocker ★
+
+The full pipeline now runs end-to-end on a REAL corpus sample:
+- Pulled `benign_packed/upx_v3.95_3.95/UPX_V395_001_DEFAULT/ansi2knr...exe` (4 KB,
+  confirmed "UPX compressed" PE32) from NAS -> `empirical_results/qemu_runtime/
+  pilot_sample/sample.exe` (+PROVENANCE.txt).
+- New staging: `ops/qemu/stage_sample.sh` + `ops/qemu/set_pilot_imagepath.py`
+  (python-hivex) copy the pristine base, place sample.exe + launcher, and flip the
+  PandaPilot ImagePath to live sample mode. Base never mutated.
+- New `run_trace.py` host-observed idle boundary (`wait_or_host_idle`): the paper's
+  2-min no-execution rule measured in HOST real time, because the guest clock
+  freezes under instrumentation. Produced the first ELIGIBLE real-sample trace
+  (`paper_label_eligible: true`, `two_minutes_idle_host_observed`).
+- `classify-paper-trace` ran -> result: **fallback TYPE_III** (`all_code_flagged_
+  packer`, `forward_transitions: 0`, `layers: 1`).
+
+WHY only a fallback (decisive trace evidence, `upx_pilot2`): the sample executed
+21,946 blocks ALL on page 0x405000 (the UPX stub), WROTE the unpacked original to
+0x401000-0x404000, but NEVER executed those pages. The trace stops exactly at the
+jump to OEP. Cause = the SELF-MODIFIED-CODE CRAWL (same one that made the fixture
+`local_self_modify` cert hard): the instant the guest executes freshly-written
+code, it crawls to ~0 events/min. host-idle (2-min zero-activity) CANNOT tell that
+crawl from true idle, so it truncates the trace at the packer->original transition
+that Type detection needs.
+
+**THE central blocker is the W->X-execution crawl.** It is not merely slow — it
+breaks the methodology (truncates every unpack at OEP) AND gates matrix feasibility
+(~1356 runs). Options on the table for the user: (A) deep plugin/QEMU perf fix so
+executing freshly-written code is fast; (B) longer host-idle window + higher
+timeout to push through the crawl on good boots (slow, may still truncate);
+(C) alternative instrumentation strategy during the W->X burst. Awaiting direction.
+
+Everything above is committed on feature/empirical-type-backend. Backend identity
+unchanged (plugin d694329d) so the single_process cert still holds.
 
 ## Final objective
 
