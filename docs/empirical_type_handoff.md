@@ -1,10 +1,50 @@
 # Empirical Type Collection — Live Handoff
 
-Last updated: 2026-07-16 11:14 CDT (US/Central)
+Last updated: 2026-07-18 (backend CERTIFIED)
 
 This is the authoritative continuation record for the paper-faithful Type I–VI
 collection. Update this file whenever a milestone, runtime process, blocker, or
 accepted-label count changes. Do not put NAS or sudo passwords in this file.
+
+## ★ MILESTONE 2026-07-18: BACKEND CERTIFIED (single_process) ★
+
+`ops/qemu/backend_validation.json` is committed with `validated: true`,
+`certification_mode: single_process`, **0 errors** (commit `fe5a6e4`). Every
+paper-required single-process channel is independently proven on the real
+Windows guest: exec 17809, write 9443, free 2 (RAM identity preserved), unmap 1
+(RAM identity preserved), exception dispatch+recovery (KiUserExceptionDispatcher
+AND a #UD processor_exception), marker actions 1/2/3/4, saw_stop=true,
+root_entry_seen=true, pending_exceptions=0, memory_buffer_overflows=0.
+Certifying trace preserved at
+`empirical_results/qemu_runtime/certified/backend_validation_trace.jsonl`.
+Backend identity: plugin d694329d, fixture ab57dedf, launcher 8361d9c3.
+
+Cross-process channels (remote_write / shared_alias / file_to_execution) stay
+deferred to a future FULL certification; the classifier guardrail returns
+UNRESOLVED_UNCERTIFIED_CROSS_PROCESS for any trace exhibiting cross-process
+activity, so single-process labels remain paper-faithful.
+
+**How it was certified — orchestration, not backend:** the last real blocker was
+an ORPHANED-QEMU DEATH SPIRAL in the cert retry loop. Fast-failing a bad boot
+killed run_trace.py but NOT its qemu child (Popen, no start_new_session), so
+orphans piled up (load 9 on 6 vCPUs) and starved every later boot into missing
+sample_start. Fix: `ops/qemu/cert_retry_loop.sh` runs each attempt under
+`setsid` (own process group) and kills the whole group + sweeps between attempts.
+On a clean host, good boots recur (~runs 046/048/049/052/054 pattern) and one
+completes all channels + the stop marker. Certified on attempt 11.
+
+Residual runtime note: boots are still a lottery — some reach sample_start then
+CRAWL mid-run (guest freezes inside local_self_modify: ~1 root block/min while
+system code idle-spins, 4.6M block callbacks, no exception_dispatch => a #PF loop
+the plugin correctly excludes). The loop's root-block watchdog kills crawlers at
+~8 min. This crawl rate is the real PERF WALL for scaling to the full matrix and
+must be addressed before 226–1300 conditions are feasible.
+
+**NEXT: UPX pilot** — pack a benign PE with `packers/upx/` -> sample.exe; stage
+into a pilot image (place sample.exe + launcher 8361d9c3 in C:\Panda, edit the
+SYSTEM hive PandaPilot ImagePath to sample-mode via `hivexsh`, per
+`ops/panda/panda_pilot_live.reg`, and REMOVE single_process.txt); run_trace ->
+classify-paper-trace -> first exact Type I label. Then scale the matrix.
 
 ## Final objective
 
