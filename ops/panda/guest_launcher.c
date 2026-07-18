@@ -206,16 +206,25 @@ static int run_sample(int argc, char **argv) {
         ULONGLONG started = GetTickCount64();
         ULONGLONG last_execution = started;
         uint64_t last_execution_events = 0;
-        int job_complete = 0;
         int sample_started = 0;
 
         for (;;) {
             PACKER_STATUS packer_status;
             ULONGLONG now;
-            DWORD current_wait = WaitForSingleObject(job, 1000u);
+            /* Wait on the SAMPLE PROCESS handle, not the job object.  A job is
+             * never signaled by becoming empty, and the plugin's active-process
+             * count cannot be trusted to reach 0 here: this launcher holds the
+             * sample's handle, so its EPROCESS lingers on PsActiveProcessHead
+             * after exit (referenced) and keeps getting counted.  The process
+             * handle signals exactly when the sample exits — the reliable clean
+             * completion boundary.  For the cross-process fixture the root exits
+             * only after WaitForSingleObject on its children returns, so this is
+             * the all-work-done boundary in both modes. */
+            DWORD current_wait = WaitForSingleObject(process.hProcess, 1000u);
 
             if (current_wait == WAIT_OBJECT_0) {
-                job_complete = 1;
+                wait_result = WAIT_OBJECT_0;
+                break;
             } else if (current_wait != WAIT_TIMEOUT) {
                 wait_result = current_wait;
                 break;
@@ -243,19 +252,9 @@ static int run_sample(int argc, char **argv) {
                 last_execution_events = packer_status.execution_events;
                 last_execution = now;
             }
-            /* Clean completion: every monitored process has exited after sample
-             * recording started.  This must NOT depend on the job handle being
-             * signaled — a Windows job object is signaled only by a job time
-             * limit, never by becoming empty, so the old `job_complete` guard
-             * never fired and a normally-exiting sample fell through to the idle
-             * or host timeout with no stop marker.  active_processes==0 (from the
-             * plugin's exact ActiveProcessLinks count) after sample_started is
-             * the reliable all-monitored-exited boundary. */
-            (void)job_complete;
-            if (sample_started && packer_status.active_processes == 0) {
-                wait_result = WAIT_OBJECT_0;
-                break;
-            }
+            /* Clean completion is detected by the process-handle wait above; the
+             * plugin's active_processes count is unreliable for it (held-handle
+             * EPROCESS lingering), so it is used only for exception scoping. */
             if (packer_status.pending_exceptions > 0 &&
                 packer_status.oldest_exception_age_ms >=
                     PACKER_IDLE_MILLISECONDS) {
