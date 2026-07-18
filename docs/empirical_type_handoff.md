@@ -24,6 +24,41 @@ YAML condition using:
 Do not accept DRAKVUF-only or qualitative/YAML-hypothesis labels as empirical
 types. DRAKVUF may remain a diagnostic/orchestration source only.
 
+## RESUME AFTER dom0 RESIZE (2026-07-17) — READ THIS FIRST
+
+This is a XEN dom0 (was capped at 4096M/2 vCPU via the Xen boot line while the
+host has 16 GiB/8 CPU, 12 GiB free). The "nondeterministic crawling" was CPU
+CONTENTION on dom0's 2 pinned vCPUs (QEMU single-TCG-thread vs the GUI desktop
+cinnamon ~25% + others; load 2.68 on 2 CPUs; good runs ~8 exec/s, crawling ~0.8).
+Fix applied by the user: edit `/etc/default/grub` GRUB_CMDLINE_XEN to
+`dom0_mem=12288M,max:12288M dom0_max_vcpus=6`, `update-grub`, reboot.
+
+ALL backend bugs are now FIXED and committed (branch feature/empirical-type-backend):
+- Root learned reliably: CR3-consistency validation + reviewer's context-cache and
+  root_asid(live-CR3) fixes.
+- kernel_base found DETERMINISTICALLY: discover_kernel_base_from_eprocess walks
+  ActiveProcessLinks -> PsActiveProcessHead (no scanning, KPTI-proof).
+- Clean exit + stop marker: launcher breaks on sample_started && active_processes==0
+  (a Windows job object never signals on empty — the old job_complete guard was dead).
+Run 046/048 already recorded EVERY single-process channel (sample_start, trace_start,
+exec, write, free, unmap, exact exception dispatch+recovery). The only thing missing
+was the action-3 stop marker (the launcher bug, now fixed in launcher e1b82661).
+
+POST-REBOOT STEPS:
+1. `free -m` / `nproc` — confirm ~12 GiB / 6 CPU now. `git status` clean on branch.
+2. Rebuild artifacts if missing: `ops/qemu/build_plugin.sh`,
+   `ops/panda/build_guest_launcher.sh`, `ops/qemu/build_validation_fixture.sh`.
+3. The fixture copy `windows10-qemu-fixture.qcow2` already has launcher e1b82661,
+   fixture 2797e32e, single_process.txt, idle_ms.txt staged. If rebuilt, re-stage:
+   `sudo env SINGLE_PROCESS=1 ops/qemu/stage_fixture_launcher.sh`.
+4. Run the single-process cert (now with abundant CPU/RAM, no contention -> reliable):
+   `run_trace.py windows10-qemu-fixture.qcow2 <work> <trace> --meta <meta> --monitor <sock> --host-timeout 1200 --guest-memory 4G --qemu <qemu> --plugin ops/qemu/paper_trace.so`
+   then `validate_fixture_trace.py --single-process <trace> ops/qemu/backend_validation.json --qemu <qemu> --plugin ops/qemu/paper_trace.so --launcher ops/panda/build/guest_launcher.exe --fixture ops/qemu/build/validation_fixture.exe --ntdll empirical_results/qemu_runtime/ntdll.dll --profile-header ops/qemu/win10_profile.h`
+   Expect VALIDATED: true -> the FIRST backend_validation.json. Commit it.
+5. Then: UPX pilot (classify-paper-trace, require paper_label_eligible=true) ->
+   complete one condition -> scale. Also attempt the FULL cross-process fixture
+   (SINGLE_PROCESS=0 re-stage) now that CreateProcess has real CPU/RAM.
+
 ## RESUME AFTER RAM INCREASE (2026-07-17)
 
 The VM is being resized from 3.8 GiB/2 vCPU to more RAM (target >= 8 GiB, ideally
