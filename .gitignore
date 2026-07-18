@@ -23,6 +23,7 @@ ops/panda/build/
 .claude
 
 # --- PEzor build artifacts / vendored dependencies ---
+CLAUDE.md
 _pezor_src.sh
 _prefix_PEzor_/
 donut/
