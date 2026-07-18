@@ -1,105 +1,214 @@
 {
   "metadata": {
     "version": "0.1.0",
-    "maintainer": "Abanisenioluwa Kolawole Orojo, Abanisenioluwa_Oroj1, Banny Orojo, GitLab CI Bot",
-    "last_updated": "2026-02-25"
+    "maintainer": "AKOrojo, Abanisenioluwa Kolawole Orojo, Abanisenioluwa_Oroj1, Banny Orojo, GitLab CI Bot",
+    "last_updated": "2026-07-18"
   },
   "basic_counts": {
-    "total_packers": 34,
-    "total_test_cases": 70
+    "total_packers": 111,
+    "total_test_cases": 219
   },
   "interface_types": {
     "gui": {
-      "packers": 17,
+      "packers": 35,
       "tests": 0
     },
     "cli": {
-      "packers": 17,
-      "tests": 70
+      "packers": 76,
+      "tests": 219
     }
   },
   "tag_distribution": {
-    "GUI": 17,
-    "Compressor": 3,
-    "Scrambler": 1,
-    "CLI": 17,
-    "Header-Stripper": 1,
-    "Encrypter": 1,
-    "Mutator": 2,
+    "GUI": 35,
+    "Protector": 10,
+    "Anti-Debug": 9,
+    "Crypter": 4,
+    "Commercial": 8,
+    "CLI": 76,
+    "Reflective": 4,
+    "Open Source": 2,
+    "Security": 4,
     "Obfuscator": 2,
-    "Multi-Stage": 1,
-    "In-Place": 1,
-    "Legacy": 1,
-    "Frontend": 1,
-    "Virtualizer": 1,
-    "Bundler": 1,
-    "Crypter": 1,
-    "Polymorphism": 1,
-    "Multi-Platform": 1,
-    "Reflective": 1,
-    "Security": 1,
-    "Tiny-EXE": 1,
-    "Demoscene": 1,
     "DRM": 1,
     ".NET-Assembly": 1,
-    "Commercial": 1,
-    "Installer": 1,
-    "Copy-Protection": 1,
-    "License-Manager": 1,
-    "Protector": 1,
-    "GitHub-PoC": 1
+    "Mutator": 2,
+    "Tiny-EXE": 1,
+    "Demoscene": 1,
+    "Virtualizer": 5,
+    "Demo": 3,
+    "Compressor": 14,
+    "Multi-Stage": 1,
+    "Header-Stripper": 1,
+    "Encrypter": 1,
+    "Plugin-Based": 1,
+    "Shareware": 1,
+    "Open-Source": 1,
+    "WSL": 1,
+    "Shellcode": 1,
+    "Evasion": 1,
+    "Educational": 1,
+    "Scrambler": 6,
+    "Multi-Platform": 50,
+    "Frontend": 1,
+    "In-Place": 1,
+    "Legacy": 1,
+    "Polymorphism": 2
   },
   "architecture_distribution": {
-    "x86": 30,
-    "x32": 1,
-    "x64": 3
+    "x86": 54,
+    "x86/x64": 2,
+    "x64": 54,
+    "x32": 1
   },
   "supported_input_architectures": {
-    "PE32": 34,
-    "PE32+": 4,
+    "PE32": 111,
+    "PE64": 1,
+    "PE32+": 56,
     ".NET": 1
   },
   "output_behavior_distribution": {
-    "in_place": 9,
-    "explicit": 22,
-    "input_dir_suffix": 1,
+    "explicit": 92,
+    "input_dir_suffix": 3,
+    "in_place": 14,
     "suffix_packed": 1,
     "explicit_absolute": 1
   },
   "license_distribution": {
-    "Freeware": 17,
-    "Shareware/Commercial": 1,
-    "Shareware": 2,
-    "Freeware (Basic)": 1,
-    "GPL": 2,
-    "Commercial (Shareware)": 1,
-    "MIT": 5,
+    "Commercial (Trial, preserved via archive.org/Tucows)": 1,
     "Commercial": 3,
-    "Commercial (Demo)": 1,
-    "Open Source": 1
+    "MIT": 10,
+    "Commercial (discontinued)": 2,
+    "Freeware": 36,
+    "Commercial (Demo)": 2,
+    "Shareware": 4,
+    "Commercial (free for personal use)": 1,
+    "Freeware (Basic)": 1,
+    "Shareware (Demo)": 1,
+    "GPL": 50
   },
   "tests_per_packer": {
-    "molebox_gpl": 1,
-    "pepack": 4,
     "xcomp": 4,
     "upack": 5,
-    "kkrunchy": 3,
-    "theark": 1,
+    "kkrunchy_v0.23a2": 1,
+    "kkrunchy_v0.23a": 2,
     "exe32pack": 4,
-    "upx": 15,
-    "amber": 4,
+    "upx_v3.95": 9,
+    "upx_v3.96": 9,
+    "upx_v4.2.4": 9,
+    "upx_v5.1.0": 15,
+    "amber_v2.0": 6,
+    "amber_v3.1": 4,
     "beroexepacker": 7,
     "astral_pe": 2,
     "eronona": 4,
     "hxor_packer": 4,
-    "hyperion": 1,
-    "mpress": 5,
-    "petite": 5,
-    "hackupx": 1
+    "hyperion_v1.2": 1,
+    "hyperion_v2.3.1": 1,
+    "mpress_v1.27": 3,
+    "mpress_v2.19": 5,
+    "petite_v2.2": 4,
+    "petite_v2.3": 4,
+    "petite_v2.4": 5,
+    "hackupx": 1,
+    "alushpacker": 1,
+    "pezor": 7,
+    "pepacker_v1.0": 1,
+    "upx_v0.60": 2,
+    "upx_v0.61": 2,
+    "upx_v0.62": 2,
+    "upx_v0.70": 2,
+    "upx_v0.71": 2,
+    "upx_v0.72": 2,
+    "upx_v0.762b": 2,
+    "upx_v0.763b": 2,
+    "upx_v0.80": 2,
+    "upx_v0.81": 2,
+    "upx_v0.82": 2,
+    "upx_v0.83": 2,
+    "upx_v0.84": 2,
+    "upx_v0.896b": 2,
+    "upx_v0.90": 2,
+    "upx_v0.92": 2,
+    "upx_v0.93": 2,
+    "upx_v0.94": 2,
+    "upx_v0.99": 2,
+    "upx_v0.991": 2,
+    "upx_v0.992": 2,
+    "upx_v0.993": 2,
+    "upx_v1.00": 2,
+    "upx_v1.01": 2,
+    "upx_v1.02": 2,
+    "upx_v1.03": 2,
+    "upx_v1.04": 2,
+    "upx_v1.05": 2,
+    "upx_v1.06": 2,
+    "upx_v1.07": 2,
+    "upx_v1.08": 2,
+    "upx_v1.20": 2,
+    "upx_v1.21": 2,
+    "upx_v1.22": 2,
+    "simpledpack_v0.5.3": 1,
+    "amber_v3.0": 3,
+    "upx_v4.0.0": 2,
+    "upx_v4.0.1": 2,
+    "upx_v4.0.2": 2,
+    "upx_v4.1.0": 2,
+    "upx_v4.2.0": 2,
+    "upx_v4.2.1": 2,
+    "upx_v4.2.2": 2,
+    "upx_v4.2.3": 2,
+    "upx_v5.0.0": 2,
+    "upx_v5.0.1": 2,
+    "upx_v5.0.2": 2,
+    "upx_v5.1.1": 2,
+    "molebox": 4,
+    "enigma_protector_v7.80": 1
   },
   "packers_with_dependencies": [
     {
+      "packer": "asm_guard",
+      "dependencies": [
+        ".NET Framework"
+      ]
+    },
+    {
       "packer": "hackupx",
+      "dependencies": [
+        "upx_v5.1.0"
+      ]
+    },
+    {
+      "packer": "npack_v1.1",
+      "dependencies": [
+        "RebPE32.dll"
+      ]
+    },
+    {
+      "packer": "UPX_Scrambler_3.06",
+      "dependencies": [
+        "upx"
+      ]
+    },
+    {
+      "packer": "UPX_Scrambler_RC1",
+      "dependencies": [
+        "upx"
+      ]
+    },
+    {
+      "packer": "UPX_Scrambler_RC1.03",
+      "dependencies": [
+        "upx"
+      ]
+    },
+    {
+      "packer": "UPX_Scrambler_RC1.05",
+      "dependencies": [
+        "upx"
+      ]
+    },
+    {
+      "packer": "UPX_Scrambler_RC1b10",
       "dependencies": [
         "upx"
       ]
@@ -109,33 +218,27 @@
       "dependencies": [
         "upack"
       ]
-    },
-    {
-      "packer": "asm_guard",
-      "dependencies": [
-        ".NET Framework"
-      ]
     }
   ],
   "packers_with_known_issues": [
     {
-      "packer": "xcomp",
+      "packer": "acprotect_std",
       "issue_count": 2
     },
     {
-      "packer": "kkrunchy",
-      "issue_count": 2
-    },
-    {
-      "packer": "exe32pack",
+      "packer": "alushpacker",
       "issue_count": 3
     },
     {
-      "packer": "upx",
+      "packer": "amber_v2.0",
       "issue_count": 2
     },
     {
-      "packer": "amber",
+      "packer": "amber_v3.0",
+      "issue_count": 2
+    },
+    {
+      "packer": "amber_v3.1",
       "issue_count": 2
     },
     {
@@ -143,31 +246,335 @@
       "issue_count": 1
     },
     {
+      "packer": "enigma_protector_v7.80",
+      "issue_count": 2
+    },
+    {
       "packer": "eronona",
       "issue_count": 1
+    },
+    {
+      "packer": "exe32pack",
+      "issue_count": 3
+    },
+    {
+      "packer": "fsg_v1.0",
+      "issue_count": 2
     },
     {
       "packer": "hxor_packer",
       "issue_count": 1
     },
     {
-      "packer": "hyperion",
+      "packer": "hyperion_v1.2",
       "issue_count": 1
     },
     {
-      "packer": "mpress",
+      "packer": "hyperion_v2.3.1",
       "issue_count": 1
     },
     {
-      "packer": "pelock",
+      "packer": "jdpack_v1.00",
       "issue_count": 1
     },
     {
-      "packer": "petite",
+      "packer": "kkrunchy_v0.23a",
+      "issue_count": 2
+    },
+    {
+      "packer": "kkrunchy_v0.23a2",
+      "issue_count": 2
+    },
+    {
+      "packer": "mpress_v1.27",
+      "issue_count": 2
+    },
+    {
+      "packer": "mpress_v2.19",
       "issue_count": 1
     },
     {
-      "packer": "theark",
+      "packer": "npack_v1.1",
+      "issue_count": 1
+    },
+    {
+      "packer": "nspack_v3.7",
+      "issue_count": 1
+    },
+    {
+      "packer": "obsidium_v1.5.2",
+      "issue_count": 2
+    },
+    {
+      "packer": "obsidium_v1.8.8",
+      "issue_count": 2
+    },
+    {
+      "packer": "pecompact_v1.84",
+      "issue_count": 3
+    },
+    {
+      "packer": "pelock_v2.40",
+      "issue_count": 1
+    },
+    {
+      "packer": "petite_v2.2",
+      "issue_count": 2
+    },
+    {
+      "packer": "petite_v2.3",
+      "issue_count": 1
+    },
+    {
+      "packer": "petite_v2.4",
+      "issue_count": 1
+    },
+    {
+      "packer": "pezor",
+      "issue_count": 2
+    },
+    {
+      "packer": "shrinker_v3.4_demo",
+      "issue_count": 2
+    },
+    {
+      "packer": "telock_v0.98",
+      "issue_count": 1
+    },
+    {
+      "packer": "themida_v3.2.4.34",
+      "issue_count": 4
+    },
+    {
+      "packer": "UPX_Scrambler_3.06",
+      "issue_count": 1
+    },
+    {
+      "packer": "UPX_Scrambler_RC1",
+      "issue_count": 1
+    },
+    {
+      "packer": "UPX_Scrambler_RC1.03",
+      "issue_count": 1
+    },
+    {
+      "packer": "UPX_Scrambler_RC1.05",
+      "issue_count": 1
+    },
+    {
+      "packer": "UPX_Scrambler_RC1b10",
+      "issue_count": 1
+    },
+    {
+      "packer": "upx_v0.60",
+      "issue_count": 1
+    },
+    {
+      "packer": "upx_v0.61",
+      "issue_count": 1
+    },
+    {
+      "packer": "upx_v0.62",
+      "issue_count": 1
+    },
+    {
+      "packer": "upx_v0.70",
+      "issue_count": 1
+    },
+    {
+      "packer": "upx_v0.71",
+      "issue_count": 1
+    },
+    {
+      "packer": "upx_v0.72",
+      "issue_count": 1
+    },
+    {
+      "packer": "upx_v0.762b",
+      "issue_count": 1
+    },
+    {
+      "packer": "upx_v0.763b",
+      "issue_count": 1
+    },
+    {
+      "packer": "upx_v0.80",
+      "issue_count": 1
+    },
+    {
+      "packer": "upx_v0.81",
+      "issue_count": 1
+    },
+    {
+      "packer": "upx_v0.82",
+      "issue_count": 1
+    },
+    {
+      "packer": "upx_v0.83",
+      "issue_count": 1
+    },
+    {
+      "packer": "upx_v0.84",
+      "issue_count": 1
+    },
+    {
+      "packer": "upx_v0.896b",
+      "issue_count": 1
+    },
+    {
+      "packer": "upx_v0.90",
+      "issue_count": 1
+    },
+    {
+      "packer": "upx_v0.92",
+      "issue_count": 1
+    },
+    {
+      "packer": "upx_v0.93",
+      "issue_count": 1
+    },
+    {
+      "packer": "upx_v0.94",
+      "issue_count": 1
+    },
+    {
+      "packer": "upx_v0.99",
+      "issue_count": 1
+    },
+    {
+      "packer": "upx_v0.991",
+      "issue_count": 1
+    },
+    {
+      "packer": "upx_v0.992",
+      "issue_count": 1
+    },
+    {
+      "packer": "upx_v0.993",
+      "issue_count": 1
+    },
+    {
+      "packer": "upx_v1.00",
+      "issue_count": 1
+    },
+    {
+      "packer": "upx_v1.01",
+      "issue_count": 1
+    },
+    {
+      "packer": "upx_v1.02",
+      "issue_count": 1
+    },
+    {
+      "packer": "upx_v1.03",
+      "issue_count": 1
+    },
+    {
+      "packer": "upx_v1.04",
+      "issue_count": 1
+    },
+    {
+      "packer": "upx_v1.05",
+      "issue_count": 1
+    },
+    {
+      "packer": "upx_v1.06",
+      "issue_count": 1
+    },
+    {
+      "packer": "upx_v1.07",
+      "issue_count": 1
+    },
+    {
+      "packer": "upx_v1.08",
+      "issue_count": 1
+    },
+    {
+      "packer": "upx_v1.20",
+      "issue_count": 1
+    },
+    {
+      "packer": "upx_v1.21",
+      "issue_count": 1
+    },
+    {
+      "packer": "upx_v1.22",
+      "issue_count": 1
+    },
+    {
+      "packer": "upx_v3.95",
+      "issue_count": 2
+    },
+    {
+      "packer": "upx_v3.96",
+      "issue_count": 2
+    },
+    {
+      "packer": "upx_v4.0.0",
+      "issue_count": 2
+    },
+    {
+      "packer": "upx_v4.0.1",
+      "issue_count": 2
+    },
+    {
+      "packer": "upx_v4.0.2",
+      "issue_count": 2
+    },
+    {
+      "packer": "upx_v4.1.0",
+      "issue_count": 2
+    },
+    {
+      "packer": "upx_v4.2.0",
+      "issue_count": 2
+    },
+    {
+      "packer": "upx_v4.2.1",
+      "issue_count": 2
+    },
+    {
+      "packer": "upx_v4.2.2",
+      "issue_count": 2
+    },
+    {
+      "packer": "upx_v4.2.3",
+      "issue_count": 2
+    },
+    {
+      "packer": "upx_v4.2.4",
+      "issue_count": 2
+    },
+    {
+      "packer": "upx_v5.0.0",
+      "issue_count": 2
+    },
+    {
+      "packer": "upx_v5.0.1",
+      "issue_count": 2
+    },
+    {
+      "packer": "upx_v5.0.2",
+      "issue_count": 2
+    },
+    {
+      "packer": "upx_v5.1.0",
+      "issue_count": 2
+    },
+    {
+      "packer": "upx_v5.1.1",
+      "issue_count": 2
+    },
+    {
+      "packer": "xcomp",
+      "issue_count": 2
+    },
+    {
+      "packer": "xpa_v1.43",
+      "issue_count": 1
+    },
+    {
+      "packer": "zprotect",
       "issue_count": 2
     }
   ]
