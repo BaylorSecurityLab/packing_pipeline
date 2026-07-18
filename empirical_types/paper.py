@@ -53,6 +53,16 @@ def analyze_paper_jsonl(path: Path, sample_id: str) -> Evidence:
     blocks: list[_Block] = []
     executed_bytes: dict[tuple[int, int], set[int]] = defaultdict(set)
     packer_blocks: set[tuple[int, int, int]] = set()
+    # Layers at which each memory area was actually EXECUTED (Ugarte III-E: packer
+    # code writes to the executed memory of ANOTHER layer -- realized, not merely
+    # written).  state_layers also carries anticipated write destinations, so the
+    # retrospective packer test must use executed_layers instead.
+    executed_layers: dict[tuple[int, int], set[int]] = defaultdict(set)
+    # Blocks that REALLY produced/repacked executed code at another layer (a
+    # write-then-execute or repack).  Distinct from packer_blocks, which also
+    # absorbs the conservative 10-page neighbourhood.  Used for the paper's
+    # tail test ("the bootstrap code does not modify the unpacked code").
+    strict_packer_blocks: set[tuple[int, int, int]] = set()
     last_block_by_thread: dict[tuple[int, int], _Block] = {}
     processes: set[int] = set()
     threads: set[tuple[int, int]] = set()
@@ -196,6 +206,7 @@ def analyze_paper_jsonl(path: Path, sample_id: str) -> Evidence:
             new_frame[(key[0], key[1])].add(key[2])
             if source_key is not None and key[1] != source_key[1]:
                 packer_blocks.add(source_key)
+                strict_packer_blocks.add(source_key)
 
         # The virtual mapping is gone.  A future mapping at the same VA must
         # derive its layer from its own write/file provenance, not this one.
@@ -452,23 +463,32 @@ def analyze_paper_jsonl(path: Path, sample_id: str) -> Evidence:
                     if source_key[0] != pid:
                         process_interactions.add((source_key[0], pid))
                 if byte_writers:
+                    # These writers produced code that is executing right now: a
+                    # realized write-then-execute -> real packer producers.
                     packer_blocks.update(byte_writers)
+                    strict_packer_blocks.update(byte_writers)
                 state[state_key] = (
                     "U"
                     if memory_key in writer_layer or cross_process_physical_writer
                     else "X"
                 )
                 state_layers[memory_key].add(layer)
+                executed_layers[memory_key].add(layer)
                 if physical_key is not None:
                     physical_locations[physical_key].add(state_key)
 
-    # A write can target code that was executed before the write (repacking).
-    # Account for those retrospectively as well as write-then-execute cases.
+    # A write can target code that was EXECUTED before the write (repacking).
+    # Account for those retrospectively.  Ugarte III-E: packer code writes to the
+    # executed memory of ANOTHER layer -- so test against executed_layers, not
+    # state_layers (which also holds anticipated, never-executed write
+    # destinations, which would flag every writer, e.g. an application storing a
+    # value near its own code).
     for memory_key, source_blocks in writers.items():
-        destination_layers = state_layers.get(memory_key, set())
+        destination_layers = executed_layers.get(memory_key, set())
         for source_key in source_blocks:
             if any(layer != source_key[1] for layer in destination_layers):
                 packer_blocks.add(source_key)
+                strict_packer_blocks.add(source_key)
 
     if root_pid is None and blocks:
         root_pid = blocks[0].pid
@@ -521,7 +541,36 @@ def analyze_paper_jsonl(path: Path, sample_id: str) -> Evidence:
     relevant_max_layer = max(
         (block.layer for block in relevant_blocks), default=-1
     )
-    linear = backward == 0 and len(transitions) == max(relevant_max_layer, 0)
+    raw_linear = backward == 0 and len(transitions) == max(relevant_max_layer, 0)
+    # Topology-based tail/linear (Ugarte III-E + "Packer Isolation", p. 661).  The
+    # UNPACKING phase ends at the first execution of the deepest layer; up to that
+    # point a Type-I/II packer produces layers acyclically (0->1->...->N, one
+    # forward step each).  The tail is genuine iff, from that point on, no executed
+    # block ever PRODUCED or repacked another layer's executed code ("the bootstrap
+    # code does not modify the unpacked code"): the post-tail application may freely
+    # re-execute its own un-rewritten lower-layer code (headers/CRT/imports) without
+    # that counting as cyclic unpacking or as a Type-IV interleave.
+    tail_index = next(
+        (i for i, b in enumerate(relevant_blocks) if b.layer == relevant_max_layer),
+        None,
+    )
+    topology_tail = False
+    if tail_index is not None and relevant_max_layer >= 1:
+        prefix = relevant_blocks[: tail_index + 1]
+        unpack_chain = [
+            (left.layer, right.layer)
+            for left, right in zip(prefix, prefix[1:], strict=False)
+            if left.layer != right.layer
+        ]
+        linear_topology = unpack_chain == [
+            (i, i + 1) for i in range(relevant_max_layer)
+        ]
+        clean = all(
+            block.key not in strict_packer_blocks
+            for block in relevant_blocks[tail_index:]
+        )
+        topology_tail = linear_topology and clean
+    linear = raw_linear or topology_tail
 
     roles = [
         "application" if block.key in candidate_blocks else "packer"
@@ -534,7 +583,7 @@ def analyze_paper_jsonl(path: Path, sample_id: str) -> Evidence:
     ]
     packer_to_app = role_transitions.count(("packer", "application"))
     app_to_packer = role_transitions.count(("application", "packer"))
-    tail = packer_to_app == 1 and app_to_packer == 0
+    tail = (packer_to_app == 1 and app_to_packer == 0) or topology_tail
     interleaved = not tail and not all_code_packer
 
     multiframe_layers = {
