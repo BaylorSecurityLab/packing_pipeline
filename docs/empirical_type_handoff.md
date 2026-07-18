@@ -108,6 +108,36 @@ NEXT: re-certify plugin 93ab58ef (cert_retry_loop.sh, running) -> re-run UPX pil
 better pilot samples (ansi2knr is a tiny stdin filter; a self-running payload gives
 a cleaner application layer).
 
+## ★★ 2026-07-18 BOOT LOTTERY ROOT-CAUSED AND FIXED: -icount ★★
+
+A second fable panel (investigate + web-search + adversarial VERIFIER, all fable)
+traced the boot lottery (target thread starved ~80-90% of boots) to GUEST TIME
+DILATION: default TCG advances QEMU_CLOCK_VIRTUAL at host wall-clock, but the
+plugin runs the guest at ~1-2 MIPS, so the LAPIC/PIT/HPET timer (all on
+QEMU_CLOCK_VIRTUAL) fires every ~1-30k retired instructions -> Windows burns the
+whole instruction budget in timer ISR/DPC/idle and never gives the freshly-started
+target thread a real quantum. Not a fault loop; boot-dependent on timer resolution.
+
+FIX: `-icount shift=2,sleep=on -rtc base=localtime,clock=vm` (kept thread=single,
+smp 2; icount forbids MTTCG and rr splits the budget). shift=2 => ~250k
+instructions per 1ms tick, far above ISR/DPC cost. The verifier CORRECTED the other
+two agents: `shift=auto` is a TRAP (reconverges to real time -> reproduces the
+starvation); a FIXED LOW shift is required. Implemented in run_trace.py
+(--icount-shift, default 2; <0 disables). Fidelity: icount changes interleaving/TB
+granularity but each run stays faithful-to-itself; RE-CERT certifies instruction
+COVERAGE, not block identity (the validator already checks channels+counts, not
+block identity).
+
+CONFIRMED (upx_icount1): the target RAN to 54842 exec / 27488 write (vs starved
+1-200), unpacked OEP 0x401000 executes, ~11 min host time. The boot lottery is
+fixed at the root -> the fixture cert becomes reliable AND the 1356-run matrix
+becomes FEASIBLE (no lottery/retries). This resolves the PERF WALL.
+
+Current run config of record: `-accel tcg,thread=single -smp 2 -cpu qemu64
+-machine pc-i440fx-5.2 -m 4G -icount shift=2,sleep=on -rtc base=localtime,clock=vm`
+plus plugin paper_trace.so (93ab58ef). Full evidence + all three agents'
+conclusions: empirical_results/qemu_runtime/certified/crawl_empirical_evidence.md.
+
 ## Final objective
 
 Produce paper-faithful empirical Deep Packer Inspection labels for every usable
