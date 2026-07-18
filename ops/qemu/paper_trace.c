@@ -242,6 +242,10 @@ static uint64_t physical_mapping_failures;
  * exact virtual identity but WITHOUT physical spans (one-shot/uncached TBs whose
  * physical could not be resolved at translate time; see block_exec). */
 static uint64_t blocks_without_physical;
+/* Diagnostic-only (no gate effect): successful stores recorded with their exact
+ * virtual identity but WITHOUT physical spans (physical unresolvable at store
+ * time; see memory_write).  Single-process layering uses the virtual write. */
+static uint64_t writes_without_physical;
 static uint64_t marker_candidate_hits;
 static uint64_t marker_callback_hits;
 static uint64_t marker_register_failures;
@@ -2709,6 +2713,7 @@ static void memory_write(unsigned int vcpu_index, qemu_plugin_meminfo_t info,
      * mapping inside that TB; resolve the address through the still-current
      * vCPU address space and convert the resulting physical address to the
      * stable RAM-block identity used by execution and invalidation events. */
+    bool write_physical_complete = true;
     for (uint64_t offset = 0; offset < size; offset++) {
         uint64_t physical_address;
         uint64_t ram_address = UINT64_MAX;
@@ -2720,9 +2725,18 @@ static void memory_write(unsigned int vcpu_index, qemu_plugin_meminfo_t info,
         }
         if (!add_physical_byte(spans, &span_count, (uint32_t)offset,
                                ram_address)) {
-            physical_mapping_failures++;
-            return;
+            /* Physical could not be resolved for this stored byte (a CoW/one-shot
+             * transient).  The store DID happen -- record the write with its exact
+             * VIRTUAL identity (all the paper's per-memory-area layering needs) and
+             * OMIT physical spans instead of dropping the write event.  Physical
+             * spans matter only for the deferred cross-process shared-RAM aliasing.
+             * Audited via writes_without_physical; never silently dropped. */
+            write_physical_complete = false;
+            break;
         }
+    }
+    if (!write_physical_complete) {
+        writes_without_physical++;
     }
 
     g_mutex_lock(&trace_lock);
@@ -2734,7 +2748,9 @@ static void memory_write(unsigned int vcpu_index, qemu_plugin_meminfo_t info,
             ",\"pc\":%" PRIu64,
             ++sequence_number, vcpu_index, context.source_pid, context.tid,
             context.attached_pid, address, size, instruction->pc);
-    emit_physical_spans(spans, span_count);
+    if (write_physical_complete) {
+        emit_physical_spans(spans, span_count);
+    }
     fputs("}\n", trace_file);
     write_events++;
     g_mutex_unlock(&trace_lock);
@@ -2882,6 +2898,7 @@ static void plugin_exit(void *userdata)
                 ",\"unresolved_process_handles\":%" PRIu64
                 ",\"physical_mapping_failures\":%" PRIu64
                 ",\"blocks_without_physical\":%" PRIu64
+                ",\"writes_without_physical\":%" PRIu64
                 ",\"marker_candidate_hits\":%" PRIu64
                 ",\"marker_callback_hits\":%" PRIu64
                 ",\"marker_register_failures\":%" PRIu64
@@ -2934,7 +2951,7 @@ static void plugin_exit(void *userdata)
                 invalidation_events,
                 invalidation_failures, unresolved_process_handles,
                 physical_mapping_failures, blocks_without_physical,
-                marker_candidate_hits,
+                writes_without_physical, marker_candidate_hits,
                 marker_callback_hits, marker_register_failures,
                 marker_query_failures, marker_query_initializing,
                 marker_query_ready, prestart_root_exec_events,
