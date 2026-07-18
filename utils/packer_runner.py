@@ -161,6 +161,19 @@ PACKER_SETTINGS = {
         "use_dialog_killer": False,
         "timeout": 60,
     },
+    "fsg_v1.3": {
+        "use_dialog_killer": False,
+        # FSG v1.33 packs on the CLI (`FSG.EXE <input>`) but pops a
+        # "compression ratio" dialog at the end and never exits on its
+        # own -- the process hangs forever. The runner's subprocess
+        # times out (exit code 0xFFFFFFFF) and reports failure even
+        # though the file IS packed. success_by_hash tells the runner
+        # to detect success by comparing the staged-input SHA-256
+        # before vs after: if it changed, the pack succeeded and the
+        # timeout was just the dialog refusing to dismiss itself.
+        "timeout": 30,
+        "success_by_hash": True,
+    },
     "pezor": {
         "use_dialog_killer": False,
         "timeout": 600,
@@ -211,6 +224,106 @@ def _silent_remove(path):
         if os.path.exists(path):
             os.remove(path)
     except OSError:
+        pass
+
+
+def _maybe_success_by_hash(
+    packer_settings,
+    packer_bin,
+    pre_hash,
+    staging_path,
+    dst_path,
+    output_behavior,
+):
+    """Fallback success detector for packers that never exit cleanly.
+
+    FSG v1.33 packs the input in place but hangs on a "compression
+    ratio" dialog and never returns; the runner's subprocess times out
+    with exit code 0xFFFFFFFF even though the file was packed. When
+    PACKER_SETTINGS[packer]["success_by_hash"] is True, compare the
+    staged input's SHA-256 before vs after: a change means packing
+    succeeded -- return True and promote staging_path to dst_path.
+
+    Also opportunistically terminates any lingering packer process
+    (FSG.EXE never exits; the next job would otherwise collide on the
+    file lock).
+    """
+    if not packer_settings or not packer_settings.get("success_by_hash"):
+        return False
+    if output_behavior != "in_place" or not pre_hash:
+        return False
+    try:
+        if not os.path.exists(staging_path):
+            return False
+        with open(staging_path, "rb") as f:
+            post_hash = hashlib.sha256(f.read()).hexdigest()
+    except OSError:
+        return False
+    if post_hash == pre_hash:
+        return False
+    try:
+        shutil.copyfile(staging_path, dst_path)
+    except OSError:
+        return False
+    _kill_packer_process_by_name(packer_bin)
+    return True
+
+
+def _kill_packer_process_by_name(packer_bin):
+    """Kill any process whose executable basename matches the packer binary.
+
+    Some packers (notably FSG v1.33) never exit cleanly -- they pop a
+    "compression ratio" dialog and the runner's subprocess times out.
+    Even after the timeout, the child process is still alive and would
+    hold the staged file open for the next job. Best-effort: find any
+    running process with a matching image name and terminate it.
+    """
+    if os.name != "nt" or not packer_bin:
+        return
+    try:
+        target = os.path.basename(packer_bin).lower()
+        import ctypes
+        from ctypes import wintypes
+
+        TH32CS_SNAPPROCESS = 0x00000002
+        kernel32 = ctypes.windll.kernel32
+        CreateToolhelp32Snapshot = kernel32.CreateToolhelp32Snapshot
+        Process32FirstW = kernel32.Process32FirstW
+        Process32NextW = kernel32.Process32NextW
+        CloseHandle = kernel32.CloseHandle
+
+        class PROCESSENTRY32W(ctypes.Structure):
+            _fields_ = [
+                ("dwSize", wintypes.DWORD),
+                ("cntUsage", wintypes.DWORD),
+                ("th32ProcessID", wintypes.DWORD),
+                ("th32DefaultHeapID", ctypes.c_void_p),
+                ("th32ModuleID", wintypes.DWORD),
+                ("cntThreads", wintypes.DWORD),
+                ("th32ParentProcessID", wintypes.DWORD),
+                ("pcPriClassBase", wintypes.LONG),
+                ("dwFlags", wintypes.DWORD),
+                ("szExeFile", ctypes.c_wchar * 260),
+            ]
+
+        snap = CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS, 0)
+        if snap == ctypes.c_void_p(-1).value:
+            return
+        try:
+            entry = PROCESSENTRY32W()
+            entry.dwSize = ctypes.sizeof(PROCESSENTRY32W)
+            ok = Process32FirstW(snap, ctypes.byref(entry))
+            while ok:
+                if entry.szExeFile.lower() == target:
+                    handle = kernel32.OpenProcess(0x0001, False, entry.th32ProcessID)
+                    if handle:
+                        kernel32.TerminateProcess(handle, 1)
+                        kernel32.CloseHandle(handle)
+                ok = Process32NextW(snap, ctypes.byref(entry))
+        finally:
+            CloseHandle(snap)
+    except Exception:
+        # Best-effort -- never let cleanup kill the runner.
         pass
 
 
@@ -442,6 +555,11 @@ def pack_single_file(args):
     safe_filename = sanitize_filename(filename)
     dst_path = os.path.join(output_dir, safe_filename)
 
+    # Per-packer settings (timeout, success_by_hash, etc.). The
+    # hash-based success fallback for hang-on-dialog packers (FSG) is
+    # gated on this lookup.
+    pk_settings = get_packer_settings(packer_name)
+
     if max_size_kb > 0:
         file_size_kb = os.path.getsize(src_path) / 1024
         if file_size_kb > max_size_kb:
@@ -625,11 +743,21 @@ def pack_single_file(args):
 
     # In-place packers modify a single file (named via {in} or {out}). Stage that
     # file inside local_temp so dst_path stays untouched until success.
+    staged_pre_hash = None
     if output_behavior == "in_place":
         try:
             shutil.copyfile(safe_input_path, staging_out)
         except OSError as e:
             return False, f"Failed to setup in-place file: {e}"
+        # Capture the SHA-256 of the staged input BEFORE invoking the packer
+        # so the post-failure check can detect that in-place packing actually
+        # happened even when the subprocess times out (FSG v1.33 hangs on a
+        # "compression ratio" dialog and never exits cleanly).
+        try:
+            with open(staging_out, "rb") as _f:
+                staged_pre_hash = hashlib.sha256(_f.read()).hexdigest()
+        except OSError:
+            staged_pre_hash = None
 
     # --- Robust Command Construction ---
     raw_parts = cmd_template.split()
@@ -762,14 +890,34 @@ def pack_single_file(args):
         )
 
     except subprocess.TimeoutExpired:
+        # FSG v1.33 hangs forever on its "compression ratio" dialog and
+        # never exits; the runner's subprocess times out and reports
+        # failure even though the file was already packed in place.
+        # success_by_hash in PACKER_SETTINGS tells us to fall back to a
+        # staged-input hash comparison.
+        if _maybe_success_by_hash(
+            pk_settings, packer_bin, staged_pre_hash, staging_out, dst_path,
+            output_behavior,
+        ):
+            return True, "Packed (detected via hash change after timeout)"
         return False, "Timeout (possible stuck dialog)"
 
     except subprocess.CalledProcessError as e:
         out = e.stdout.strip() if e.stdout else ""
         err = e.stderr.strip() if e.stderr else ""
+        if _maybe_success_by_hash(
+            pk_settings, packer_bin, staged_pre_hash, staging_out, dst_path,
+            output_behavior,
+        ):
+            return True, "Packed (detected via hash change after non-zero exit)"
         return False, f"Exit Code {e.returncode} - STDOUT: {out} | STDERR: {err}"
 
     except Exception as e:
+        if _maybe_success_by_hash(
+            pk_settings, packer_bin, staged_pre_hash, staging_out, dst_path,
+            output_behavior,
+        ):
+            return True, "Packed (detected via hash change after exception)"
         return False, f"Exception: {str(e)}"
 
     finally:
