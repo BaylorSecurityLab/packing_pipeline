@@ -2586,10 +2586,43 @@ static void block_exec(unsigned int vcpu_index, void *userdata)
     }
     if (active && process_monitored(context.source_pid,
                                     context.source_eprocess)) {
+        const PhysicalSpan *emit_spans = block->spans;
+        uint32_t emit_count = block->span_count;
+        PhysicalSpan local_spans[MAX_PHYSICAL_SPANS] = {0};
         if (!block->physical_complete) {
-            physical_mapping_failures++;
-            g_mutex_unlock(&trace_lock);
-            return;
+            /* Physical spans failed to resolve at TRANSLATE time -- almost
+             * always a one-shot/uncached TB whose code-fetch fast path returned
+             * no RAM slot, NOT a truly absent page (those abort via #PF and
+             * never reach this callback).  The block DID execute, so re-resolve
+             * its physical spans from the LIVE guest page tables now (exec time,
+             * page resident) into a local buffer instead of dropping the event.
+             * qemu_plugin_translate_vaddr is valid in this tb-exec callback and
+             * reflects the mapping in effect when the block actually ran; only a
+             * still-unresolvable byte is a true physical mapping failure. */
+            uint32_t local_count = 0;
+            bool resolved = user_address(block->address) &&
+                            user_address(block->address + block->size - 1);
+            for (uint32_t offset = 0; resolved && offset < block->size;
+                 offset++) {
+                uint64_t physical_address;
+                uint64_t ram_address = UINT64_MAX;
+                if (qemu_plugin_translate_vaddr(block->address + offset,
+                                                &physical_address)) {
+                    ram_address =
+                        qemu_plugin_phys_addr_ram_addr(physical_address);
+                }
+                if (!add_physical_byte(local_spans, &local_count, offset,
+                                       ram_address)) {
+                    resolved = false;
+                }
+            }
+            if (!resolved) {
+                physical_mapping_failures++;
+                g_mutex_unlock(&trace_lock);
+                return;
+            }
+            emit_spans = local_spans;
+            emit_count = local_count;
         }
         mapped_result = cached_mapped_file_location(
             context.attached_eprocess, block->address, &file_id, &file_offset,
@@ -2634,7 +2667,7 @@ static void block_exec(unsigned int vcpu_index, void *userdata)
                 ",\"size\":%u,\"basic_block_instructions\":%u",
                 ++sequence_number, vcpu_index, context.source_pid, context.tid,
                 block->address, block->size, block->insns);
-        emit_physical_spans(block->spans, block->span_count);
+        emit_physical_spans(emit_spans, emit_count);
         if (mapped_result == MAPPED_FILE_FOUND) {
             fprintf(trace_file,
                     ",\"file_id\":%" PRIu64
