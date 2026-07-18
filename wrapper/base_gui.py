@@ -99,6 +99,14 @@ class BaseGUI(ABC):
         "Choose File",
     ]
 
+    ERROR_DIALOG_PATTERNS = [
+        "access violation",
+        "fatal",
+        "internal error",
+        "unhandled exception",
+        "runtime error",
+    ]
+
     SHORT_TIMEOUT = 5
     LONG_TIMEOUT = 10
     EXTRA_LONG_TIMEOUT = 500
@@ -116,6 +124,7 @@ class BaseGUI(ABC):
         self.packer_info = None
         self.process = None
         self.window = None
+        self.window_pid = None
         # Whether this instance currently holds the global input lock.
         self._holds_input = False
 
@@ -406,6 +415,7 @@ class BaseGUI(ABC):
 
                     # Using pygetwindow to wrap the found handle
                     self.window = gw.getWindowsWithTitle(title)[0]
+                    self._record_window_pid(hwnd)
                     return True
 
             except Exception as e:
@@ -447,6 +457,83 @@ class BaseGUI(ABC):
 
         self.process = None
         self.window = None
+        self.window_pid = None
+
+    # ========== ERROR / CRASH DIALOG HANDLING ==========
+
+    def _record_window_pid(self, hwnd):
+        """Record the PID that owns the located GUI window."""
+        try:
+            _, pid = win32process.GetWindowThreadProcessId(hwnd)
+            self.window_pid = pid
+        except Exception:
+            self.window_pid = None
+
+    def find_error_dialog(self, patterns=None, timeout=SHORT_TIMEOUT):
+        """Return the hwnd of a fatal crash popup owned by this packer, or None.
+
+        Polls up to `timeout` seconds; read-only, so safe under parallelism
+        without the input lock.
+        """
+        patterns = [p.lower() for p in (patterns or self.ERROR_DIALOG_PATTERNS)]
+        deadline = time.time() + max(0, timeout)
+        while True:
+            hwnd = self._scan_process_dialogs(patterns)
+            if hwnd:
+                return hwnd
+            if time.time() >= deadline:
+                return None
+            time.sleep(0.3)
+
+    def _scan_process_dialogs(self, patterns_lower):
+        """One pass over owned #32770 dialogs; return the first matching hwnd."""
+        acceptable = set()
+        if self.process:
+            acceptable.add(self.process.pid)
+        if self.window_pid:
+            acceptable.add(self.window_pid)
+
+        matches = []
+
+        def _collect(hwnd, _):
+            try:
+                if not win32gui.IsWindowVisible(hwnd):
+                    return True
+                if win32gui.GetClassName(hwnd) != "#32770":
+                    return True
+                _, pid = win32process.GetWindowThreadProcessId(hwnd)
+                if acceptable and pid not in acceptable:
+                    return True
+
+                texts = [win32gui.GetWindowText(hwnd)]
+
+                def _child(child_hwnd, _unused):
+                    texts.append(win32gui.GetWindowText(child_hwnd))
+                    return True
+
+                win32gui.EnumChildWindows(hwnd, _child, None)
+                blob = " ".join(t for t in texts if t).lower()
+                if any(p in blob for p in patterns_lower):
+                    matches.append(hwnd)
+            except Exception:
+                pass
+            return True
+
+        try:
+            win32gui.EnumWindows(_collect, None)
+        except Exception:
+            pass
+        return matches[0] if matches else None
+
+    def dismiss_dialog(self, hwnd):
+        """Best-effort close of a popup dialog via WM_CLOSE."""
+        try:
+            win32gui.PostMessage(hwnd, win32con.WM_CLOSE, 0, 0)
+            time.sleep(0.3)
+            return True
+        except Exception as e:
+            print(f"[WARNING] Could not dismiss error dialog: {e}")
+            return False
 
     def _get_client_area_info(self, window_title):
         """

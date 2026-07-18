@@ -10,6 +10,7 @@ from pathlib import Path
 from typing import List, Dict, Optional, Set
 import argparse
 import yaml
+from tqdm import tqdm
 
 from base_gui import close_all_windows
 from fsg import FSG
@@ -51,17 +52,25 @@ from xpa_v143_gui import XPAV143GUI
 from zprotect_gui import ZProtectGUI
 
 PACKER_FILE_SUPPORT: Dict[str, List[str]] = {
+    "acprotect_std": [".exe"],
+    "alienyze_protector": [".exe"],
+    "armadillo": [".exe"],
+    "asm_guard": [".exe"],
+    "fsg_v1.0": [".exe"],
+    "jdpack_v1.00": [".exe"],
+    "mew": [".exe"],
     "npack_v1.1": [".exe"],
     "nspack_v3.7": [".exe"],
-    "jdpack_v1.00": [".exe"],
-    "fsg_v1.0": [".exe"],
-    "asm_guard": [".exe"],
-    "alienyze_protector": [".exe"],
-    "mew": [".exe"],
+    "obsidium_v1.5.2": [".exe"],
+    "obsidium_v1.8.8": [".exe"],
     "packman": [".exe"],
-    "rlpack": [".exe"],
     "pe_diminisher": [".exe"],
+    "pecompact_v1.84": [".exe"],
+    "pelock_v2.40": [".exe"],
+    "rlpack": [".exe"],
     "shrinker_v3.4_demo": [".exe"],
+    "telock_v0.98": [".exe"],
+    "themida_v3.2.4.34": [".exe"],
     "upx_scrambler": [".exe"],
     "upx_scrambler_306": [".exe"],
     "upx_scrambler_rc1": [".exe"],
@@ -69,22 +78,14 @@ PACKER_FILE_SUPPORT: Dict[str, List[str]] = {
     "upx_scrambler_rc105": [".exe"],
     "upx_scrambler_rc1b10": [".exe"],
     "winupack": [".exe"],
-    "yoda_crypter_v1.3": [".exe"],
+    "xpa_v1.43": [".exe"],
     "yoda_crypter_v1.2": [".exe"],
+    "yoda_crypter_v1.3": [".exe"],
     "yoda_protector_v1.0": [".exe"],
     "yoda_protector_v1.01.2": [".exe"],
     "yoda_protector_v1.02": [".exe"],
     "yoda_protector_v1.03.2": [".exe"],
     "yoda_protector_v1.03.3": [".exe"],
-    "acprotect_std": [".exe"],
-    "telock_v0.98": [".exe"],
-    "pelock_v2.40": [".exe"],
-    "armadillo": [".exe"],
-    "pecompact_v1.84": [".exe"],
-    "themida_v3.2.4.34": [".exe"],
-    "obsidium_v1.8.8": [".exe"],
-    "obsidium_v1.5.2": [".exe"],
-    "xpa_v1.43": [".exe"],
     "zprotect": [".exe"],
 }
 
@@ -100,6 +101,9 @@ PACKER_OPTIONS: Dict[str, Dict[str, str]] = {
 
 
 PACKER_DEFAULT_STATES: Dict[str, Dict[str, bool]] = {
+    "acprotect_std": {},
+    "alienyze_protector": {},
+    "armadillo": {},
     "asm_guard": {
         "maximum_instruction_compression": False,
         "add_junk_cpp_functions": True,
@@ -107,16 +111,21 @@ PACKER_DEFAULT_STATES: Dict[str, Dict[str, bool]] = {
         "enhanced_flood_mode": False,
         "add_different_types": False,
     },
+    "fsg_v1.0": {},
+    "jdpack_v1.00": {},
+    "mew": {},
     "npack_v1.1": {},
     "nspack_v3.7": {},
-    "jdpack_v1.00": {},
-    "fsg_v1.0": {},
-    "alienyze_protector": {},
-    "mew": {},
+    "obsidium_v1.5.2": {},
+    "obsidium_v1.8.8": {},
     "packman": {},
-    "rlpack": {},
     "pe_diminisher": {},
+    "pecompact_v1.84": {},
+    "pelock_v2.40": {},
+    "rlpack": {},
     "shrinker_v3.4_demo": {},
+    "telock_v0.98": {},
+    "themida_v3.2.4.34": {},
     "upx_scrambler": {},
     "upx_scrambler_306": {},
     "upx_scrambler_rc1": {},
@@ -124,22 +133,14 @@ PACKER_DEFAULT_STATES: Dict[str, Dict[str, bool]] = {
     "upx_scrambler_rc105": {},
     "upx_scrambler_rc1b10": {},
     "winupack": {},
-    "yoda_crypter_v1.3": {},
+    "xpa_v1.43": {},
     "yoda_crypter_v1.2": {},
+    "yoda_crypter_v1.3": {},
     "yoda_protector_v1.0": {},
     "yoda_protector_v1.01.2": {},
     "yoda_protector_v1.02": {},
     "yoda_protector_v1.03.2": {},
     "yoda_protector_v1.03.3": {},
-    "acprotect_std": {},
-    "telock_v0.98": {},
-    "pelock_v2.40": {},
-    "armadillo": {},
-    "pecompact_v1.84": {},
-    "themida_v3.2.4.34": {},
-    "obsidium_v1.8.8": {},
-    "obsidium_v1.5.2": {},
-    "xpa_v1.43": {},
     "zprotect": {},
 }
 
@@ -1579,17 +1580,25 @@ class GUIWrapperRunner:
         directory, and the packer operates on that copy.
         """
         packer_methods = {
+            "acprotect_std": self.run_acprotect,
+            "alienyze_protector": self.run_alienyze_protector,
+            "armadillo": self.run_armadillo,
+            "asm_guard": self.run_asm_guard,
+            "fsg_v1.0": self.run_fsg,
+            "jdpack_v1.00": self.run_jdpack,
+            "mew": self.run_mew,
             "npack_v1.1": self.run_npack,
             "nspack_v3.7": self.run_nspack,
-            "jdpack_v1.00": self.run_jdpack,
-            "fsg_v1.0": self.run_fsg,
-            "asm_guard": self.run_asm_guard,
-            "alienyze_protector": self.run_alienyze_protector,
-            "mew": self.run_mew,
+            "obsidium_v1.5.2": self.run_obsidium_v152,
+            "obsidium_v1.8.8": self.run_obsidium_v1880,
             "packman": self.run_packman,
-            "rlpack": self.run_rlpack,
             "pe_diminisher": self.run_pe_diminisher,
+            "pecompact_v1.84": self.run_pecompact,
+            "pelock_v2.40": self.run_pelock,
+            "rlpack": self.run_rlpack,
             "shrinker_v3.4_demo": self.run_shrinker,
+            "telock_v0.98": self.run_telock,
+            "themida_v3.2.4.34": self.run_themida,
             "upx_scrambler": self.run_upx_scrambler,
             "upx_scrambler_306": self.run_upx_scrambler_306,
             "upx_scrambler_rc1": self.run_upx_scrambler_rc1,
@@ -1597,22 +1606,14 @@ class GUIWrapperRunner:
             "upx_scrambler_rc105": self.run_upx_scrambler_rc105,
             "upx_scrambler_rc1b10": self.run_upx_scrambler_rc1b10,
             "winupack": self.run_winupack,
-            "yoda_crypter_v1.3": self.run_yoda_crypter,
+            "xpa_v1.43": self.run_xpa_v143,
             "yoda_crypter_v1.2": self.run_yoda_crypter_v12,
+            "yoda_crypter_v1.3": self.run_yoda_crypter,
             "yoda_protector_v1.0": self.run_yoda_protector_v10,
             "yoda_protector_v1.01.2": self.run_yoda_protector_v1012,
             "yoda_protector_v1.02": self.run_yoda_protector_v102,
             "yoda_protector_v1.03.2": self.run_yoda_protector_v1032,
             "yoda_protector_v1.03.3": self.run_yoda_protector_v1033,
-            "acprotect_std": self.run_acprotect,
-            "telock_v0.98": self.run_telock,
-            "pelock_v2.40": self.run_pelock,
-            "armadillo": self.run_armadillo,
-            "pecompact_v1.84": self.run_pecompact,
-            "themida_v3.2.4.34": self.run_themida,
-            "obsidium_v1.8.8": self.run_obsidium_v1880,
-            "obsidium_v1.5.2": self.run_obsidium_v152,
-            "xpa_v1.43": self.run_xpa_v143,
             "zprotect": self.run_zprotect,
         }
 
@@ -1735,9 +1736,17 @@ class GUIWrapperRunner:
         # Process each file
         results = {}
         skipped = skipped_files if skip_existing else []
+        file_bar = tqdm(
+            files,
+            total=len(files),
+            unit="file",
+            desc=f"[{packer_name}] Files",
+            position=1,
+            leave=False,
+        )
         try:
-            for i, file_path in enumerate(files, 1):
-                print(f"\n[PROGRESS] Processing file {i}/{len(files)}")
+            for i, file_path in enumerate(file_bar, 1):
+                file_bar.set_postfix_str(file_path.name)
 
                 success = self.run_packer(
                     packer_name,
@@ -1751,9 +1760,9 @@ class GUIWrapperRunner:
                 if i < len(files):
                     import time
 
-                    print("[INFO] Pausing before next file...")
                     time.sleep(2)
         finally:
+            file_bar.close()
             # Always run on the way out — including a Ctrl+C mid-batch — so an
             # interrupted run still contributes its partial counts to the final
             # report and never leaves working copies behind.
@@ -2021,6 +2030,15 @@ Examples:
     )
 
     parser.add_argument(
+        "--exclude",
+        nargs="+",
+        default=None,
+        metavar="PACKER",
+        choices=list(PACKER_FILE_SUPPORT.keys()),
+        help="Packer(s) to skip when --packer all is used (space-separated list)",
+    )
+
+    parser.add_argument(
         "--source-dir",
         type=str,
         default="../benign_sources/x86",
@@ -2148,17 +2166,35 @@ Examples:
         # "all" mode — run every packer in sequence
         if args.packer == "all":
             all_packers = list(PACKER_FILE_SUPPORT.keys())
+            if args.exclude:
+                excluded = set(args.exclude)
+                all_packers = [p for p in all_packers if p not in excluded]
+                print(
+                    f"[INFO] Excluding {len(excluded)} packer(s): "
+                    f"{', '.join(sorted(excluded))}"
+                )
             any_failed = False
+
+            packer_bar = tqdm(
+                all_packers,
+                total=len(all_packers),
+                unit="packer",
+                desc="Packers completed",
+                position=0,
+                leave=True,
+            )
 
             if args.file:
                 file_path = Path(args.file).resolve()
                 if not file_path.exists():
+                    packer_bar.close()
                     print(f"[ERROR] File not found: {file_path}")
                     return 1
-                for packer_name in all_packers:
-                    print(f"\n{'#' * 60}")
-                    print(f"PACKER: {packer_name}")
-                    print(f"{'#' * 60}")
+                for packer_name in packer_bar:
+                    packer_bar.set_postfix_str(packer_name)
+                    tqdm.write(f"\n{'#' * 60}")
+                    tqdm.write(f"PACKER: {packer_name}")
+                    tqdm.write(f"{'#' * 60}")
                     success = runner.run_packer(
                         packer_name,
                         file_path,
@@ -2171,10 +2207,11 @@ Examples:
                     if not success:
                        any_failed = True
             else:
-                for packer_name in all_packers:
-                    print(f"\n{'#' * 60}")
-                    print(f"PACKER: {packer_name}")
-                    print(f"{'#' * 60}")
+                for packer_name in packer_bar:
+                    packer_bar.set_postfix_str(packer_name)
+                    tqdm.write(f"\n{'#' * 60}")
+                    tqdm.write(f"PACKER: {packer_name}")
+                    tqdm.write(f"{'#' * 60}")
                     results = runner.run_batch(
                         packer_name=packer_name,
                         packer_config=None,
@@ -2187,6 +2224,7 @@ Examples:
                     if any(v is False for v in results.values()):
                         any_failed = True
 
+            packer_bar.close()
             return 1 if any_failed else 0
 
         # Single file mode

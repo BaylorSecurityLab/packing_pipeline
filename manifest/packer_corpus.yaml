@@ -7,781 +7,50 @@ last_updated: "2026-03-24"
 # Define packers here once. Use '&name' to create a reusable anchor.
 # ==========================================
 definitions:
-  - &packman_v10
-    packer_family: "packman"
-    packer_name: "packman"
-    version: "1.0"
+  - &acprotect_std
+    packer_family: "acprotect"
+    packer_name: "acprotect_std"
+    version: "Standard (installer)"
     arch_origin: "x86"
     supported_input_arch: "PE32"
     supported_output_arch: "PE32"
     dependencies: []
-    tags: ["GUI", "Compressor"]
-    binary_path: "./packers/packman/Packman-1.0/Packman.exe"
-    binary_sha256: "741c32c7c502c16ff0a3a1f1499204365245baa4aa7a5a02518bd2a311914095"
-    source_url: "https://web.archive.org/web/20070101/packman.com"
-    license: "Freeware"
-    notes: "Packman 1.0. A legacy executable compressor. Primarily GUI-based."
-    size_kb: "32"
-    output_behavior: "in_place"
-    type: "Type I"
-    type_ex: "Described as a standard executable compressor, suggesting a simple single-layer packing mechanism."
-    known_issues:
-      - ""
-
-  - &upx_scrambler_304
-    packer_family: "UPX_Scrambler"
-    packer_name: "UPX_Scrambler"
-    version: "3.0.4"
-    arch_origin: "x86"
-    supported_input_arch: "PE32"
-    supported_output_arch: "PE32"
-    dependencies: []
-    tags: ["GUI", "Scrambler"]
-    binary_path: "./packers/upx_scrambler/upxs304.exe"
-    binary_sha256: "eb59536bfe402267af20dba1adfe35f6a88d30d6fd0460bebdc7cff782b3a971"
-    source_url: "https://defacto2.net/f/a520164?packer=upxs"
-    license: "Freeware"
-    notes: "A tool designed to obfuscate or 'scramble' the headers of UPX-packed executables to prevent easy unpacking. It is a GUI-based utility."
-    size_kb: "17"
+    tags: ["GUI", "Protector", "Anti-Debug", "Crypter", "Commercial"]
+    binary_path: "./packers/acprotect/ACProtect/ACProtect.exe"
+    binary_sha256: "f082359b90eed2aed56403667527e038b84204021d281e09057496aae177b058"
+    source_url: "https://archive.org/download/tucows_304741_ACProtect/acpr_std.exe"
+    license: "Commercial (Trial, preserved via archive.org/Tucows)"
+    notes: "ACProtect Standard by risco. A GUI-based PE protector using RSA public-key cryptography for registration key generation, with anti-dump and anti-debug features. Installer (acpr_std.exe) also retained at ./packers/acprotect/acpr_std.exe."
+    size_kb: "998"
     output_behavior: "explicit"
-    type: "Type II"
-    type_ex: "This tool adds a layer of obfuscation on top of an already packed file (UPX), creating a multi-layer packer scenario."
+    type: "Type IV"
+    type_ex: "ACProtect employs RSA-based key verification, code encryption, CRC checks, and anti-dump — full interleaved execution where the protection stub remains active at runtime."
     known_issues:
-      - ""
+      - "Automation: GUI-only; cannot be scripted via CLI."
+      - "Trial: Limited features in trial/standard edition."
 
-  - &shrinker_v34_demo
-    packer_family: "shrinker"
-    packer_name: "shrinker_v3.4_demo"
-    version: "3.4 Demo"
-    arch_origin: "x86"
-    supported_input_arch: "PE32"
-    supported_output_arch: "PE32"
-    dependencies: []
-    tags: ["GUI", "Compressor", "Demo"]
-    binary_path: "./packers/shrinker/Shrink32.exe"
-    binary_sha256: "87d6ee4ce86397d45200698be1a917aa9eca24e80359bd18a39f545afec68bfe"
-    source_url: "https://defacto2.net/f/b224796"
-    license: "Shareware (Demo)"
-    notes: "Shrinker 3.4 Demo by Blink Inc. A Win32 PE compressor/packer. Demo release from the defacto2 scene archive. GUI-only; cannot be scripted via CLI."
-    size_kb: "361"
-    output_behavior: "explicit"
-    type: "Type I"
-    type_ex: "Shrinker is a single-layer compressor that prepends a decompression stub to the original PE, consistent with Type I."
-    known_issues:
-      - "Demo version may restrict packing of large files or add a watermark."
-      - "GUI-only; cannot be scripted via CLI."
+  # COMMERCIAL / UNAVAILABLE PACKERS
+  # These require purchase or cannot be auto-downloaded.
+  # Entries are provided for corpus completeness.
 
-  - &ped_legacy
-    packer_family: "pe_diminisher"
-    packer_name: "pe_diminisher"
-    version: "0.1"
-    arch_origin: "x86"
-    supported_input_arch: "PE32"
-    supported_output_arch: "PE32"
-    dependencies: []
-    tags: ["GUI", "Header-Stripper", "Encrypter"]
-    binary_path: "./packers/ped/ped.exe"
-    binary_sha256: "cb6c5b337d31716f9fdb5517d6cce426436e46cf818ee91a98df667a22fef4f1"
-    source_url: "https://web.archive.org/web/20060111104142/http://www.exetools.com/files/compressors/win/ped.zip"
-    license: "Freeware"
-    notes: "PE Diminisher (PED). A legacy GUI tool designed to reduce executable size by stripping DOS headers and optimizing PE structures."
-    size_kb: "14"
-    output_behavior: "explicit"
-    type: "Type I"
-    type_ex: "Described as a simple executable packer that uses aPLib compression. This suggests a single-layer modification."
-    known_issues:
-      - ""
-
-  - &hackupx_v100
-    packer_family: "hackupx"
-    packer_name: "hackupx"
-    version: "1.00"
-    arch_origin: "x86"
-    supported_input_arch: "PE32"
-    supported_output_arch: "PE32"
-    dependencies: ["upx_v5.1.0"]
-    tags: ["CLI", "Mutator", "Obfuscator", "Multi-Stage"]
-    binary_path: "./packers/hackupx/hackupx.exe"
-    binary_sha256: "47a0ac6605d6f63b94df7c54d54674dcf4f48038b39d08668f633edd61812e10"
-    source_url: "https://defacto2.net/f/a520164?packer=upxs"
-    license: "Freeware"
-    notes: "UPX Mutator by ROSE SWE (2001). Scrambles the headers/signatures of UPX-compressed executables to prevent automatic unpacking."
-    size_kb: "35"
-    output_behavior: "in_place"
-    type: "Type II"
-    type_ex: "Similar to UPX_Scrambler, it adds a layer of obfuscation on top of UPX, creating a multi-layer packer."
-    known_issues:
-      - ""
-
-  - &xcomp_v097
-    packer_family: "xcomp"
-    packer_name: "xcomp"
-    version: "0.97"
-    arch_origin: "x86"
-    supported_input_arch: "PE32"
-    supported_output_arch: "PE32"
-    dependencies: []
-    tags: ["CLI", "In-Place", "Legacy"]
-    binary_path: "./packers/xcomp/XCompc.exe"
-    binary_sha256: "5e33e701bc871198ef32e1598641e7704d7a1e74f022f924a17ee9e7ca302836"
-    source_url: "http://www.soft-lab.de/JoKo/index_old.htm"
-    license: "Freeware"
-    notes: "(c) 2007 JoKo. A 32-bit PE packer supporting LZRW and LZSS compression. Modifies files in-place."
-    size_kb: "25"
-    output_behavior: "in_place"
-    type: "Type I"
-    type_ex: "A standard PE packer with compression and rebuilding features. No indication of advanced protection mechanisms."
-    known_issues:
-      - "Stability: Susceptible to Access Violation crashes (Exit Code 0xC0000005) on complex, modern installers (e.g., Adobe Acrobat Reader)."
-      - "Legacy Constraints: As a 2007 tool, it may fail on executables with extensive Overlay data or non-standard Section alignments."
-
-  - &winupack_v039
-    packer_family: "winupack"
-    packer_name: "winupack"
-    version: "0.39"
-    arch_origin: "x86"
-    supported_input_arch: "PE32"
-    supported_output_arch: "PE32"
-    dependencies: ["upack"]
-    tags: ["GUI", "Frontend"]
-    binary_path: "./packers/wupack/WinUpackE.exe"
-    binary_sha256: "7ae78bec94af597d27dd66b681300da0004945434e4ad2b11c60321ea0bd90e5"
-    source_url: "https://www.sac.sk/download/pack/wupck039.zip"
-    license: "Freeware"
-    notes: "Graphical User Interface (GUI) frontend for the Upack CLI compressor. Useful for manual testing but not suitable for automation."
-    size_kb: "27"
-    output_behavior: "explicit"
-    type: "Type III"
-    type_ex: "As a frontend for Upack, it produces a packed file with the same characteristics. Upack is classified as Type III due to its focus on anti-unpacking techniques."
-    known_issues:
-      - ""
-
-  - &upack_v399
-    packer_family: "upack"
-    packer_name: "upack"
-    version: "0.399 (Brute)"
-    arch_origin: "x86"
-    supported_input_arch: "PE32"
-    supported_output_arch: "PE32"
-    dependencies: []
-    tags: ["CLI"]
-    binary_path: "./packers/upack/Upack.exe"
-    binary_sha256: "bbbf9630c2e0990e6d8cbb52b5842e7d7a1def8e844c2dcb01a1f8106d82bdd7"
-    source_url: "https://www.sac.sk/download/pack/upack399.rar"
-    license: "Freeware"
-    notes: "(c) 2005 dwing. A legendary packer often associated with malware due to its unique PE header manipulation (e.g., merging sections)."
-    size_kb: "21"
-    output_behavior: "in_place"
-    type: "Type III"
-    type_ex: "Upack is known for its focus on anti-unpacking techniques and unique PE header manipulation, suggesting a complexity beyond a simple compressor, likely with cyclic checks."
-    known_issues:
-      - ""
-
-  - &rlpack_v121
-    packer_family: "rlpack"
-    packer_name: "rlpack"
-    version: "1.21 Basic"
+  - &alienyze_v14
+    packer_family: "alienyze_protector"
+    packer_name: "alienyze_protector"
+    version: "1.4"
     arch_origin: "x86"
     supported_input_arch: "PE32"
     supported_output_arch: "PE32"
     dependencies: []
     tags: ["GUI"]
-    binary_path: "./packers/rlpack/RLPack.exe"
-    binary_sha256: "070ee0f340a85a6b5c6aa5577aecf22c95ae380ef1e05e62073e726bd3dc7da2"
-    source_url: "https://www.softpedia.com/get/Programming/Packers-Crypters-Protectors/RLPack-Basic-Edition.shtml"
-    license: "Freeware (Basic)"
-    notes: "RLPack Basic Edition (by ap0x). A compressing executable protector"
-    size_kb: "58"
+    binary_path: "./packers/alienyze_protector/alienyze.exe"
+    binary_sha256: "86e46398131254fd0ce718344b06f45892d74ef3592e5adf9f800a646da6aae6"
+    source_url: "https://alienyze.com/"
+    license: "Commercial"
+    notes: "GUI-based protector with Anti-Debugger, Anti-VM, and Integrity Checks."
+    size_kb: "128"
     output_behavior: "explicit"
     type: "Type IV"
-    type_ex: "RLPack includes anti-debugging, integrity checks, and code splicing, indicating an interleaved execution model where the packer's code is active during runtime."
-    known_issues:
-      - ""
-
-  - &mew_v11
-    packer_family: "mew"
-    packer_name: "mew"
-    version: "1.1 SE"
-    arch_origin: "x86"
-    supported_input_arch: "PE32"
-    supported_output_arch: "PE32"
-    dependencies: []
-    tags: ["GUI", "Compressor"]
-    binary_path: "./packers/mew/mew11.exe"
-    binary_sha256: "5d34161be5f0c623d9810e39c594ee72f65ca74b9730f57ad6675c13d81e6d3f"
-    source_url: "https://www.softpedia.com/get/Programming/Packers-Crypters-Protectors/MEW.shtml"
-    license: "Freeware"
-    notes: "MEW 11 SE by Northfox. A high-ratio compressor designed for very small executables (demoscene). Primarily a GUI tool."
-    size_kb: "261"
-    output_behavior: "in_place"
-    type: "Type I"
-    type_ex: "A high-ratio compressor with no mention of advanced protection mechanisms."
-    known_issues:
-      - ""
-
-  - &kkrunchy_v023
-    packer_family: "kkrunchy"
-    packer_name: "kkrunchy_v0.23a"
-    version: "0.23 alpha"
-    arch_origin: "x86"
-    supported_input_arch: "PE32"
-    supported_output_arch: "PE32"
-    dependencies: []
-    tags: ["CLI"]
-    binary_path: "./packers/kkrunchy/kkrunchy.exe"
-    binary_sha256: "70b8af13448406bebbd3639d64e161752aca325fc57a353bf31edd76af5f7b1b"
-    source_url: "https://www.farbrausch.de/~fg/kkrunchy/"
-    license: "Freeware"
-    notes: "A radical EXE packer designed for 64k and 4k intros."
-    size_kb: "40"
-    output_behavior: "explicit"
-    type: "Type I"
-    type_ex: "A highly specialized packer for demoscene intros. Despite using advanced compression, it's fundamentally a single-layer compressor."
-    known_issues:
-      - "Stability: Frequent Access Violation crashes (Exit Code 0xC0000005) when parsing modern complex PE structures."
-      - "Compatibility: Produces non-standard PE structures that often crash modern debuggers or static analysis tools."
-
-  - &kkrunchy_v023a2
-    packer_family: "kkrunchy"
-    packer_name: "kkrunchy_v0.23a2"
-    version: "0.23 alpha 2"
-    arch_origin: "x86"
-    supported_input_arch: "PE32"
-    supported_output_arch: "PE32"
-    dependencies: []
-    tags: ["CLI"]
-    binary_path: "./packers/kkrunchy/v0.23a2/kkrunchy_k7.exe"
-    binary_sha256: "4863ce4a96b3a9ebd0b2928eeaf3aed3cf107531ff0be08604dfb2a6a69c06db"
-    source_url: "https://www.farbrausch.de/~fg/kkrunchy/"
-    license: "Freeware"
-    notes: "A radical EXE packer designed for 64k and 4k intros. Alpha 2 version (2006) with K7-optimized depacker."
-    size_kb: "32"
-    output_behavior: "explicit"
-    type: "Type I"
-    type_ex: "A highly specialized packer for demoscene intros. Despite using advanced compression, it's fundamentally a single-layer compressor."
-    known_issues:
-      - "Stability: Frequent Access Violation crashes (Exit Code 0xC0000005) when parsing modern complex PE structures."
-      - "Compatibility: Produces non-standard PE structures that often crash modern debuggers or static analysis tools."
-
-  - &yoda_crypter_v12
-    packer_family: "yoda_crypter"
-    packer_name: "yoda_crypter_v1.2"
-    version: "1.2"
-    arch_origin: "x86"
-    supported_input_arch: "PE32"
-    supported_output_arch: "PE32"
-    dependencies: []
-    tags: ["GUI", "Crypter", "Polymorphism"]
-    binary_path: "./packers/yoda_crypter/v1.2/yc.exe"
-    binary_sha256: "a0f83c7f388bd5fafc112a1ce76eacce8313eefa07d2ba0c4e053d355ed7826b"
-    source_url: "https://sourceforge.net/projects/yodap/"
-    license: "Freeware"
-    notes: "Yoda's Crypter v1.2 (2005). A polymorphic encryptor designed for signature evasion. Distinct from Yoda's Protector."
-    size_kb: "10"
-    output_behavior: "explicit"
-    type: "Type IV"
-    type_ex: "Crypters with anti-debugging features like Yoda's often use interleaved execution to check for analysis tools at runtime."
-    known_issues:
-      - ""
-
-  - &yoda_crypter_v13
-    packer_family: "yoda_crypter"
-    packer_name: "yoda_crypter_v1.3"
-    version: "1.3"
-    arch_origin: "x86"
-    supported_input_arch: "PE32"
-    supported_output_arch: "PE32"
-    dependencies: []
-    tags: ["GUI", "Crypter", "Polymorphism"]
-    binary_path: "./packers/yoda_crypter/yC1.3/yC1.3/yC.exe"
-    binary_sha256: "337b92acf0dd3fac565b9a07ddef1bb07852b1c4a0dcaa0c4df5debd9d51c629"
-    source_url: "https://sourceforge.net/projects/yodap/"
-    license: "Freeware"
-    notes: "Yoda's Crypter (yC). A polymorphic encryptor designed for signature evasion. Distinct from Yoda's Protector."
-    size_kb: "108"
-    output_behavior: "explicit"
-    type: "Type IV"
-    type_ex: "Crypters with anti-debugging features like Yoda's often use interleaved execution to check for analysis tools at runtime."
-    known_issues:
-      - ""
-
-  - &exe32pack_v142
-    packer_family: "exe32pack"
-    packer_name: "exe32pack"
-    version: "1.42"
-    arch_origin: "x32"
-    supported_input_arch: "PE32"
-    supported_output_arch: "PE32"
-    dependencies: []
-    tags: ["CLI"]
-    binary_path: "./packers/exe32pack/exe32pack.exe"
-    binary_sha256: "e81d42faae9cd704f678d400d71caae0e252ea500c7daf5920ceeb66d039ddf5"
-    source_url: "https://exe32pack.apponic.com/download/"
-    license: "Shareware"
-    notes: "File command output: MS-DOS executable PE32 executable (console) Intel 80386. EVALUATION VERSION LIMIT: Input files must be under 80KB."
-    size_kb: "49"
-    output_behavior: "explicit"
-    type: "Type I"
-    type_ex: "A standard executable packer with no mention of advanced protection mechanisms."
-    known_issues:
-      - "Unicode Support: Fails to open files with non-ASCII characters in the path (e.g., Chinese, Arabic)."
-      - "Large Files: Fails on files with large overlays (like installers/SFX) or files > 80KB due to trial limit."
-      - "Automation: Trial version has a 'nag screen' popup that may freeze scripts if no timeout is set."
-
-  - &upx_v396
-    packer_family: "UPX"
-    packer_name: "upx_v3.96"
-    version: "3.96"
-    arch_origin: "x64"
-    supported_input_arch: ["PE32", "PE32+"]
-    supported_output_arch: ["PE32", "PE32+"]
-    dependencies: []
-    tags: ["CLI", "Multi-Platform"]
-    binary_path: "./packers/upx/v3.96/upx.exe"
-    binary_sha256: "24624a9d3786d7ba93575383edf694505453af59b39b0463260a75c6344d0ae7"
-    source_url: "https://github.com/upx/upx/releases/tag/v3.96"
-    license: "GPL"
-    notes: "The Ultimate Packer for eXecutables v3.96 (2020). Last v3.x release. Handles PE, ELF, Mach-O."
-    size_kb: "403"
-    output_behavior: "explicit"
-    type: "Type I"
-    type_ex: "The paper explicitly mentions UPX as a notable example of a Type-I packer, which uses a single unpacking routine."
-    known_issues:
-      - "Antivirus: Files packed with UPX are frequently flagged as false positives by AV engines."
-      - "Overlays: Default behavior copies overlays, but --overlay=strip might be needed for some specific targets."
-
-  - &upx_v395
-    packer_family: "UPX"
-    packer_name: "upx_v3.95"
-    version: "3.95"
-    arch_origin: "x64"
-    supported_input_arch: ["PE32", "PE32+"]
-    supported_output_arch: ["PE32", "PE32+"]
-    dependencies: []
-    tags: ["CLI", "Multi-Platform"]
-    binary_path: "./packers/upx/v3.95/upx.exe"
-    binary_sha256: "3660fa3c1e91917e8388c85e222bf3973edebf89f5898b2908111c981481dd40"
-    source_url: "https://github.com/upx/upx/releases/tag/v3.95"
-    license: "GPL"
-    notes: "The Ultimate Packer for eXecutables v3.95 (2018). Stable v3.x release."
-    size_kb: "397"
-    output_behavior: "explicit"
-    type: "Type I"
-    type_ex: "The paper explicitly mentions UPX as a notable example of a Type-I packer, which uses a single unpacking routine."
-    known_issues:
-      - "Antivirus: Files packed with UPX are frequently flagged as false positives by AV engines."
-      - "Overlays: Default behavior copies overlays, but --overlay=strip might be needed for some specific targets."
-
-  - &upx_v400
-    packer_family: "UPX"
-    packer_name: "upx_v4.0.0"
-    version: "4.0.0"
-    arch_origin: "x64"
-    supported_input_arch: ["PE32", "PE32+"]
-    supported_output_arch: ["PE32", "PE32+"]
-    dependencies: []
-    tags: ["CLI", "Multi-Platform"]
-    binary_path: "./packers/upx/v4.0.0/upx.exe"
-    binary_sha256: "7cb6c4659dc3bc5ce10b5e18499cf14322c66f310d7d623143881a7e884a3467"
-    source_url: "https://github.com/upx/upx/releases/tag/v4.0.0"
-    license: "GPL"
-    notes: "The Ultimate Packer for eXecutables v4.0.0 (2023). First v4.x release with major rewrite."
-    size_kb: "468"
-    output_behavior: "explicit"
-    type: "Type I"
-    type_ex: "The paper explicitly mentions UPX as a notable example of a Type-I packer, which uses a single unpacking routine."
-    known_issues:
-      - "Antivirus: Files packed with UPX are frequently flagged as false positives by AV engines."
-      - "Overlays: Default behavior copies overlays, but --overlay=strip might be needed for some specific targets."
-
-  - &upx_v401
-    packer_family: "UPX"
-    packer_name: "upx_v4.0.1"
-    version: "4.0.1"
-    arch_origin: "x64"
-    supported_input_arch: ["PE32", "PE32+"]
-    supported_output_arch: ["PE32", "PE32+"]
-    dependencies: []
-    tags: ["CLI", "Multi-Platform"]
-    binary_path: "./packers/upx/v4.0.1/upx.exe"
-    binary_sha256: "3aa7d4d9a8c14bbc573b7e57074eccd08fb9bbbfeabd0466795073e13064aa85"
-    source_url: "https://github.com/upx/upx/releases/tag/v4.0.1"
-    license: "GPL"
-    notes: "The Ultimate Packer for eXecutables v4.0.1 (2023). Bug-fix release for v4.0.x."
-    size_kb: "527"
-    output_behavior: "explicit"
-    type: "Type I"
-    type_ex: "The paper explicitly mentions UPX as a notable example of a Type-I packer, which uses a single unpacking routine."
-    known_issues:
-      - "Antivirus: Files packed with UPX are frequently flagged as false positives by AV engines."
-      - "Overlays: Default behavior copies overlays, but --overlay=strip might be needed for some specific targets."
-
-  - &upx_v402
-    packer_family: "UPX"
-    packer_name: "upx_v4.0.2"
-    version: "4.0.2"
-    arch_origin: "x64"
-    supported_input_arch: ["PE32", "PE32+"]
-    supported_output_arch: ["PE32", "PE32+"]
-    dependencies: []
-    tags: ["CLI", "Multi-Platform"]
-    binary_path: "./packers/upx/v4.0.2/upx.exe"
-    binary_sha256: "a4240ea0e8a916d15f8391edef9705ab4de1f516dd360f0a336c5358686d434b"
-    source_url: "https://github.com/upx/upx/releases/tag/v4.0.2"
-    license: "GPL"
-    notes: "The Ultimate Packer for eXecutables v4.0.2 (2023). Bug-fix release for v4.0.x."
-    size_kb: "525"
-    output_behavior: "explicit"
-    type: "Type I"
-    type_ex: "The paper explicitly mentions UPX as a notable example of a Type-I packer, which uses a single unpacking routine."
-    known_issues:
-      - "Antivirus: Files packed with UPX are frequently flagged as false positives by AV engines."
-      - "Overlays: Default behavior copies overlays, but --overlay=strip might be needed for some specific targets."
-
-  - &upx_v410
-    packer_family: "UPX"
-    packer_name: "upx_v4.1.0"
-    version: "4.1.0"
-    arch_origin: "x64"
-    supported_input_arch: ["PE32", "PE32+"]
-    supported_output_arch: ["PE32", "PE32+"]
-    dependencies: []
-    tags: ["CLI", "Multi-Platform"]
-    binary_path: "./packers/upx/v4.1.0/upx.exe"
-    binary_sha256: "ac3a0048c6d70095339029887bf242d0e004c2aaf3fce0d1e0cbe4b62ce7e187"
-    source_url: "https://github.com/upx/upx/releases/tag/v4.1.0"
-    license: "GPL"
-    notes: "The Ultimate Packer for eXecutables v4.1.0 (2023). Feature release in v4.x series."
-    size_kb: "545"
-    output_behavior: "explicit"
-    type: "Type I"
-    type_ex: "The paper explicitly mentions UPX as a notable example of a Type-I packer, which uses a single unpacking routine."
-    known_issues:
-      - "Antivirus: Files packed with UPX are frequently flagged as false positives by AV engines."
-      - "Overlays: Default behavior copies overlays, but --overlay=strip might be needed for some specific targets."
-
-  - &upx_v420
-    packer_family: "UPX"
-    packer_name: "upx_v4.2.0"
-    version: "4.2.0"
-    arch_origin: "x64"
-    supported_input_arch: ["PE32", "PE32+"]
-    supported_output_arch: ["PE32", "PE32+"]
-    dependencies: []
-    tags: ["CLI", "Multi-Platform"]
-    binary_path: "./packers/upx/v4.2.0/upx.exe"
-    binary_sha256: "1ea92da93eeaf4d456114b847b9bddfb47ef854e7c24143f290d5e3f44973e91"
-    source_url: "https://github.com/upx/upx/releases/tag/v4.2.0"
-    license: "GPL"
-    notes: "The Ultimate Packer for eXecutables v4.2.0 (2024). Improved PE support in v4.2.x."
-    size_kb: "550"
-    output_behavior: "explicit"
-    type: "Type I"
-    type_ex: "The paper explicitly mentions UPX as a notable example of a Type-I packer, which uses a single unpacking routine."
-    known_issues:
-      - "Antivirus: Files packed with UPX are frequently flagged as false positives by AV engines."
-      - "Overlays: Default behavior copies overlays, but --overlay=strip might be needed for some specific targets."
-
-  - &upx_v421
-    packer_family: "UPX"
-    packer_name: "upx_v4.2.1"
-    version: "4.2.1"
-    arch_origin: "x64"
-    supported_input_arch: ["PE32", "PE32+"]
-    supported_output_arch: ["PE32", "PE32+"]
-    dependencies: []
-    tags: ["CLI", "Multi-Platform"]
-    binary_path: "./packers/upx/v4.2.1/upx.exe"
-    binary_sha256: "c6dd0a6cac2d2153e4666aacf43d487c1b6e2bc16cb7f956514ab02883ef2a42"
-    source_url: "https://github.com/upx/upx/releases/tag/v4.2.1"
-    license: "GPL"
-    notes: "The Ultimate Packer for eXecutables v4.2.1 (2024). Bug-fix release for v4.2.x."
-    size_kb: "550"
-    output_behavior: "explicit"
-    type: "Type I"
-    type_ex: "The paper explicitly mentions UPX as a notable example of a Type-I packer, which uses a single unpacking routine."
-    known_issues:
-      - "Antivirus: Files packed with UPX are frequently flagged as false positives by AV engines."
-      - "Overlays: Default behavior copies overlays, but --overlay=strip might be needed for some specific targets."
-
-  - &upx_v422
-    packer_family: "UPX"
-    packer_name: "upx_v4.2.2"
-    version: "4.2.2"
-    arch_origin: "x64"
-    supported_input_arch: ["PE32", "PE32+"]
-    supported_output_arch: ["PE32", "PE32+"]
-    dependencies: []
-    tags: ["CLI", "Multi-Platform"]
-    binary_path: "./packers/upx/v4.2.2/upx.exe"
-    binary_sha256: "94d77389b86a248c0428ad196aa66eb93e5d2d97795ce96a35014c1f0febaabd"
-    source_url: "https://github.com/upx/upx/releases/tag/v4.2.2"
-    license: "GPL"
-    notes: "The Ultimate Packer for eXecutables v4.2.2 (2024). Bug-fix release for v4.2.x."
-    size_kb: "550"
-    output_behavior: "explicit"
-    type: "Type I"
-    type_ex: "The paper explicitly mentions UPX as a notable example of a Type-I packer, which uses a single unpacking routine."
-    known_issues:
-      - "Antivirus: Files packed with UPX are frequently flagged as false positives by AV engines."
-      - "Overlays: Default behavior copies overlays, but --overlay=strip might be needed for some specific targets."
-
-  - &upx_v423
-    packer_family: "UPX"
-    packer_name: "upx_v4.2.3"
-    version: "4.2.3"
-    arch_origin: "x64"
-    supported_input_arch: ["PE32", "PE32+"]
-    supported_output_arch: ["PE32", "PE32+"]
-    dependencies: []
-    tags: ["CLI", "Multi-Platform"]
-    binary_path: "./packers/upx/v4.2.3/upx.exe"
-    binary_sha256: "902e597a5eb89f345901280eb396394146b3937d4c84b880e8ee1300c901ec9b"
-    source_url: "https://github.com/upx/upx/releases/tag/v4.2.3"
-    license: "GPL"
-    notes: "The Ultimate Packer for eXecutables v4.2.3 (2024). Bug-fix release for v4.2.x."
-    size_kb: "551"
-    output_behavior: "explicit"
-    type: "Type I"
-    type_ex: "The paper explicitly mentions UPX as a notable example of a Type-I packer, which uses a single unpacking routine."
-    known_issues:
-      - "Antivirus: Files packed with UPX are frequently flagged as false positives by AV engines."
-      - "Overlays: Default behavior copies overlays, but --overlay=strip might be needed for some specific targets."
-
-  - &upx_v424
-    packer_family: "UPX"
-    packer_name: "upx_v4.2.4"
-    version: "4.2.4"
-    arch_origin: "x64"
-    supported_input_arch: ["PE32", "PE32+"]
-    supported_output_arch: ["PE32", "PE32+"]
-    dependencies: []
-    tags: ["CLI", "Multi-Platform"]
-    binary_path: "./packers/upx/v4.2.4/upx.exe"
-    binary_sha256: "b84ec2578a0a202aa84d3c41b4549dddb6dded096baa8d732b1c0cb0518c66f8"
-    source_url: "https://github.com/upx/upx/releases/tag/v4.2.4"
-    license: "GPL"
-    notes: "The Ultimate Packer for eXecutables v4.2.4 (2024). Major v4 rewrite with improved PE support."
-    size_kb: "552"
-    output_behavior: "explicit"
-    type: "Type I"
-    type_ex: "The paper explicitly mentions UPX as a notable example of a Type-I packer, which uses a single unpacking routine."
-    known_issues:
-      - "Antivirus: Files packed with UPX are frequently flagged as false positives by AV engines."
-      - "Overlays: Default behavior copies overlays, but --overlay=strip might be needed for some specific targets."
-
-  - &upx_v500
-    packer_family: "UPX"
-    packer_name: "upx_v5.0.0"
-    version: "5.0.0"
-    arch_origin: "x64"
-    supported_input_arch: ["PE32", "PE32+"]
-    supported_output_arch: ["PE32", "PE32+"]
-    dependencies: []
-    tags: ["CLI", "Multi-Platform"]
-    binary_path: "./packers/upx/v5.0.0/upx.exe"
-    binary_sha256: "a84ecdbedcc87cf03858812fc68ed025b53bbc2c88e76931bf65d24666833ac5"
-    source_url: "https://github.com/upx/upx/releases/tag/v5.0.0"
-    license: "GPL"
-    notes: "The Ultimate Packer for eXecutables v5.0.0 (2025). First v5.x release with new features."
-    size_kb: "584"
-    output_behavior: "explicit"
-    type: "Type I"
-    type_ex: "The paper explicitly mentions UPX as a notable example of a Type-I packer, which uses a single unpacking routine."
-    known_issues:
-      - "Antivirus: Files packed with UPX are frequently flagged as false positives by AV engines."
-      - "Overlays: Default behavior copies overlays, but --overlay=strip might be needed for some specific targets."
-
-  - &upx_v501
-    packer_family: "UPX"
-    packer_name: "upx_v5.0.1"
-    version: "5.0.1"
-    arch_origin: "x64"
-    supported_input_arch: ["PE32", "PE32+"]
-    supported_output_arch: ["PE32", "PE32+"]
-    dependencies: []
-    tags: ["CLI", "Multi-Platform"]
-    binary_path: "./packers/upx/v5.0.1/upx.exe"
-    binary_sha256: "8def9daba0817636962e60878e117ee1dcba6c3f64fb4bc13449d447385f1b5b"
-    source_url: "https://github.com/upx/upx/releases/tag/v5.0.1"
-    license: "GPL"
-    notes: "The Ultimate Packer for eXecutables v5.0.1 (2025). Bug-fix release for v5.0.x."
-    size_kb: "585"
-    output_behavior: "explicit"
-    type: "Type I"
-    type_ex: "The paper explicitly mentions UPX as a notable example of a Type-I packer, which uses a single unpacking routine."
-    known_issues:
-      - "Antivirus: Files packed with UPX are frequently flagged as false positives by AV engines."
-      - "Overlays: Default behavior copies overlays, but --overlay=strip might be needed for some specific targets."
-
-  - &upx_v502
-    packer_family: "UPX"
-    packer_name: "upx_v5.0.2"
-    version: "5.0.2"
-    arch_origin: "x64"
-    supported_input_arch: ["PE32", "PE32+"]
-    supported_output_arch: ["PE32", "PE32+"]
-    dependencies: []
-    tags: ["CLI", "Multi-Platform"]
-    binary_path: "./packers/upx/v5.0.2/upx.exe"
-    binary_sha256: "3638bfe45ee552b57dc8c5af39c5e0f317ff83748dbf6326a0cdcccb2fd52da4"
-    source_url: "https://github.com/upx/upx/releases/tag/v5.0.2"
-    license: "GPL"
-    notes: "The Ultimate Packer for eXecutables v5.0.2 (2025). Bug-fix release for v5.0.x."
-    size_kb: "585"
-    output_behavior: "explicit"
-    type: "Type I"
-    type_ex: "The paper explicitly mentions UPX as a notable example of a Type-I packer, which uses a single unpacking routine."
-    known_issues:
-      - "Antivirus: Files packed with UPX are frequently flagged as false positives by AV engines."
-      - "Overlays: Default behavior copies overlays, but --overlay=strip might be needed for some specific targets."
-
-  - &upx_v510
-    packer_family: "UPX"
-    packer_name: "upx_v5.1.0"
-    version: "5.1.0"
-    arch_origin: "x64"
-    supported_input_arch: ["PE32", "PE32+"]
-    supported_output_arch: ["PE32", "PE32+"]
-    dependencies: []
-    tags: ["CLI", "Multi-Platform"]
-    binary_path: "./packers/upx/upx.exe"
-    binary_sha256: "41c7492edeed0f7e67d347ca9e8d2131e2af7ca7a7695f92283a8e655c251c13"
-    source_url: "https://github.com/upx/upx/releases/tag/v5.1.0"
-    license: "GPL"
-    notes: "The Ultimate Packer for eXecutables. Handles varied formats (PE, ELF, Mach-O). Supports in-place decompression."
-    size_kb: "652"
-    output_behavior: "explicit"
-    type: "Type I"
-    type_ex: "The paper explicitly mentions UPX as a notable example of a Type-I packer, which uses a single unpacking routine."
-    known_issues:
-      - "Antivirus: Files packed with UPX are frequently flagged as false positives by AV engines."
-      - "Overlays: Default behavior copies overlays, but --overlay=strip might be needed for some specific targets."
-
-  - &upx_v511
-    packer_family: "UPX"
-    packer_name: "upx_v5.1.1"
-    version: "5.1.1"
-    arch_origin: "x64"
-    supported_input_arch: ["PE32", "PE32+"]
-    supported_output_arch: ["PE32", "PE32+"]
-    dependencies: []
-    tags: ["CLI", "Multi-Platform"]
-    binary_path: "./packers/upx/v5.1.1/upx.exe"
-    binary_sha256: "16a29adbdf3b6fde74c290205e24cceb7bef1a216941922aa73d2d808a699bbb"
-    source_url: "https://github.com/upx/upx/releases/tag/v5.1.1"
-    license: "GPL"
-    notes: "The Ultimate Packer for eXecutables v5.1.1 (2026). Latest stable release."
-    size_kb: "609"
-    output_behavior: "explicit"
-    type: "Type I"
-    type_ex: "The paper explicitly mentions UPX as a notable example of a Type-I packer, which uses a single unpacking routine."
-    known_issues:
-      - "Antivirus: Files packed with UPX are frequently flagged as false positives by AV engines."
-      - "Overlays: Default behavior copies overlays, but --overlay=strip might be needed for some specific targets."
-
-  - &yoda_v10
-    packer_family: "yoda_protector"
-    packer_name: "yoda_protector_v1.0"
-    version: "1.0"
-    arch_origin: "x86"
-    supported_input_arch: "PE32"
-    supported_output_arch: "PE32"
-    dependencies: []
-    tags: ["GUI"]
-    binary_path: "./packers/yoda_protect/v1.0/yp.exe"
-    binary_sha256: "bb4634147d801aa33a95a365450f9bb53a6c2d0804af0f25d3cdbbee6d4478e1"
-    source_url: "https://sourceforge.net/projects/yodap/"
-    license: "Freeware"
-    notes: "Yoda's Protector v1.0 (2005). GUI-based PE protector with anti-debugging features."
-    size_kb: "120"
-    output_behavior: "explicit"
-    type: "Type IV"
-    type_ex: "As a 'protector' with anti-debugging features (inferred from its sibling 'crypter'), it likely uses interleaved execution."
-    known_issues:
-      - ""
-
-  - &yoda_v1012
-    packer_family: "yoda_protector"
-    packer_name: "yoda_protector_v1.01.2"
-    version: "1.01.2"
-    arch_origin: "x86"
-    supported_input_arch: "PE32"
-    supported_output_arch: "PE32"
-    dependencies: []
-    tags: ["GUI"]
-    binary_path: "./packers/yoda_protect/v1.01.2/yp.exe"
-    binary_sha256: "3b08e5d613748808ccce5b8b34ab524f97fac77a55b992a196dfa8faac97cc08"
-    source_url: "https://sourceforge.net/projects/yodap/"
-    license: "Freeware"
-    notes: "Yoda's Protector v1.01.2 (2005). GUI-based PE protector with anti-debugging features."
-    size_kb: "82"
-    output_behavior: "explicit"
-    type: "Type IV"
-    type_ex: "As a 'protector' with anti-debugging features (inferred from its sibling 'crypter'), it likely uses interleaved execution."
-    known_issues:
-      - ""
-
-  - &yoda_v102
-    packer_family: "yoda_protector"
-    packer_name: "yoda_protector_v1.02"
-    version: "1.02"
-    arch_origin: "x86"
-    supported_input_arch: "PE32"
-    supported_output_arch: "PE32"
-    dependencies: []
-    tags: ["GUI"]
-    binary_path: "./packers/yoda_protect/v1.02/yp.exe"
-    binary_sha256: "f657590e7d861efed4b17bb77d4c7f4cb5a49fded6176193623da19265bb37ba"
-    source_url: "https://sourceforge.net/projects/yodap/"
-    license: "Freeware"
-    notes: "Yoda's Protector v1.02 (2005). GUI-based PE protector with anti-debugging features."
-    size_kb: "98"
-    output_behavior: "explicit"
-    type: "Type IV"
-    type_ex: "As a 'protector' with anti-debugging features (inferred from its sibling 'crypter'), it likely uses interleaved execution."
-    known_issues:
-      - ""
-
-  - &yoda_v1032
-    packer_family: "yoda_protector"
-    packer_name: "yoda_protector_v1.03.2"
-    version: "1.03.2"
-    arch_origin: "x86"
-    supported_input_arch: "PE32"
-    supported_output_arch: "PE32"
-    dependencies: []
-    tags: ["GUI"]
-    binary_path: "./packers/yoda_protect/v1.03.2/yp.exe"
-    binary_sha256: "a48ae6f9abd8e767b5fa25727959b9fd7cf1ef601c520e0bf0e0e4544479cc89"
-    source_url: "https://sourceforge.net/projects/yodap/"
-    license: "Freeware"
-    notes: "Yoda's Protector v1.03.2 (2005). GUI-based PE protector with anti-debugging features."
-    size_kb: "120"
-    output_behavior: "explicit"
-    type: "Type IV"
-    type_ex: "As a 'protector' with anti-debugging features (inferred from its sibling 'crypter'), it likely uses interleaved execution."
-    known_issues:
-      - ""
-
-  - &yoda_v1033
-    packer_family: "yoda_protector"
-    packer_name: "yoda_protector_v1.03.3"
-    version: "1.03.3"
-    arch_origin: "x86"
-    supported_input_arch: "PE32"
-    supported_output_arch: "PE32"
-    dependencies: []
-    tags: ["GUI"]
-    binary_path: "./packers/yoda_protect/v1.03.3/yp.exe"
-    binary_sha256: "8cfd5f5c0bec0d0d3e7d141f386b13a3cb9e1d4ca9bc07ea30663698a38df0eb"
-    source_url: "https://sourceforge.net/projects/yodap/"
-    license: "Freeware"
-    notes: "Yoda's Protector v1.03.3 (2005). GUI-based PE protector with anti-debugging features. Latest SourceForge release."
-    size_kb: "112"
-    output_behavior: "explicit"
-    type: "Type IV"
-    type_ex: "As a 'protector' with anti-debugging features (inferred from its sibling 'crypter'), it likely uses interleaved execution."
+    type_ex: "Features like Anti-Debugger, Anti-VM, and Integrity Checks suggest that the packer's code is interleaved with the original application to perform these checks during runtime."
     known_issues:
       - ""
 
@@ -821,9 +90,9 @@ definitions:
     binary_sha256: "9920a8f9828eb4d850e50030a6f15bf7be68da936d99bda2b9a4f4f4a8b8489a"
     source_url: "https://github.com/EgeBalci/amber/releases/tag/2.0"
     license: "MIT"
-    notes: "Reflective PE Packer v2.0. First version with x64 support. Generates reflective payloads and EXE stubs."
+    notes: "Reflective PE Packer v2.0. First version with x64 support. Modifies the input file in place (no _packed.exe sidecar like v3.x)."
     size_kb: "4458"
-    output_behavior: "input_dir_suffix"
+    output_behavior: "in_place"
     type: "Type V"
     type_ex: "Reflective loading is a form of incremental unpacking where the program loads itself in stages, fitting the Type V definition."
     known_issues:
@@ -874,48 +143,25 @@ definitions:
       - "Heuristics: High detection rate by AV due to reflective loading techniques."
       - "Stability: Custom stubs are marked as experimental."
 
-  - &bero_v100
-    packer_family: "beroexepacker"
-    packer_name: "beroexepacker"
-    version: "1.00.2017.01.27"
+  - &armadillo_placeholder
+    packer_family: "armadillo"
+    packer_name: "armadillo"
+    version: "252b2"
     arch_origin: "x86"
     supported_input_arch: "PE32"
     supported_output_arch: "PE32"
     dependencies: []
-    tags: ["CLI", "Tiny-EXE", "Demoscene"]
-    binary_path: "./packers/beroexepacker/bep.exe"
-    binary_sha256: "3f81abdc1ec3971be78db8a8c38ced0970bc9eec3415046596e47a5ca85cd272"
-    source_url: "https://blog.rosseaux.net/page/875fbe6549aa072b5ee0ac9cefff4827/BeRoEXEPacker"
-    license: "Freeware"
-    notes: "(C) 2006-2017 Benjamin 'BeRo' Rosseaux. Excellent for very small executables and demoscene intros."
-    size_kb: "72 KB"
-    output_behavior: "explicit"
-    type: "Type I"
-    type_ex: "A highly sophisticated but single-layer compressor, focused on size reduction for the demoscene."
-    known_issues:
-      - "Compatibility: Focuses on extreme size reduction which can sometimes break standard PE headers unless +SPH is managed carefully."
-      -
-
-  - &alienyze_v14
-    packer_family: "alienyze_protector"
-    packer_name: "alienyze_protector"
-    version: "1.4"
-    arch_origin: "x86"
-    supported_input_arch: "PE32"
-    supported_output_arch: "PE32"
-    dependencies: []
-    tags: ["GUI"]
-    binary_path: "./packers/alienyze_protector/alienyze.exe"
-    binary_sha256: "86e46398131254fd0ce718344b06f45892d74ef3592e5adf9f800a646da6aae6"
-    source_url: "https://alienyze.com/"
-    license: "Commercial"
-    notes: "GUI-based protector with Anti-Debugger, Anti-VM, and Integrity Checks."
-    size_kb: "128"
+    tags: ["GUI", "Protector", "Anti-Debug", "Commercial"]
+    binary_path: "./packers/armadillo/Armadillo.exe"
+    binary_sha256: ""
+    source_url: "https://www.siliconrealms.com"
+    license: "Commercial (discontinued)"
+    notes: "Armadillo by Silicon Realms Toolworks (predecessor to Software Passport). A widely studied PE protector from the 2000s with nanomite protection, code splitting, and debugger detection. Discontinued. BINARY NOT ACQUIRED — locate from RE community archives."
+    size_kb: ""
     output_behavior: "explicit"
     type: "Type IV"
-    type_ex: "Features like Anti-Debugger, Anti-VM, and Integrity Checks suggest that the packer's code is interleaved with the original application to perform these checks during runtime."
+    type_ex: "Armadillo uses nanomite protection (exception-driven code execution), IAT encryption, and persistent runtime integrity checks."
     known_issues:
-      - ""
 
   - &asm_guard_v294
     packer_family: "asm_guard"
@@ -959,6 +205,53 @@ definitions:
     known_issues:
       - ""
 
+  - &bero_v100
+    packer_family: "beroexepacker"
+    packer_name: "beroexepacker"
+    version: "1.00.2017.01.27"
+    arch_origin: "x86"
+    supported_input_arch: "PE32"
+    supported_output_arch: "PE32"
+    dependencies: []
+    tags: ["CLI", "Tiny-EXE", "Demoscene"]
+    binary_path: "./packers/beroexepacker/bep.exe"
+    binary_sha256: "3f81abdc1ec3971be78db8a8c38ced0970bc9eec3415046596e47a5ca85cd272"
+    source_url: "https://blog.rosseaux.net/page/875fbe6549aa072b5ee0ac9cefff4827/BeRoEXEPacker"
+    license: "Freeware"
+    notes: "(C) 2006-2017 Benjamin 'BeRo' Rosseaux. Excellent for very small executables and demoscene intros."
+    size_kb: "72 KB"
+    output_behavior: "explicit"
+    type: "Type I"
+    type_ex: "A highly sophisticated but single-layer compressor, focused on size reduction for the demoscene."
+    known_issues:
+      - "Compatibility: Focuses on extreme size reduction which can sometimes break standard PE headers unless +SPH is managed carefully."
+      -
+
+  - &enigma_v780
+    packer_family: "enigma"
+    packer_name: "enigma_protector_v7.80"
+    version: "7.80 build 20250205"
+    arch_origin: "x86"
+    supported_input_arch: "PE32"
+    supported_output_arch: "PE32"
+    dependencies: []
+    tags:
+      ["CLI", "Protector", "Virtualizer", "Anti-Debug", "Commercial", "Demo"]
+    binary_path: "./packers/enigma/The Enigma Protector/enigma32.exe"
+    binary_sha256: "c393a08a7259c053ef9eff48fac64051422144bda6a5f7c8927113f50960fd30"
+    source_url: "https://www.enigmaprotector.com"
+    license: "Commercial (Demo)"
+    notes: "The Enigma Protector x86 v7.80 by Vladimir Sukhov. A professional PE protector with code virtualization, anti-debug, anti-dump, and license management. Demo version. CLI: enigma32.exe [options] project.enigma -input {in} -output {out}. Requires a .enigma project file — cannot pack without a pre-configured project. GUI variant: Enigma32g.exe. All executables and DLLs must reside in the same directory."
+    size_kb: "6958"
+    cli_template: "{bin} {project} -input {in} -output {out}"
+    project_file: "./packers/enigma/The Enigma Protector/default.enigma"
+    output_behavior: "explicit"
+    type: "Type IV"
+    type_ex: "Enigma Protector uses code virtualization (VM-based obfuscation) and full runtime integrity checks, consistent with interleaved execution throughout the program lifecycle."
+    known_issues:
+      - "Demo version may add limitations (watermark, size cap, or expiry) to protected output."
+      - "All DLLs must be co-located with enigma32.exe."
+
   - &eronona_v1
     packer_family: "eronona"
     packer_name: "eronona"
@@ -979,6 +272,72 @@ definitions:
     type_ex: "A simple packer with a custom compression algorithm, indicative of a single-layer packing scheme."
     known_issues:
       - "Output Naming: Does not appear to support custom output filenames via CLI; auto-generates 'filename.packed.exe'."
+
+  - &exe32pack_v142
+    packer_family: "exe32pack"
+    packer_name: "exe32pack"
+    version: "1.42"
+    arch_origin: "x32"
+    supported_input_arch: "PE32"
+    supported_output_arch: "PE32"
+    dependencies: []
+    tags: ["CLI"]
+    binary_path: "./packers/exe32pack/exe32pack.exe"
+    binary_sha256: "e81d42faae9cd704f678d400d71caae0e252ea500c7daf5920ceeb66d039ddf5"
+    source_url: "https://exe32pack.apponic.com/download/"
+    license: "Shareware"
+    notes: "File command output: MS-DOS executable PE32 executable (console) Intel 80386. EVALUATION VERSION LIMIT: Input files must be under 80KB."
+    size_kb: "49"
+    output_behavior: "explicit"
+    type: "Type I"
+    type_ex: "A standard executable packer with no mention of advanced protection mechanisms."
+    known_issues:
+      - "Unicode Support: Fails to open files with non-ASCII characters in the path (e.g., Chinese, Arabic)."
+      - "Large Files: Fails on files with large overlays (like installers/SFX) or files > 80KB due to trial limit."
+      - "Automation: Trial version has a 'nag screen' popup that may freeze scripts if no timeout is set."
+
+  - &fsg_v10
+    packer_family: "fsg"
+    packer_name: "fsg_v1.0"
+    version: "1.0"
+    arch_origin: "x86"
+    supported_input_arch: "PE32"
+    supported_output_arch: "PE32"
+    dependencies: []
+    tags: ["GUI", "Compressor"]
+    binary_path: "./packers/fsg/fsg.exe"
+    binary_sha256: "733038f506b52a5993f923ae29909cca60b7af0dfe66b1c703e2d4626c3b7e28"
+    source_url: "https://defacto2.net/f/b224796"
+    license: "Freeware"
+    notes: "FSG (Fast Small Good) v1.0 by xtreeme (2002/2003). A GUI-only PE compressor producing very small output. Automation requires GUI click scripting."
+    size_kb: "14"
+    output_behavior: "explicit"
+    type: "Type I"
+    type_ex: "FSG is a single-pass compressor focused on minimal output size. No anti-debug mechanisms; pure compression."
+    known_issues:
+      - "Automation: GUI-only; cannot be scripted via CLI."
+      - "Stability: Marked as 'broken' in packing-box reference corpus for some targets."
+
+  - &hackupx_v100
+    packer_family: "hackupx"
+    packer_name: "hackupx"
+    version: "1.00"
+    arch_origin: "x86"
+    supported_input_arch: "PE32"
+    supported_output_arch: "PE32"
+    dependencies: ["upx_v5.1.0"]
+    tags: ["CLI", "Mutator", "Obfuscator", "Multi-Stage"]
+    binary_path: "./packers/hackupx/hackupx.exe"
+    binary_sha256: "47a0ac6605d6f63b94df7c54d54674dcf4f48038b39d08668f633edd61812e10"
+    source_url: "https://defacto2.net/f/a520164?packer=upxs"
+    license: "Freeware"
+    notes: "UPX Mutator by ROSE SWE (2001). Scrambles the headers/signatures of UPX-compressed executables to prevent automatic unpacking."
+    size_kb: "35"
+    output_behavior: "in_place"
+    type: "Type II"
+    type_ex: "Similar to UPX_Scrambler, it adds a layer of obfuscation on top of UPX, creating a multi-layer packer."
+    known_issues:
+      - ""
 
   - &hxor_v01
     packer_family: "hxor_packer"
@@ -1043,6 +402,114 @@ definitions:
     known_issues:
       - "File Size Limit: Fails on large files 'error: out of memory' or 'illegal instruction' because FASM cannot compile the massive source file generated."
 
+  - &jdpack_v100
+    packer_family: "jdpack"
+    packer_name: "jdpack_v1.00"
+    version: "1.00"
+    arch_origin: "x86"
+    supported_input_arch: "PE32"
+    supported_output_arch: "PE32"
+    dependencies: []
+    tags: ["GUI", "Compressor"]
+    binary_path: "./packers/jdpack/jdpack.exe"
+    binary_sha256: "784b159e2ef2af20e29c43425fcafcc18c5e816d66b3693b362f375f6350be6c"
+    source_url: "https://www.sac.sk/files.php?d=7&l"
+    license: "Freeware"
+    notes: "JDPack v1.00. A Win32 PE executable compressor from the demoscene archive (ftp.elf.stuba.sk). GUI-only; cannot be scripted via CLI."
+    size_kb: "95"
+    output_behavior: "in_place"
+    type: "Type I"
+    type_ex: "JDPack is a single-layer PE compressor that prepends a decompression stub, consistent with Type I."
+    known_issues:
+      - "Automation: GUI-only; cannot be scripted via CLI."
+
+  - &kkrunchy_v023
+    packer_family: "kkrunchy"
+    packer_name: "kkrunchy_v0.23a"
+    version: "0.23 alpha"
+    arch_origin: "x86"
+    supported_input_arch: "PE32"
+    supported_output_arch: "PE32"
+    dependencies: []
+    tags: ["CLI"]
+    binary_path: "./packers/kkrunchy/kkrunchy.exe"
+    binary_sha256: "70b8af13448406bebbd3639d64e161752aca325fc57a353bf31edd76af5f7b1b"
+    source_url: "https://www.farbrausch.de/~fg/kkrunchy/"
+    license: "Freeware"
+    notes: "A radical EXE packer designed for 64k and 4k intros."
+    size_kb: "40"
+    output_behavior: "explicit"
+    type: "Type I"
+    type_ex: "A highly specialized packer for demoscene intros. Despite using advanced compression, it's fundamentally a single-layer compressor."
+    known_issues:
+      - "Stability: Frequent Access Violation crashes (Exit Code 0xC0000005) when parsing modern complex PE structures."
+      - "Compatibility: Produces non-standard PE structures that often crash modern debuggers or static analysis tools."
+
+  - &kkrunchy_v023a2
+    packer_family: "kkrunchy"
+    packer_name: "kkrunchy_v0.23a2"
+    version: "0.23 alpha 2"
+    arch_origin: "x86"
+    supported_input_arch: "PE32"
+    supported_output_arch: "PE32"
+    dependencies: []
+    tags: ["CLI"]
+    binary_path: "./packers/kkrunchy/v0.23a2/kkrunchy_k7.exe"
+    binary_sha256: "4863ce4a96b3a9ebd0b2928eeaf3aed3cf107531ff0be08604dfb2a6a69c06db"
+    source_url: "https://www.farbrausch.de/~fg/kkrunchy/"
+    license: "Freeware"
+    notes: "A radical EXE packer designed for 64k and 4k intros. Alpha 2 version (2006) with K7-optimized depacker."
+    size_kb: "32"
+    output_behavior: "explicit"
+    type: "Type I"
+    type_ex: "A highly specialized packer for demoscene intros. Despite using advanced compression, it's fundamentally a single-layer compressor."
+    known_issues:
+      - "Stability: Frequent Access Violation crashes (Exit Code 0xC0000005) when parsing modern complex PE structures."
+      - "Compatibility: Produces non-standard PE structures that often crash modern debuggers or static analysis tools."
+
+  - &mew_v11
+    packer_family: "mew"
+    packer_name: "mew"
+    version: "1.1 SE"
+    arch_origin: "x86"
+    supported_input_arch: "PE32"
+    supported_output_arch: "PE32"
+    dependencies: []
+    tags: ["GUI", "Compressor"]
+    binary_path: "./packers/mew/mew11.exe"
+    binary_sha256: "5d34161be5f0c623d9810e39c594ee72f65ca74b9730f57ad6675c13d81e6d3f"
+    source_url: "https://www.softpedia.com/get/Programming/Packers-Crypters-Protectors/MEW.shtml"
+    license: "Freeware"
+    notes: "MEW 11 SE by Northfox. A high-ratio compressor designed for very small executables (demoscene). Primarily a GUI tool."
+    size_kb: "261"
+    output_behavior: "in_place"
+    type: "Type I"
+    type_ex: "A high-ratio compressor with no mention of advanced protection mechanisms."
+    known_issues:
+      - ""
+
+  - &molebox_v46
+    packer_family: "molebox"
+    packer_name: "molebox"
+    version: "4.6000"
+    arch_origin: "x86"
+    supported_input_arch: "PE32"
+    supported_output_arch: "PE32"
+    dependencies: []
+    tags: ["CLI", "Virtualizer", "Protector"]
+    binary_path: "./packers/molebox/MxbPack.exe"
+    binary_sha256: ""
+    source_url: "https://www.github.com/sudachen/molebox"
+    license: "Freeware"
+    notes: "MoleBox Virtualization Solution 4.6 by sudachen. A PE virtualizer/protector that wraps executables in a virtual filesystem environment. Uses MxbPack.exe as its CLI packing tool."
+    size_kb: ""
+    output_behavior: "explicit"
+    type: "Type II"
+    type_ex: "MoleBox wraps the target PE in a virtual environment with its own VFS layer, classifying it as a multi-layer virtualizer/protector."
+    known_issues:
+      - ""
+
+
   - &mpress_v127
     packer_family: "mpress"
     packer_name: "mpress_v1.27"
@@ -1086,27 +553,196 @@ definitions:
     known_issues:
       - "In-Place Only: Tool strictly modifies the target file. Does not support an output file argument."
 
-  - &pezor_v330
-    packer_family: "pezor"
-    packer_name: "pezor"
-    version: "3.3.0"
-    arch_origin: "x86/x64"
+  - &npack_v11
+    packer_family: "npack"
+    packer_name: "npack_v1.1"
+    version: "1.1.300.2006"
+    arch_origin: "x86"
+    supported_input_arch: "PE32"
+    supported_output_arch: "PE32"
+    dependencies: ["RebPE32.dll"]
+    tags: ["GUI", "Compressor"]
+    binary_path: "./packers/npack/nPack.exe"
+    binary_sha256: "8da2f3980a2cf5c5da4c04cb12bef4ceebd7e4ec4bbac12cdf0bd263a167353a"
+    source_url: "https://npack.apponic.com/download/"
+    license: "Freeware"
+    notes: "nPack v1.1.300.2006 by NEOx. A GUI PE compressor for Win32 EXEs and DLLs. Requires RebPE32.dll in the same directory. GUI-only; cannot be scripted via CLI."
+    size_kb: "83"
+    output_behavior: "in_place"
+    type: "Type I"
+    type_ex: "nPack is a standard single-layer compressor that prepends a decompression stub before the original OEP."
+    known_issues:
+      - "GUI-only; no CLI interface available."
+
+  - &nspack_v37
+    packer_family: "nspack"
+    packer_name: "nspack_v3.7"
+    version: "3.7"
+    arch_origin: "x86"
     supported_input_arch: "PE32"
     supported_output_arch: "PE32"
     dependencies: []
-    tags: ["CLI", "WSL", "Shellcode", "Evasion", "Open Source"]
-    binary_path: "./wrapper/pezor_wrap.sh"
-    binary_sha256: "520d485c2a9831dcb79d0416d9d8207d22f3c76990611feb01eaf233e2a74bce"
-    source_url: "https://github.com/phra/PEzor"
-    license: "MIT"
-    notes: "Open-source PE packer that converts executables to shellcode via Donut, then repackages them with anti-debug, unhooking, syscalls, SGN encoding, and fluctuation support. Runs via WSL on Windows."
-    size_kb: "28"
-    output_behavior: "explicit"
-    type: "Type V"
-    type_ex: "Uses Donut to convert PE to position-independent shellcode, then wraps it in a new loader with optional encryption, encoding, and evasion techniques. Multi-stage: shellcode generation -> encoding -> loader compilation."
+    tags: ["GUI", "Compressor"]
+    binary_path: "./packers/nspack/nSpack.exe"
+    binary_sha256: ""
+    source_url: "https://webscene.ir/tools/show/NsPack-and-crack-3.7"
+    license: "Freeware"
+    notes: "NsPack v3.7 by North Star (Liu Xingping). A lightweight CLI PE compressor supporting EXE, DLL, OCX, SCR for both 32-bit and 64-bit PE files. CLI: NSPack.exe <input_file>. BINARY NOT YET ACQUIRED — download from source_url, extract to ./packers/nspack/, then run binary_info.py to populate sha256 and size_kb."
+    size_kb: ""
+    output_behavior: "in_place"
+    type: "Type I"
+    type_ex: "NsPack is a single-pass compressor that embeds a decompression stub and transfers control to OEP after unpacking."
     known_issues:
-      - "WSL Required: Must run inside WSL (Ubuntu). Cannot run natively on Windows."
-      - "32-bit Limitations: -syscalls flag is 64-bit only. -self with -sgn is incompatible."
+      - "Binary not yet downloaded. See notes for source_url."
+
+  - &obsidium_v152
+    packer_family: "obsidium"
+    packer_name: "obsidium_v1.5.2"
+    version: "1.5.2.11"
+    arch_origin: "x86"
+    supported_input_arch: "PE32"
+    supported_output_arch: "PE32"
+    dependencies: []
+    tags: ["GUI", "Protector", "Virtualizer", "Anti-Debug", "Commercial"]
+    binary_path: "./packers/obsidium/Obsidium 1.5/Obsidium.exe"
+    binary_sha256: "f0996e3241119da930ba2c45555b77f465f479143b126384b5eb63ed0d1a227e"
+    source_url: "https://www.obsidium.de"
+    license: "Commercial"
+    notes: "Obsidium v1.5.2 build 11 by Obsidium Software. Older version with a valid license (Obsidium_License.txt). GUI-only; automated via obsidium_v152_gui.py wrapper."
+    size_kb: "7810"
+    output_behavior: "explicit"
+    type: "Type IV"
+    type_ex: "Obsidium uses code virtualization and runtime integrity checks throughout program execution, consistent with full interleaved execution."
+    known_issues:
+      - "GUI-only; automated via Python wrapper (obsidium_v152_gui.py)."
+      - "CLI tool (obsi_cmd.exe) in this version produces no console output — unusable for automation."
+
+  - &obsidium_v1880
+    packer_family: "obsidium"
+    packer_name: "obsidium_v1.8.8"
+    version: "1.8.8.10"
+    arch_origin: "x86"
+    supported_input_arch: "PE32"
+    supported_output_arch: "PE32"
+    dependencies: []
+    tags: ["GUI", "Protector", "Virtualizer", "Anti-Debug", "Commercial"]
+    binary_path: "./packers/obsidium/Obsidium.exe"
+    binary_sha256: "88c92e679b416267ce7fcdd72886a6bfaedc9f7fb56ba98d741cdacf8e51faff"
+    source_url: "https://www.obsidium.de"
+    license: "Commercial"
+    notes: "Obsidium v1.8.8 build 10 by Obsidium Software. A professional PE protection system with code virtualization, anti-debug, anti-dump, and software licensing. GUI-only; automated via obsidium_v1880_gui.py wrapper."
+    size_kb: "11792"
+    output_behavior: "explicit"
+    type: "Type IV"
+    type_ex: "Obsidium uses code virtualization and runtime integrity checks throughout program execution, consistent with full interleaved execution."
+    known_issues:
+      - "GUI-only; automated via Python wrapper (obsidium_v1880_gui.py)."
+      - "CLI tool (obsi_cmd.exe) requires a paid license — demo locks it out."
+
+  - &packman_v10
+    packer_family: "packman"
+    packer_name: "packman"
+    version: "1.0"
+    arch_origin: "x86"
+    supported_input_arch: "PE32"
+    supported_output_arch: "PE32"
+    dependencies: []
+    tags: ["GUI", "Compressor"]
+    binary_path: "./packers/packman/Packman-1.0/Packman.exe"
+    binary_sha256: "741c32c7c502c16ff0a3a1f1499204365245baa4aa7a5a02518bd2a311914095"
+    source_url: "https://web.archive.org/web/20070101/packman.com"
+    license: "Freeware"
+    notes: "Packman 1.0. A legacy executable compressor. Primarily GUI-based."
+    size_kb: "32"
+    output_behavior: "in_place"
+    type: "Type I"
+    type_ex: "Described as a standard executable compressor, suggesting a simple single-layer packing mechanism."
+    known_issues:
+      - ""
+
+  - &ped_legacy
+    packer_family: "pe_diminisher"
+    packer_name: "pe_diminisher"
+    version: "0.1"
+    arch_origin: "x86"
+    supported_input_arch: "PE32"
+    supported_output_arch: "PE32"
+    dependencies: []
+    tags: ["GUI", "Header-Stripper", "Encrypter"]
+    binary_path: "./packers/ped/ped.exe"
+    binary_sha256: "cb6c5b337d31716f9fdb5517d6cce426436e46cf818ee91a98df667a22fef4f1"
+    source_url: "https://web.archive.org/web/20060111104142/http://www.exetools.com/files/compressors/win/ped.zip"
+    license: "Freeware"
+    notes: "PE Diminisher (PED). A legacy GUI tool designed to reduce executable size by stripping DOS headers and optimizing PE structures."
+    size_kb: "14"
+    output_behavior: "explicit"
+    type: "Type I"
+    type_ex: "Described as a simple executable packer that uses aPLib compression. This suggests a single-layer modification."
+    known_issues:
+      - ""
+
+  - &pecompact_v184
+    packer_family: "pecompact"
+    packer_name: "pecompact_v1.84"
+    version: "1.84"
+    arch_origin: "x86"
+    supported_input_arch: "PE32"
+    supported_output_arch: "PE32"
+    dependencies: []
+    tags: ["GUI", "Compressor", "Plugin-Based", "Shareware"]
+    binary_path: "./packers/pecompact/PECompact/pecompact.exe"
+    binary_sha256: "84c09b85971d41b84dbb2238c75c8a340afce6da2a16921ae3b7596aad57ac2d"
+    source_url: "https://www.collakesoftware.com/pecompact/"
+    license: "Shareware"
+    notes: "PECompact v1.84 by Jeremy Collake (Collake Software). A plugin-based PE compressor for Win32 EXEs, DLLs, and screen savers. GUI-only; no CLI interface. Compresses code, data, resources, and import/export tables with a runtime decompression stub."
+    size_kb: "34"
+    output_behavior: "in_place"
+    type: "Type II"
+    type_ex: "PECompact uses a plugin architecture allowing custom decompression stubs. The symbiote decompressor runs before OEP transfer, consistent with a two-stage unpacking model."
+    known_issues:
+      - "Automation: GUI-only; cannot be scripted via CLI."
+      - "Shareware: 14-day evaluation; registration required for continued use."
+      - "Compatibility: Older tool; may fail on modern executables with large imports or manifest sections."
+
+  - &pelock_v240
+    packer_family: "pelock"
+    packer_name: "pelock_v2.40"
+    version: "2.40"
+    arch_origin: "x86"
+    supported_input_arch: "PE32"
+    supported_output_arch: "PE32"
+    dependencies: []
+    tags: ["GUI", "Protector", "Anti-Debug", "Commercial"]
+    binary_path: "./packers/pelock/PELock.exe"
+    binary_sha256: "4543c9e8f924e66d0d0814f535b1f1ed2b90f146e85fbd29f3532c62919f8257"
+    source_url: "https://www.pelock.com/products/pelock"
+    license: "Commercial (free for personal use)"
+    notes: "PELock by Bartosz Wójcik. A PE protector featuring code encryption, anti-debugging, anti-dump, and license key management. Free for personal/non-commercial use. GUI-only; cannot be scripted via CLI."
+    size_kb: "2073"
+    output_behavior: "explicit"
+    type: "Type IV"
+    type_ex: "PELock implements code encryption and runtime anti-debug checks, consistent with interleaved execution."
+    known_issues:
+      - "GUI-only; cannot be scripted via CLI."
+
+  - &pepacker_v10
+    packer_family: "pepacker"
+    packer_name: "pepacker_v1.0"
+    version: "1.0"
+    arch_origin: "x86"
+    supported_input_arch: "PE32"
+    supported_output_arch: "PE32"
+    dependencies: []
+    tags: ["CLI", "Crypter", "Open-Source"]
+    binary_path: "./packers/PePacker/PePacker.exe"
+    binary_sha256: "f12914d0db7cb77e6af4464cf7ebfa6d16c1632ea9a452eb763f79809bbe940a"
+    source_url: "https://github.com/SamLarenN/PePacker"
+    license: "Shareware"
+    notes: "Simple PE file packer which encrypts the .text section and adds a decryption stub to the end of the last section. The encryption is a simple XOR encryption."
+    size_kb: "207"
+    output_behavior: "in_place"
+    type: "Type II"
+    type_ex: "Simple XOR encryption of the .text section followed by a decryption stub appended to the end of the last section. Does not maintain persistent hooks."
 
   - &petite_v22
     packer_family: "petite"
@@ -1172,111 +808,91 @@ definitions:
     known_issues:
       - "Compatibility: Older packer (2015); aggressive import mangling (-m1) may break modern Windows 10/11 executables."
 
-  - &pepacker_v10
-    packer_family: "pepacker"
-    packer_name: "pepacker_v1.0"
-    version: "1.0"
-    arch_origin: "x86"
+  - &pezor_v330
+    packer_family: "pezor"
+    packer_name: "pezor"
+    version: "3.3.0"
+    arch_origin: "x86/x64"
     supported_input_arch: "PE32"
     supported_output_arch: "PE32"
     dependencies: []
-    tags: ["CLI", "Crypter", "Open-Source"]
-    binary_path: "./packers/PePacker/PePacker.exe"
-    binary_sha256: "f12914d0db7cb77e6af4464cf7ebfa6d16c1632ea9a452eb763f79809bbe940a"
-    source_url: "https://github.com/SamLarenN/PePacker"
-    license: "Shareware"
-    notes: "Simple PE file packer which encrypts the .text section and adds a decryption stub to the end of the last section. The encryption is a simple XOR encryption."
-    size_kb: "207"
-    output_behavior: "in_place"
-    type: "Type II"
-    type_ex: "Simple XOR encryption of the .text section followed by a decryption stub appended to the end of the last section. Does not maintain persistent hooks."
-
-  - &pecompact_v184
-    packer_family: "pecompact"
-    packer_name: "pecompact_v1.84"
-    version: "1.84"
-    arch_origin: "x86"
-    supported_input_arch: "PE32"
-    supported_output_arch: "PE32"
-    dependencies: []
-    tags: ["GUI", "Compressor", "Plugin-Based", "Shareware"]
-    binary_path: "./packers/pecompact/PECompact/pecompact.exe"
-    binary_sha256: "84c09b85971d41b84dbb2238c75c8a340afce6da2a16921ae3b7596aad57ac2d"
-    source_url: "https://www.collakesoftware.com/pecompact/"
-    license: "Shareware"
-    notes: "PECompact v1.84 by Jeremy Collake (Collake Software). A plugin-based PE compressor for Win32 EXEs, DLLs, and screen savers. GUI-only; no CLI interface. Compresses code, data, resources, and import/export tables with a runtime decompression stub."
-    size_kb: "34"
-    output_behavior: "in_place"
-    type: "Type II"
-    type_ex: "PECompact uses a plugin architecture allowing custom decompression stubs. The symbiote decompressor runs before OEP transfer, consistent with a two-stage unpacking model."
+    tags: ["CLI", "WSL", "Shellcode", "Evasion", "Open Source"]
+    binary_path: "./wrapper/pezor_wrap.sh"
+    binary_sha256: "520d485c2a9831dcb79d0416d9d8207d22f3c76990611feb01eaf233e2a74bce"
+    source_url: "https://github.com/phra/PEzor"
+    license: "MIT"
+    notes: "Open-source PE packer that converts executables to shellcode via Donut, then repackages them with anti-debug, unhooking, syscalls, SGN encoding, and fluctuation support. Runs via WSL on Windows."
+    size_kb: "28"
+    output_behavior: "explicit"
+    type: "Type V"
+    type_ex: "Uses Donut to convert PE to position-independent shellcode, then wraps it in a new loader with optional encryption, encoding, and evasion techniques. Multi-stage: shellcode generation -> encoding -> loader compilation."
     known_issues:
-      - "Automation: GUI-only; cannot be scripted via CLI."
-      - "Shareware: 14-day evaluation; registration required for continued use."
-      - "Compatibility: Older tool; may fail on modern executables with large imports or manifest sections."
+      - "WSL Required: Must run inside WSL (Ubuntu). Cannot run natively on Windows."
+      - "32-bit Limitations: -syscalls flag is 64-bit only. -self with -sgn is incompatible."
 
-  - &nspack_v37
-    packer_family: "nspack"
-    packer_name: "nspack_v3.7"
-    version: "3.7"
+  - &rlpack_v121
+    packer_family: "rlpack"
+    packer_name: "rlpack"
+    version: "1.21 Basic"
     arch_origin: "x86"
     supported_input_arch: "PE32"
     supported_output_arch: "PE32"
     dependencies: []
-    tags: ["GUI", "Compressor"]
-    binary_path: "./packers/nspack/nSpack.exe"
-    binary_sha256: ""
-    source_url: "https://webscene.ir/tools/show/NsPack-and-crack-3.7"
-    license: "Freeware"
-    notes: "NsPack v3.7 by North Star (Liu Xingping). A lightweight CLI PE compressor supporting EXE, DLL, OCX, SCR for both 32-bit and 64-bit PE files. CLI: NSPack.exe <input_file>. BINARY NOT YET ACQUIRED — download from source_url, extract to ./packers/nspack/, then run binary_info.py to populate sha256 and size_kb."
-    size_kb: ""
-    output_behavior: "in_place"
-    type: "Type I"
-    type_ex: "NsPack is a single-pass compressor that embeds a decompression stub and transfers control to OEP after unpacking."
+    tags: ["GUI"]
+    binary_path: "./packers/rlpack/RLPack.exe"
+    binary_sha256: "070ee0f340a85a6b5c6aa5577aecf22c95ae380ef1e05e62073e726bd3dc7da2"
+    source_url: "https://www.softpedia.com/get/Programming/Packers-Crypters-Protectors/RLPack-Basic-Edition.shtml"
+    license: "Freeware (Basic)"
+    notes: "RLPack Basic Edition (by ap0x). A compressing executable protector"
+    size_kb: "58"
+    output_behavior: "explicit"
+    type: "Type IV"
+    type_ex: "RLPack includes anti-debugging, integrity checks, and code splicing, indicating an interleaved execution model where the packer's code is active during runtime."
     known_issues:
-      - "Binary not yet downloaded. See notes for source_url."
+      - ""
 
-  - &npack_v11
-    packer_family: "npack"
-    packer_name: "npack_v1.1"
-    version: "1.1.300.2006"
-    arch_origin: "x86"
-    supported_input_arch: "PE32"
-    supported_output_arch: "PE32"
-    dependencies: ["RebPE32.dll"]
-    tags: ["GUI", "Compressor"]
-    binary_path: "./packers/npack/nPack.exe"
-    binary_sha256: "8da2f3980a2cf5c5da4c04cb12bef4ceebd7e4ec4bbac12cdf0bd263a167353a"
-    source_url: "https://npack.apponic.com/download/"
-    license: "Freeware"
-    notes: "nPack v1.1.300.2006 by NEOx. A GUI PE compressor for Win32 EXEs and DLLs. Requires RebPE32.dll in the same directory. GUI-only; cannot be scripted via CLI."
-    size_kb: "83"
-    output_behavior: "in_place"
-    type: "Type I"
-    type_ex: "nPack is a standard single-layer compressor that prepends a decompression stub before the original OEP."
-    known_issues:
-      - "GUI-only; no CLI interface available."
-
-  - &fsg_v10
-    packer_family: "fsg"
-    packer_name: "fsg_v1.0"
-    version: "1.0"
+  - &shrinker_v34_demo
+    packer_family: "shrinker"
+    packer_name: "shrinker_v3.4_demo"
+    version: "3.4 Demo"
     arch_origin: "x86"
     supported_input_arch: "PE32"
     supported_output_arch: "PE32"
     dependencies: []
-    tags: ["GUI", "Compressor"]
-    binary_path: "./packers/fsg/fsg.exe"
-    binary_sha256: "733038f506b52a5993f923ae29909cca60b7af0dfe66b1c703e2d4626c3b7e28"
+    tags: ["GUI", "Compressor", "Demo"]
+    binary_path: "./packers/shrinker/Shrink32.exe"
+    binary_sha256: "87d6ee4ce86397d45200698be1a917aa9eca24e80359bd18a39f545afec68bfe"
     source_url: "https://defacto2.net/f/b224796"
-    license: "Freeware"
-    notes: "FSG (Fast Small Good) v1.0 by xtreeme (2002/2003). A GUI-only PE compressor producing very small output. Automation requires GUI click scripting."
-    size_kb: "14"
+    license: "Shareware (Demo)"
+    notes: "Shrinker 3.4 Demo by Blink Inc. A Win32 PE compressor/packer. Demo release from the defacto2 scene archive. GUI-only; cannot be scripted via CLI."
+    size_kb: "361"
     output_behavior: "explicit"
     type: "Type I"
-    type_ex: "FSG is a single-pass compressor focused on minimal output size. No anti-debug mechanisms; pure compression."
+    type_ex: "Shrinker is a single-layer compressor that prepends a decompression stub to the original PE, consistent with Type I."
     known_issues:
-      - "Automation: GUI-only; cannot be scripted via CLI."
-      - "Stability: Marked as 'broken' in packing-box reference corpus for some targets."
+      - "Demo version may restrict packing of large files or add a watermark."
+      - "GUI-only; cannot be scripted via CLI."
+
+  - &simpledpack_v053
+    packer_family: "simpledpack"
+    packer_name: "simpledpack_v0.5.3"
+    version: "0.5.3"
+    arch_origin: "x86"
+    supported_input_arch: "PE32"
+    supported_output_arch: "PE32"
+    dependencies: []
+    tags: ["CLI", "Compressor", "Educational"]
+    binary_path: "./packers/SimpleDpack/SimpleDpack.exe"
+    binary_sha256: "dc30566e9ea708cfbdd4b92f746853fbfd4135531857ef330c1bbd0d60dc5f9c"
+    source_url: "https://www.sac.sk/files.php?d=7&l"
+    license: "Freeware"
+    notes: "SimpleDpack v0.5.3 by devseed. A lightweight Win32 PE executable compressor designed for learning and investigating PE structure. Supports both CLI drag-and-drop and command-line execution."
+    size_kb: "28"
+    output_behavior: "explicit"
+    type: "Type I"
+    type_ex: "SimpleDpack is a single-layer PE compressor that prepends a decompression stub, consistent with Type I."
+    known_issues:
+      - ""
 
   - &telock_v098
     packer_family: "telock"
@@ -1298,166 +914,6 @@ definitions:
     type_ex: "tElock features anti-debugging and code encryption on top of compression, creating a cyclic integrity model where the stub actively checks for analysis tools."
     known_issues:
       - "Automation: GUI-only; cannot be scripted via CLI."
-
-  - &acprotect_std
-    packer_family: "acprotect"
-    packer_name: "acprotect_std"
-    version: "Standard (installer)"
-    arch_origin: "x86"
-    supported_input_arch: "PE32"
-    supported_output_arch: "PE32"
-    dependencies: []
-    tags: ["GUI", "Protector", "Anti-Debug", "Crypter", "Commercial"]
-    binary_path: "./packers/acprotect/ACProtect/ACProtect.exe"
-    binary_sha256: "f082359b90eed2aed56403667527e038b84204021d281e09057496aae177b058"
-    source_url: "https://archive.org/download/tucows_304741_ACProtect/acpr_std.exe"
-    license: "Commercial (Trial, preserved via archive.org/Tucows)"
-    notes: "ACProtect Standard by risco. A GUI-based PE protector using RSA public-key cryptography for registration key generation, with anti-dump and anti-debug features. Installer (acpr_std.exe) also retained at ./packers/acprotect/acpr_std.exe."
-    size_kb: "998"
-    output_behavior: "explicit"
-    type: "Type IV"
-    type_ex: "ACProtect employs RSA-based key verification, code encryption, CRC checks, and anti-dump — full interleaved execution where the protection stub remains active at runtime."
-    known_issues:
-      - "Automation: GUI-only; cannot be scripted via CLI."
-      - "Trial: Limited features in trial/standard edition."
-
-  # ==========================================
-  # COMMERCIAL / UNAVAILABLE PACKERS
-  # These require purchase or cannot be auto-downloaded.
-  # Entries are provided for corpus completeness.
-  # ==========================================
-
-  - &enigma_v780
-    packer_family: "enigma"
-    packer_name: "enigma_protector_v7.80"
-    version: "7.80 build 20250205"
-    arch_origin: "x86"
-    supported_input_arch: "PE32"
-    supported_output_arch: "PE32"
-    dependencies: []
-    tags:
-      ["CLI", "Protector", "Virtualizer", "Anti-Debug", "Commercial", "Demo"]
-    binary_path: "./packers/enigma/The Enigma Protector/enigma32.exe"
-    binary_sha256: "c393a08a7259c053ef9eff48fac64051422144bda6a5f7c8927113f50960fd30"
-    source_url: "https://www.enigmaprotector.com"
-    license: "Commercial (Demo)"
-    notes: "The Enigma Protector x86 v7.80 by Vladimir Sukhov. A professional PE protector with code virtualization, anti-debug, anti-dump, and license management. Demo version. CLI: enigma32.exe [options] project.enigma -input {in} -output {out}. Requires a .enigma project file — cannot pack without a pre-configured project. GUI variant: Enigma32g.exe. All executables and DLLs must reside in the same directory."
-    size_kb: "6958"
-    cli_template: "{bin} {project} -input {in} -output {out}"
-    project_file: "./packers/enigma/The Enigma Protector/default.enigma"
-    output_behavior: "explicit"
-    type: "Type IV"
-    type_ex: "Enigma Protector uses code virtualization (VM-based obfuscation) and full runtime integrity checks, consistent with interleaved execution throughout the program lifecycle."
-    known_issues:
-      - "Demo version may add limitations (watermark, size cap, or expiry) to protected output."
-      - "All DLLs must be co-located with enigma32.exe."
-
-  - &zprotect_placeholder
-    packer_family: "zprotect"
-    packer_name: "zprotect"
-    version: "1.4.2.0"
-    arch_origin: "x86"
-    supported_input_arch: "PE32"
-    supported_output_arch: "PE32"
-    dependencies: []
-    tags: ["GUI", "Protector", "Anti-Debug", "Commercial"]
-    binary_path: "./packers/zprotect/ZProtect.exe"
-    binary_sha256: ""
-    source_url: ""
-    license: "Commercial (discontinued)"
-    notes: "ZProtect by Licho. A commercial PE protector with code encryption and anti-debugging. Now discontinued. BINARY NOT ACQUIRED — no official download; may be found in RE community archives."
-    size_kb: ""
-    output_behavior: "explicit"
-    type: "Type IV"
-    type_ex: "ZProtect implements code encryption and anti-debugging at runtime, consistent with interleaved execution."
-    known_issues:
-      - "Binary not acquired. Software is discontinued; no official download."
-      - "Automation: GUI-only."
-
-  - &obsidium_v1880
-    packer_family: "obsidium"
-    packer_name: "obsidium_v1.8.8"
-    version: "1.8.8.10"
-    arch_origin: "x86"
-    supported_input_arch: "PE32"
-    supported_output_arch: "PE32"
-    dependencies: []
-    tags: ["GUI", "Protector", "Virtualizer", "Anti-Debug", "Commercial"]
-    binary_path: "./packers/obsidium/Obsidium.exe"
-    binary_sha256: "88c92e679b416267ce7fcdd72886a6bfaedc9f7fb56ba98d741cdacf8e51faff"
-    source_url: "https://www.obsidium.de"
-    license: "Commercial"
-    notes: "Obsidium v1.8.8 build 10 by Obsidium Software. A professional PE protection system with code virtualization, anti-debug, anti-dump, and software licensing. GUI-only; automated via obsidium_v1880_gui.py wrapper."
-    size_kb: "11792"
-    output_behavior: "explicit"
-    type: "Type IV"
-    type_ex: "Obsidium uses code virtualization and runtime integrity checks throughout program execution, consistent with full interleaved execution."
-    known_issues:
-      - "GUI-only; automated via Python wrapper (obsidium_v1880_gui.py)."
-      - "CLI tool (obsi_cmd.exe) requires a paid license — demo locks it out."
-
-  - &obsidium_v152
-    packer_family: "obsidium"
-    packer_name: "obsidium_v1.5.2"
-    version: "1.5.2.11"
-    arch_origin: "x86"
-    supported_input_arch: "PE32"
-    supported_output_arch: "PE32"
-    dependencies: []
-    tags: ["GUI", "Protector", "Virtualizer", "Anti-Debug", "Commercial"]
-    binary_path: "./packers/obsidium/Obsidium 1.5/Obsidium.exe"
-    binary_sha256: "f0996e3241119da930ba2c45555b77f465f479143b126384b5eb63ed0d1a227e"
-    source_url: "https://www.obsidium.de"
-    license: "Commercial"
-    notes: "Obsidium v1.5.2 build 11 by Obsidium Software. Older version with a valid license (Obsidium_License.txt). GUI-only; automated via obsidium_v152_gui.py wrapper."
-    size_kb: "7810"
-    output_behavior: "explicit"
-    type: "Type IV"
-    type_ex: "Obsidium uses code virtualization and runtime integrity checks throughout program execution, consistent with full interleaved execution."
-    known_issues:
-      - "GUI-only; automated via Python wrapper (obsidium_v152_gui.py)."
-      - "CLI tool (obsi_cmd.exe) in this version produces no console output — unusable for automation."
-
-  - &pelock_v240
-    packer_family: "pelock"
-    packer_name: "pelock_v2.40"
-    version: "2.40"
-    arch_origin: "x86"
-    supported_input_arch: "PE32"
-    supported_output_arch: "PE32"
-    dependencies: []
-    tags: ["GUI", "Protector", "Anti-Debug", "Commercial"]
-    binary_path: "./packers/pelock/PELock.exe"
-    binary_sha256: "4543c9e8f924e66d0d0814f535b1f1ed2b90f146e85fbd29f3532c62919f8257"
-    source_url: "https://www.pelock.com/products/pelock"
-    license: "Commercial (free for personal use)"
-    notes: "PELock by Bartosz Wójcik. A PE protector featuring code encryption, anti-debugging, anti-dump, and license key management. Free for personal/non-commercial use. GUI-only; cannot be scripted via CLI."
-    size_kb: "2073"
-    output_behavior: "explicit"
-    type: "Type IV"
-    type_ex: "PELock implements code encryption and runtime anti-debug checks, consistent with interleaved execution."
-    known_issues:
-      - "GUI-only; cannot be scripted via CLI."
-
-  - &armadillo_placeholder
-    packer_family: "armadillo"
-    packer_name: "armadillo"
-    version: "252b2"
-    arch_origin: "x86"
-    supported_input_arch: "PE32"
-    supported_output_arch: "PE32"
-    dependencies: []
-    tags: ["GUI", "Protector", "Anti-Debug", "Commercial"]
-    binary_path: "./packers/armadillo/Armadillo.exe"
-    binary_sha256: ""
-    source_url: "https://www.siliconrealms.com"
-    license: "Commercial (discontinued)"
-    notes: "Armadillo by Silicon Realms Toolworks (predecessor to Software Passport). A widely studied PE protector from the 2000s with nanomite protection, code splitting, and debugger detection. Discontinued. BINARY NOT ACQUIRED — locate from RE community archives."
-    size_kb: ""
-    output_behavior: "explicit"
-    type: "Type IV"
-    type_ex: "Armadillo uses nanomite protection (exception-driven code execution), IAT encryption, and persistent runtime integrity checks."
-    known_issues:
 
   - &themida_demo
     packer_family: "themida"
@@ -1484,9 +940,154 @@ definitions:
       - "Automation: GUI-only."
       - "Two protection modes used in corpus: full VM virtualization and partial code revealing (hybrid)."
 
-  # ==========================================
   # UPX early versions (0.60 - 1.22) from Downloads/packers collection
-  # ==========================================
+
+  - &upack_v399
+    packer_family: "upack"
+    packer_name: "upack"
+    version: "0.399 (Brute)"
+    arch_origin: "x86"
+    supported_input_arch: "PE32"
+    supported_output_arch: "PE32"
+    dependencies: []
+    tags: ["CLI"]
+    binary_path: "./packers/upack/Upack.exe"
+    binary_sha256: "bbbf9630c2e0990e6d8cbb52b5842e7d7a1def8e844c2dcb01a1f8106d82bdd7"
+    source_url: "https://www.sac.sk/download/pack/upack399.rar"
+    license: "Freeware"
+    notes: "(c) 2005 dwing. A legendary packer often associated with malware due to its unique PE header manipulation (e.g., merging sections)."
+    size_kb: "21"
+    output_behavior: "in_place"
+    type: "Type III"
+    type_ex: "Upack is known for its focus on anti-unpacking techniques and unique PE header manipulation, suggesting a complexity beyond a simple compressor, likely with cyclic checks."
+    known_issues:
+      - ""
+
+  - &upx_scrambler_304
+    packer_family: "UPX_Scrambler"
+    packer_name: "UPX_Scrambler"
+    version: "3.0.4"
+    arch_origin: "x86"
+    supported_input_arch: "PE32"
+    supported_output_arch: "PE32"
+    dependencies: []
+    tags: ["GUI", "Scrambler"]
+    binary_path: "./packers/upx_scrambler/upxs304.exe"
+    binary_sha256: "eb59536bfe402267af20dba1adfe35f6a88d30d6fd0460bebdc7cff782b3a971"
+    source_url: "https://defacto2.net/f/a520164?packer=upxs"
+    license: "Freeware"
+    notes: "A tool designed to obfuscate or 'scramble' the headers of UPX-packed executables to prevent easy unpacking. It is a GUI-based utility."
+    size_kb: "17"
+    output_behavior: "explicit"
+    type: "Type II"
+    type_ex: "This tool adds a layer of obfuscation on top of an already packed file (UPX), creating a multi-layer packer scenario."
+    known_issues:
+      - ""
+
+  - &upx_scrambler_306
+    packer_family: "UPX_Scrambler"
+    packer_name: "UPX_Scrambler_3.06"
+    version: "3.06"
+    arch_origin: "x86"
+    supported_input_arch: "PE32"
+    supported_output_arch: "PE32"
+    dependencies: ["upx"]
+    tags: ["GUI", "Scrambler"]
+    binary_path: "./packers/upx_scrambler/v306/upxs306.exe"
+    binary_sha256: "302d6144d1610587228725b463f0de04daea909e9ccbdcfa34889681f020eed7"
+    source_url: "https://defacto2.net/f/a520164?packer=upxs"
+    license: "Freeware"
+    notes: "UPX Scrambler v3.06 by control. GUI tool that obfuscates UPX-packed PE headers to prevent automatic unpacking."
+    size_kb: "17"
+    output_behavior: "explicit"
+    type: "Type II"
+    type_ex: "Adds obfuscation on top of UPX, creating a multi-layer packer scenario."
+    known_issues:
+      - "Automation: GUI-only; cannot be scripted via CLI."
+
+  - &upx_scrambler_rc1
+    packer_family: "UPX_Scrambler"
+    packer_name: "UPX_Scrambler_RC1"
+    version: "RC1"
+    arch_origin: "x86"
+    supported_input_arch: "PE32"
+    supported_output_arch: "PE32"
+    dependencies: ["upx"]
+    tags: ["GUI", "Scrambler"]
+    binary_path: "./packers/upx_scrambler/vrc1/upxsrc1.exe"
+    binary_sha256: "d6ec2c139095d11e08f7853d58824ca76eca7ca0949f37d690f3c4c19c8c40b6"
+    source_url: "https://defacto2.net/f/a520164?packer=upxs"
+    license: "Freeware"
+    notes: "UPX Scrambler vRC1 by control. GUI tool that obfuscates UPX-packed PE headers to prevent automatic unpacking."
+    size_kb: "18"
+    output_behavior: "explicit"
+    type: "Type II"
+    type_ex: "Adds obfuscation on top of UPX, creating a multi-layer packer scenario."
+    known_issues:
+      - "Automation: GUI-only; cannot be scripted via CLI."
+
+  - &upx_scrambler_rc103
+    packer_family: "UPX_Scrambler"
+    packer_name: "UPX_Scrambler_RC1.03"
+    version: "RC1.03"
+    arch_origin: "x86"
+    supported_input_arch: "PE32"
+    supported_output_arch: "PE32"
+    dependencies: ["upx"]
+    tags: ["GUI", "Scrambler"]
+    binary_path: "./packers/upx_scrambler/vrc103/upxsrc103.exe"
+    binary_sha256: "354252d58926b88075226d5ba55cf531c270b4d50792d9ab4993ac2082fd2d15"
+    source_url: "https://defacto2.net/f/a520164?packer=upxs"
+    license: "Freeware"
+    notes: "UPX Scrambler vRC1.03 by control. GUI tool that obfuscates UPX-packed PE headers to prevent automatic unpacking."
+    size_kb: "18"
+    output_behavior: "explicit"
+    type: "Type II"
+    type_ex: "Adds obfuscation on top of UPX, creating a multi-layer packer scenario."
+    known_issues:
+      - "Automation: GUI-only; cannot be scripted via CLI."
+
+  - &upx_scrambler_rc105
+    packer_family: "UPX_Scrambler"
+    packer_name: "UPX_Scrambler_RC1.05"
+    version: "RC1.05"
+    arch_origin: "x86"
+    supported_input_arch: "PE32"
+    supported_output_arch: "PE32"
+    dependencies: ["upx"]
+    tags: ["GUI", "Scrambler"]
+    binary_path: "./packers/upx_scrambler/vrc105/upxsrc105.exe"
+    binary_sha256: "813deb740cf10a58d3331b235c855c238eeb91740620651df8fa3e716393dfdd"
+    source_url: "https://defacto2.net/f/a520164?packer=upxs"
+    license: "Freeware"
+    notes: "UPX Scrambler vRC1.05 by control. GUI tool that obfuscates UPX-packed PE headers to prevent automatic unpacking."
+    size_kb: "18"
+    output_behavior: "explicit"
+    type: "Type II"
+    type_ex: "Adds obfuscation on top of UPX, creating a multi-layer packer scenario."
+    known_issues:
+      - "Automation: GUI-only; cannot be scripted via CLI."
+
+  - &upx_scrambler_rc1b10
+    packer_family: "UPX_Scrambler"
+    packer_name: "UPX_Scrambler_RC1b10"
+    version: "RC1b10"
+    arch_origin: "x86"
+    supported_input_arch: "PE32"
+    supported_output_arch: "PE32"
+    dependencies: ["upx"]
+    tags: ["GUI", "Scrambler"]
+    binary_path: "./packers/upx_scrambler/vrc1b10/upxsrc1b10.exe"
+    binary_sha256: "dd3a5dca36309f2fa4058a3a47b7810f58af17f2fbf4fab13f9d8028a82796d7"
+    source_url: "https://defacto2.net/f/a520164?packer=upxs"
+    license: "Freeware"
+    notes: "UPX Scrambler vRC1b10 by control. GUI tool that obfuscates UPX-packed PE headers to prevent automatic unpacking."
+    size_kb: "18"
+    output_behavior: "explicit"
+    type: "Type II"
+    type_ex: "Adds obfuscation on top of UPX, creating a multi-layer packer scenario."
+    known_issues:
+      - "Automation: GUI-only; cannot be scripted via CLI."
 
   - &upx_v060
     packer_family: "UPX"
@@ -2202,114 +1803,402 @@ definitions:
     known_issues:
       - "Antivirus: Files packed with UPX are frequently flagged as false positives by AV engines."
 
-  # ==========================================
   # UPX Scrambler additional versions
-  # ==========================================
 
-  - &upx_scrambler_306
-    packer_family: "UPX_Scrambler"
-    packer_name: "UPX_Scrambler_3.06"
-    version: "3.06"
+  - &upx_v395
+    packer_family: "UPX"
+    packer_name: "upx_v3.95"
+    version: "3.95"
+    arch_origin: "x64"
+    supported_input_arch: ["PE32", "PE32+"]
+    supported_output_arch: ["PE32", "PE32+"]
+    dependencies: []
+    tags: ["CLI", "Multi-Platform"]
+    binary_path: "./packers/upx/v3.95/upx.exe"
+    binary_sha256: "3660fa3c1e91917e8388c85e222bf3973edebf89f5898b2908111c981481dd40"
+    source_url: "https://github.com/upx/upx/releases/tag/v3.95"
+    license: "GPL"
+    notes: "The Ultimate Packer for eXecutables v3.95 (2018). Stable v3.x release."
+    size_kb: "397"
+    output_behavior: "explicit"
+    type: "Type I"
+    type_ex: "The paper explicitly mentions UPX as a notable example of a Type-I packer, which uses a single unpacking routine."
+    known_issues:
+      - "Antivirus: Files packed with UPX are frequently flagged as false positives by AV engines."
+      - "Overlays: Default behavior copies overlays, but --overlay=strip might be needed for some specific targets."
+
+  - &upx_v396
+    packer_family: "UPX"
+    packer_name: "upx_v3.96"
+    version: "3.96"
+    arch_origin: "x64"
+    supported_input_arch: ["PE32", "PE32+"]
+    supported_output_arch: ["PE32", "PE32+"]
+    dependencies: []
+    tags: ["CLI", "Multi-Platform"]
+    binary_path: "./packers/upx/v3.96/upx.exe"
+    binary_sha256: "24624a9d3786d7ba93575383edf694505453af59b39b0463260a75c6344d0ae7"
+    source_url: "https://github.com/upx/upx/releases/tag/v3.96"
+    license: "GPL"
+    notes: "The Ultimate Packer for eXecutables v3.96 (2020). Last v3.x release. Handles PE, ELF, Mach-O."
+    size_kb: "403"
+    output_behavior: "explicit"
+    type: "Type I"
+    type_ex: "The paper explicitly mentions UPX as a notable example of a Type-I packer, which uses a single unpacking routine."
+    known_issues:
+      - "Antivirus: Files packed with UPX are frequently flagged as false positives by AV engines."
+      - "Overlays: Default behavior copies overlays, but --overlay=strip might be needed for some specific targets."
+
+  - &upx_v400
+    packer_family: "UPX"
+    packer_name: "upx_v4.0.0"
+    version: "4.0.0"
+    arch_origin: "x64"
+    supported_input_arch: ["PE32", "PE32+"]
+    supported_output_arch: ["PE32", "PE32+"]
+    dependencies: []
+    tags: ["CLI", "Multi-Platform"]
+    binary_path: "./packers/upx/v4.0.0/upx.exe"
+    binary_sha256: "7cb6c4659dc3bc5ce10b5e18499cf14322c66f310d7d623143881a7e884a3467"
+    source_url: "https://github.com/upx/upx/releases/tag/v4.0.0"
+    license: "GPL"
+    notes: "The Ultimate Packer for eXecutables v4.0.0 (2023). First v4.x release with major rewrite."
+    size_kb: "468"
+    output_behavior: "explicit"
+    type: "Type I"
+    type_ex: "The paper explicitly mentions UPX as a notable example of a Type-I packer, which uses a single unpacking routine."
+    known_issues:
+      - "Antivirus: Files packed with UPX are frequently flagged as false positives by AV engines."
+      - "Overlays: Default behavior copies overlays, but --overlay=strip might be needed for some specific targets."
+
+  - &upx_v401
+    packer_family: "UPX"
+    packer_name: "upx_v4.0.1"
+    version: "4.0.1"
+    arch_origin: "x64"
+    supported_input_arch: ["PE32", "PE32+"]
+    supported_output_arch: ["PE32", "PE32+"]
+    dependencies: []
+    tags: ["CLI", "Multi-Platform"]
+    binary_path: "./packers/upx/v4.0.1/upx.exe"
+    binary_sha256: "3aa7d4d9a8c14bbc573b7e57074eccd08fb9bbbfeabd0466795073e13064aa85"
+    source_url: "https://github.com/upx/upx/releases/tag/v4.0.1"
+    license: "GPL"
+    notes: "The Ultimate Packer for eXecutables v4.0.1 (2023). Bug-fix release for v4.0.x."
+    size_kb: "527"
+    output_behavior: "explicit"
+    type: "Type I"
+    type_ex: "The paper explicitly mentions UPX as a notable example of a Type-I packer, which uses a single unpacking routine."
+    known_issues:
+      - "Antivirus: Files packed with UPX are frequently flagged as false positives by AV engines."
+      - "Overlays: Default behavior copies overlays, but --overlay=strip might be needed for some specific targets."
+
+  - &upx_v402
+    packer_family: "UPX"
+    packer_name: "upx_v4.0.2"
+    version: "4.0.2"
+    arch_origin: "x64"
+    supported_input_arch: ["PE32", "PE32+"]
+    supported_output_arch: ["PE32", "PE32+"]
+    dependencies: []
+    tags: ["CLI", "Multi-Platform"]
+    binary_path: "./packers/upx/v4.0.2/upx.exe"
+    binary_sha256: "a4240ea0e8a916d15f8391edef9705ab4de1f516dd360f0a336c5358686d434b"
+    source_url: "https://github.com/upx/upx/releases/tag/v4.0.2"
+    license: "GPL"
+    notes: "The Ultimate Packer for eXecutables v4.0.2 (2023). Bug-fix release for v4.0.x."
+    size_kb: "525"
+    output_behavior: "explicit"
+    type: "Type I"
+    type_ex: "The paper explicitly mentions UPX as a notable example of a Type-I packer, which uses a single unpacking routine."
+    known_issues:
+      - "Antivirus: Files packed with UPX are frequently flagged as false positives by AV engines."
+      - "Overlays: Default behavior copies overlays, but --overlay=strip might be needed for some specific targets."
+
+  - &upx_v410
+    packer_family: "UPX"
+    packer_name: "upx_v4.1.0"
+    version: "4.1.0"
+    arch_origin: "x64"
+    supported_input_arch: ["PE32", "PE32+"]
+    supported_output_arch: ["PE32", "PE32+"]
+    dependencies: []
+    tags: ["CLI", "Multi-Platform"]
+    binary_path: "./packers/upx/v4.1.0/upx.exe"
+    binary_sha256: "ac3a0048c6d70095339029887bf242d0e004c2aaf3fce0d1e0cbe4b62ce7e187"
+    source_url: "https://github.com/upx/upx/releases/tag/v4.1.0"
+    license: "GPL"
+    notes: "The Ultimate Packer for eXecutables v4.1.0 (2023). Feature release in v4.x series."
+    size_kb: "545"
+    output_behavior: "explicit"
+    type: "Type I"
+    type_ex: "The paper explicitly mentions UPX as a notable example of a Type-I packer, which uses a single unpacking routine."
+    known_issues:
+      - "Antivirus: Files packed with UPX are frequently flagged as false positives by AV engines."
+      - "Overlays: Default behavior copies overlays, but --overlay=strip might be needed for some specific targets."
+
+  - &upx_v420
+    packer_family: "UPX"
+    packer_name: "upx_v4.2.0"
+    version: "4.2.0"
+    arch_origin: "x64"
+    supported_input_arch: ["PE32", "PE32+"]
+    supported_output_arch: ["PE32", "PE32+"]
+    dependencies: []
+    tags: ["CLI", "Multi-Platform"]
+    binary_path: "./packers/upx/v4.2.0/upx.exe"
+    binary_sha256: "1ea92da93eeaf4d456114b847b9bddfb47ef854e7c24143f290d5e3f44973e91"
+    source_url: "https://github.com/upx/upx/releases/tag/v4.2.0"
+    license: "GPL"
+    notes: "The Ultimate Packer for eXecutables v4.2.0 (2024). Improved PE support in v4.2.x."
+    size_kb: "550"
+    output_behavior: "explicit"
+    type: "Type I"
+    type_ex: "The paper explicitly mentions UPX as a notable example of a Type-I packer, which uses a single unpacking routine."
+    known_issues:
+      - "Antivirus: Files packed with UPX are frequently flagged as false positives by AV engines."
+      - "Overlays: Default behavior copies overlays, but --overlay=strip might be needed for some specific targets."
+
+  - &upx_v421
+    packer_family: "UPX"
+    packer_name: "upx_v4.2.1"
+    version: "4.2.1"
+    arch_origin: "x64"
+    supported_input_arch: ["PE32", "PE32+"]
+    supported_output_arch: ["PE32", "PE32+"]
+    dependencies: []
+    tags: ["CLI", "Multi-Platform"]
+    binary_path: "./packers/upx/v4.2.1/upx.exe"
+    binary_sha256: "c6dd0a6cac2d2153e4666aacf43d487c1b6e2bc16cb7f956514ab02883ef2a42"
+    source_url: "https://github.com/upx/upx/releases/tag/v4.2.1"
+    license: "GPL"
+    notes: "The Ultimate Packer for eXecutables v4.2.1 (2024). Bug-fix release for v4.2.x."
+    size_kb: "550"
+    output_behavior: "explicit"
+    type: "Type I"
+    type_ex: "The paper explicitly mentions UPX as a notable example of a Type-I packer, which uses a single unpacking routine."
+    known_issues:
+      - "Antivirus: Files packed with UPX are frequently flagged as false positives by AV engines."
+      - "Overlays: Default behavior copies overlays, but --overlay=strip might be needed for some specific targets."
+
+  - &upx_v422
+    packer_family: "UPX"
+    packer_name: "upx_v4.2.2"
+    version: "4.2.2"
+    arch_origin: "x64"
+    supported_input_arch: ["PE32", "PE32+"]
+    supported_output_arch: ["PE32", "PE32+"]
+    dependencies: []
+    tags: ["CLI", "Multi-Platform"]
+    binary_path: "./packers/upx/v4.2.2/upx.exe"
+    binary_sha256: "94d77389b86a248c0428ad196aa66eb93e5d2d97795ce96a35014c1f0febaabd"
+    source_url: "https://github.com/upx/upx/releases/tag/v4.2.2"
+    license: "GPL"
+    notes: "The Ultimate Packer for eXecutables v4.2.2 (2024). Bug-fix release for v4.2.x."
+    size_kb: "550"
+    output_behavior: "explicit"
+    type: "Type I"
+    type_ex: "The paper explicitly mentions UPX as a notable example of a Type-I packer, which uses a single unpacking routine."
+    known_issues:
+      - "Antivirus: Files packed with UPX are frequently flagged as false positives by AV engines."
+      - "Overlays: Default behavior copies overlays, but --overlay=strip might be needed for some specific targets."
+
+  - &upx_v423
+    packer_family: "UPX"
+    packer_name: "upx_v4.2.3"
+    version: "4.2.3"
+    arch_origin: "x64"
+    supported_input_arch: ["PE32", "PE32+"]
+    supported_output_arch: ["PE32", "PE32+"]
+    dependencies: []
+    tags: ["CLI", "Multi-Platform"]
+    binary_path: "./packers/upx/v4.2.3/upx.exe"
+    binary_sha256: "902e597a5eb89f345901280eb396394146b3937d4c84b880e8ee1300c901ec9b"
+    source_url: "https://github.com/upx/upx/releases/tag/v4.2.3"
+    license: "GPL"
+    notes: "The Ultimate Packer for eXecutables v4.2.3 (2024). Bug-fix release for v4.2.x."
+    size_kb: "551"
+    output_behavior: "explicit"
+    type: "Type I"
+    type_ex: "The paper explicitly mentions UPX as a notable example of a Type-I packer, which uses a single unpacking routine."
+    known_issues:
+      - "Antivirus: Files packed with UPX are frequently flagged as false positives by AV engines."
+      - "Overlays: Default behavior copies overlays, but --overlay=strip might be needed for some specific targets."
+
+  - &upx_v424
+    packer_family: "UPX"
+    packer_name: "upx_v4.2.4"
+    version: "4.2.4"
+    arch_origin: "x64"
+    supported_input_arch: ["PE32", "PE32+"]
+    supported_output_arch: ["PE32", "PE32+"]
+    dependencies: []
+    tags: ["CLI", "Multi-Platform"]
+    binary_path: "./packers/upx/v4.2.4/upx.exe"
+    binary_sha256: "b84ec2578a0a202aa84d3c41b4549dddb6dded096baa8d732b1c0cb0518c66f8"
+    source_url: "https://github.com/upx/upx/releases/tag/v4.2.4"
+    license: "GPL"
+    notes: "The Ultimate Packer for eXecutables v4.2.4 (2024). Major v4 rewrite with improved PE support."
+    size_kb: "552"
+    output_behavior: "explicit"
+    type: "Type I"
+    type_ex: "The paper explicitly mentions UPX as a notable example of a Type-I packer, which uses a single unpacking routine."
+    known_issues:
+      - "Antivirus: Files packed with UPX are frequently flagged as false positives by AV engines."
+      - "Overlays: Default behavior copies overlays, but --overlay=strip might be needed for some specific targets."
+
+  - &upx_v500
+    packer_family: "UPX"
+    packer_name: "upx_v5.0.0"
+    version: "5.0.0"
+    arch_origin: "x64"
+    supported_input_arch: ["PE32", "PE32+"]
+    supported_output_arch: ["PE32", "PE32+"]
+    dependencies: []
+    tags: ["CLI", "Multi-Platform"]
+    binary_path: "./packers/upx/v5.0.0/upx.exe"
+    binary_sha256: "a84ecdbedcc87cf03858812fc68ed025b53bbc2c88e76931bf65d24666833ac5"
+    source_url: "https://github.com/upx/upx/releases/tag/v5.0.0"
+    license: "GPL"
+    notes: "The Ultimate Packer for eXecutables v5.0.0 (2025). First v5.x release with new features."
+    size_kb: "584"
+    output_behavior: "explicit"
+    type: "Type I"
+    type_ex: "The paper explicitly mentions UPX as a notable example of a Type-I packer, which uses a single unpacking routine."
+    known_issues:
+      - "Antivirus: Files packed with UPX are frequently flagged as false positives by AV engines."
+      - "Overlays: Default behavior copies overlays, but --overlay=strip might be needed for some specific targets."
+
+  - &upx_v501
+    packer_family: "UPX"
+    packer_name: "upx_v5.0.1"
+    version: "5.0.1"
+    arch_origin: "x64"
+    supported_input_arch: ["PE32", "PE32+"]
+    supported_output_arch: ["PE32", "PE32+"]
+    dependencies: []
+    tags: ["CLI", "Multi-Platform"]
+    binary_path: "./packers/upx/v5.0.1/upx.exe"
+    binary_sha256: "8def9daba0817636962e60878e117ee1dcba6c3f64fb4bc13449d447385f1b5b"
+    source_url: "https://github.com/upx/upx/releases/tag/v5.0.1"
+    license: "GPL"
+    notes: "The Ultimate Packer for eXecutables v5.0.1 (2025). Bug-fix release for v5.0.x."
+    size_kb: "585"
+    output_behavior: "explicit"
+    type: "Type I"
+    type_ex: "The paper explicitly mentions UPX as a notable example of a Type-I packer, which uses a single unpacking routine."
+    known_issues:
+      - "Antivirus: Files packed with UPX are frequently flagged as false positives by AV engines."
+      - "Overlays: Default behavior copies overlays, but --overlay=strip might be needed for some specific targets."
+
+  - &upx_v502
+    packer_family: "UPX"
+    packer_name: "upx_v5.0.2"
+    version: "5.0.2"
+    arch_origin: "x64"
+    supported_input_arch: ["PE32", "PE32+"]
+    supported_output_arch: ["PE32", "PE32+"]
+    dependencies: []
+    tags: ["CLI", "Multi-Platform"]
+    binary_path: "./packers/upx/v5.0.2/upx.exe"
+    binary_sha256: "3638bfe45ee552b57dc8c5af39c5e0f317ff83748dbf6326a0cdcccb2fd52da4"
+    source_url: "https://github.com/upx/upx/releases/tag/v5.0.2"
+    license: "GPL"
+    notes: "The Ultimate Packer for eXecutables v5.0.2 (2025). Bug-fix release for v5.0.x."
+    size_kb: "585"
+    output_behavior: "explicit"
+    type: "Type I"
+    type_ex: "The paper explicitly mentions UPX as a notable example of a Type-I packer, which uses a single unpacking routine."
+    known_issues:
+      - "Antivirus: Files packed with UPX are frequently flagged as false positives by AV engines."
+      - "Overlays: Default behavior copies overlays, but --overlay=strip might be needed for some specific targets."
+
+  - &upx_v510
+    packer_family: "UPX"
+    packer_name: "upx_v5.1.0"
+    version: "5.1.0"
+    arch_origin: "x64"
+    supported_input_arch: ["PE32", "PE32+"]
+    supported_output_arch: ["PE32", "PE32+"]
+    dependencies: []
+    tags: ["CLI", "Multi-Platform"]
+    binary_path: "./packers/upx/upx.exe"
+    binary_sha256: "41c7492edeed0f7e67d347ca9e8d2131e2af7ca7a7695f92283a8e655c251c13"
+    source_url: "https://github.com/upx/upx/releases/tag/v5.1.0"
+    license: "GPL"
+    notes: "The Ultimate Packer for eXecutables. Handles varied formats (PE, ELF, Mach-O). Supports in-place decompression."
+    size_kb: "652"
+    output_behavior: "explicit"
+    type: "Type I"
+    type_ex: "The paper explicitly mentions UPX as a notable example of a Type-I packer, which uses a single unpacking routine."
+    known_issues:
+      - "Antivirus: Files packed with UPX are frequently flagged as false positives by AV engines."
+      - "Overlays: Default behavior copies overlays, but --overlay=strip might be needed for some specific targets."
+
+  - &upx_v511
+    packer_family: "UPX"
+    packer_name: "upx_v5.1.1"
+    version: "5.1.1"
+    arch_origin: "x64"
+    supported_input_arch: ["PE32", "PE32+"]
+    supported_output_arch: ["PE32", "PE32+"]
+    dependencies: []
+    tags: ["CLI", "Multi-Platform"]
+    binary_path: "./packers/upx/v5.1.1/upx.exe"
+    binary_sha256: "16a29adbdf3b6fde74c290205e24cceb7bef1a216941922aa73d2d808a699bbb"
+    source_url: "https://github.com/upx/upx/releases/tag/v5.1.1"
+    license: "GPL"
+    notes: "The Ultimate Packer for eXecutables v5.1.1 (2026). Latest stable release."
+    size_kb: "609"
+    output_behavior: "explicit"
+    type: "Type I"
+    type_ex: "The paper explicitly mentions UPX as a notable example of a Type-I packer, which uses a single unpacking routine."
+    known_issues:
+      - "Antivirus: Files packed with UPX are frequently flagged as false positives by AV engines."
+      - "Overlays: Default behavior copies overlays, but --overlay=strip might be needed for some specific targets."
+
+  - &winupack_v039
+    packer_family: "winupack"
+    packer_name: "winupack"
+    version: "0.39"
     arch_origin: "x86"
     supported_input_arch: "PE32"
     supported_output_arch: "PE32"
-    dependencies: ["upx"]
-    tags: ["GUI", "Scrambler"]
-    binary_path: "./packers/upx_scrambler/v306/upxs306.exe"
-    binary_sha256: "302d6144d1610587228725b463f0de04daea909e9ccbdcfa34889681f020eed7"
-    source_url: "https://defacto2.net/f/a520164?packer=upxs"
+    dependencies: ["upack"]
+    tags: ["GUI", "Frontend"]
+    binary_path: "./packers/wupack/WinUpackE.exe"
+    binary_sha256: "7ae78bec94af597d27dd66b681300da0004945434e4ad2b11c60321ea0bd90e5"
+    source_url: "https://www.sac.sk/download/pack/wupck039.zip"
     license: "Freeware"
-    notes: "UPX Scrambler v3.06 by control. GUI tool that obfuscates UPX-packed PE headers to prevent automatic unpacking."
-    size_kb: "17"
+    notes: "Graphical User Interface (GUI) frontend for the Upack CLI compressor. Useful for manual testing but not suitable for automation."
+    size_kb: "27"
     output_behavior: "explicit"
-    type: "Type II"
-    type_ex: "Adds obfuscation on top of UPX, creating a multi-layer packer scenario."
+    type: "Type III"
+    type_ex: "As a frontend for Upack, it produces a packed file with the same characteristics. Upack is classified as Type III due to its focus on anti-unpacking techniques."
     known_issues:
-      - "Automation: GUI-only; cannot be scripted via CLI."
+      - ""
 
-  - &upx_scrambler_rc1
-    packer_family: "UPX_Scrambler"
-    packer_name: "UPX_Scrambler_RC1"
-    version: "RC1"
+  - &xcomp_v097
+    packer_family: "xcomp"
+    packer_name: "xcomp"
+    version: "0.97"
     arch_origin: "x86"
     supported_input_arch: "PE32"
     supported_output_arch: "PE32"
-    dependencies: ["upx"]
-    tags: ["GUI", "Scrambler"]
-    binary_path: "./packers/upx_scrambler/vrc1/upxsrc1.exe"
-    binary_sha256: "d6ec2c139095d11e08f7853d58824ca76eca7ca0949f37d690f3c4c19c8c40b6"
-    source_url: "https://defacto2.net/f/a520164?packer=upxs"
+    dependencies: []
+    tags: ["CLI", "In-Place", "Legacy"]
+    binary_path: "./packers/xcomp/XCompc.exe"
+    binary_sha256: "5e33e701bc871198ef32e1598641e7704d7a1e74f022f924a17ee9e7ca302836"
+    source_url: "http://www.soft-lab.de/JoKo/index_old.htm"
     license: "Freeware"
-    notes: "UPX Scrambler vRC1 by control. GUI tool that obfuscates UPX-packed PE headers to prevent automatic unpacking."
-    size_kb: "18"
-    output_behavior: "explicit"
-    type: "Type II"
-    type_ex: "Adds obfuscation on top of UPX, creating a multi-layer packer scenario."
+    notes: "(c) 2007 JoKo. A 32-bit PE packer supporting LZRW and LZSS compression. Modifies files in-place."
+    size_kb: "25"
+    output_behavior: "in_place"
+    type: "Type I"
+    type_ex: "A standard PE packer with compression and rebuilding features. No indication of advanced protection mechanisms."
     known_issues:
-      - "Automation: GUI-only; cannot be scripted via CLI."
-
-  - &upx_scrambler_rc103
-    packer_family: "UPX_Scrambler"
-    packer_name: "UPX_Scrambler_RC1.03"
-    version: "RC1.03"
-    arch_origin: "x86"
-    supported_input_arch: "PE32"
-    supported_output_arch: "PE32"
-    dependencies: ["upx"]
-    tags: ["GUI", "Scrambler"]
-    binary_path: "./packers/upx_scrambler/vrc103/upxsrc103.exe"
-    binary_sha256: "354252d58926b88075226d5ba55cf531c270b4d50792d9ab4993ac2082fd2d15"
-    source_url: "https://defacto2.net/f/a520164?packer=upxs"
-    license: "Freeware"
-    notes: "UPX Scrambler vRC1.03 by control. GUI tool that obfuscates UPX-packed PE headers to prevent automatic unpacking."
-    size_kb: "18"
-    output_behavior: "explicit"
-    type: "Type II"
-    type_ex: "Adds obfuscation on top of UPX, creating a multi-layer packer scenario."
-    known_issues:
-      - "Automation: GUI-only; cannot be scripted via CLI."
-
-  - &upx_scrambler_rc105
-    packer_family: "UPX_Scrambler"
-    packer_name: "UPX_Scrambler_RC1.05"
-    version: "RC1.05"
-    arch_origin: "x86"
-    supported_input_arch: "PE32"
-    supported_output_arch: "PE32"
-    dependencies: ["upx"]
-    tags: ["GUI", "Scrambler"]
-    binary_path: "./packers/upx_scrambler/vrc105/upxsrc105.exe"
-    binary_sha256: "813deb740cf10a58d3331b235c855c238eeb91740620651df8fa3e716393dfdd"
-    source_url: "https://defacto2.net/f/a520164?packer=upxs"
-    license: "Freeware"
-    notes: "UPX Scrambler vRC1.05 by control. GUI tool that obfuscates UPX-packed PE headers to prevent automatic unpacking."
-    size_kb: "18"
-    output_behavior: "explicit"
-    type: "Type II"
-    type_ex: "Adds obfuscation on top of UPX, creating a multi-layer packer scenario."
-    known_issues:
-      - "Automation: GUI-only; cannot be scripted via CLI."
-
-  - &upx_scrambler_rc1b10
-    packer_family: "UPX_Scrambler"
-    packer_name: "UPX_Scrambler_RC1b10"
-    version: "RC1b10"
-    arch_origin: "x86"
-    supported_input_arch: "PE32"
-    supported_output_arch: "PE32"
-    dependencies: ["upx"]
-    tags: ["GUI", "Scrambler"]
-    binary_path: "./packers/upx_scrambler/vrc1b10/upxsrc1b10.exe"
-    binary_sha256: "dd3a5dca36309f2fa4058a3a47b7810f58af17f2fbf4fab13f9d8028a82796d7"
-    source_url: "https://defacto2.net/f/a520164?packer=upxs"
-    license: "Freeware"
-    notes: "UPX Scrambler vRC1b10 by control. GUI tool that obfuscates UPX-packed PE headers to prevent automatic unpacking."
-    size_kb: "18"
-    output_behavior: "explicit"
-    type: "Type II"
-    type_ex: "Adds obfuscation on top of UPX, creating a multi-layer packer scenario."
-    known_issues:
-      - "Automation: GUI-only; cannot be scripted via CLI."
+      - "Stability: Susceptible to Access Violation crashes (Exit Code 0xC0000005) on complex, modern installers (e.g., Adobe Acrobat Reader)."
+      - "Legacy Constraints: As a 2007 tool, it may fail on executables with extensive Overlay data or non-standard Section alignments."
 
   - &xpa_v143
     packer_family: "xpa"
@@ -2332,68 +2221,174 @@ definitions:
     known_issues:
       - "GUI-only; cannot be scripted via CLI."
 
-  - &jdpack_v100
-    packer_family: "jdpack"
-    packer_name: "jdpack_v1.00"
-    version: "1.00"
+  - &yoda_crypter_v12
+    packer_family: "yoda_crypter"
+    packer_name: "yoda_crypter_v1.2"
+    version: "1.2"
     arch_origin: "x86"
     supported_input_arch: "PE32"
     supported_output_arch: "PE32"
     dependencies: []
-    tags: ["GUI", "Compressor"]
-    binary_path: "./packers/jdpack/jdpack.exe"
-    binary_sha256: "784b159e2ef2af20e29c43425fcafcc18c5e816d66b3693b362f375f6350be6c"
-    source_url: "https://www.sac.sk/files.php?d=7&l"
+    tags: ["GUI", "Crypter", "Polymorphism"]
+    binary_path: "./packers/yoda_crypter/v1.2/yc.exe"
+    binary_sha256: "a0f83c7f388bd5fafc112a1ce76eacce8313eefa07d2ba0c4e053d355ed7826b"
+    source_url: "https://sourceforge.net/projects/yodap/"
     license: "Freeware"
-    notes: "JDPack v1.00. A Win32 PE executable compressor from the demoscene archive (ftp.elf.stuba.sk). GUI-only; cannot be scripted via CLI."
-    size_kb: "95"
-    output_behavior: "in_place"
-    type: "Type I"
-    type_ex: "JDPack is a single-layer PE compressor that prepends a decompression stub, consistent with Type I."
-    known_issues:
-      - "Automation: GUI-only; cannot be scripted via CLI."
-
-  - &simpledpack_v053
-    packer_family: "simpledpack"
-    packer_name: "simpledpack_v0.5.3"
-    version: "0.5.3"
-    arch_origin: "x86"
-    supported_input_arch: "PE32"
-    supported_output_arch: "PE32"
-    dependencies: []
-    tags: ["CLI", "Compressor", "Educational"]
-    binary_path: "./packers/SimpleDpack/SimpleDpack.exe"
-    binary_sha256: "dc30566e9ea708cfbdd4b92f746853fbfd4135531857ef330c1bbd0d60dc5f9c"
-    source_url: "https://www.sac.sk/files.php?d=7&l"
-    license: "Freeware"
-    notes: "SimpleDpack v0.5.3 by devseed. A lightweight Win32 PE executable compressor designed for learning and investigating PE structure. Supports both CLI drag-and-drop and command-line execution."
-    size_kb: "28"
+    notes: "Yoda's Crypter v1.2 (2005). A polymorphic encryptor designed for signature evasion. Distinct from Yoda's Protector."
+    size_kb: "10"
     output_behavior: "explicit"
-    type: "Type I"
-    type_ex: "SimpleDpack is a single-layer PE compressor that prepends a decompression stub, consistent with Type I."
+    type: "Type IV"
+    type_ex: "Crypters with anti-debugging features like Yoda's often use interleaved execution to check for analysis tools at runtime."
     known_issues:
       - ""
 
-  - &molebox_v46
-    packer_family: "molebox"
-    packer_name: "molebox"
-    version: "4.6000"
+  - &yoda_crypter_v13
+    packer_family: "yoda_crypter"
+    packer_name: "yoda_crypter_v1.3"
+    version: "1.3"
     arch_origin: "x86"
     supported_input_arch: "PE32"
     supported_output_arch: "PE32"
     dependencies: []
-    tags: ["CLI", "Virtualizer", "Protector"]
-    binary_path: "./packers/molebox/MxbPack.exe"
-    binary_sha256: ""
-    source_url: "https://www.github.com/sudachen/molebox"
+    tags: ["GUI", "Crypter", "Polymorphism"]
+    binary_path: "./packers/yoda_crypter/yC1.3/yC1.3/yC.exe"
+    binary_sha256: "337b92acf0dd3fac565b9a07ddef1bb07852b1c4a0dcaa0c4df5debd9d51c629"
+    source_url: "https://sourceforge.net/projects/yodap/"
     license: "Freeware"
-    notes: "MoleBox Virtualization Solution 4.6 by sudachen. A PE virtualizer/protector that wraps executables in a virtual filesystem environment. Uses MxbPack.exe as its CLI packing tool."
+    notes: "Yoda's Crypter (yC). A polymorphic encryptor designed for signature evasion. Distinct from Yoda's Protector."
+    size_kb: "108"
+    output_behavior: "explicit"
+    type: "Type IV"
+    type_ex: "Crypters with anti-debugging features like Yoda's often use interleaved execution to check for analysis tools at runtime."
+    known_issues:
+      - ""
+
+  - &yoda_v10
+    packer_family: "yoda_protector"
+    packer_name: "yoda_protector_v1.0"
+    version: "1.0"
+    arch_origin: "x86"
+    supported_input_arch: "PE32"
+    supported_output_arch: "PE32"
+    dependencies: []
+    tags: ["GUI"]
+    binary_path: "./packers/yoda_protect/v1.0/yp.exe"
+    binary_sha256: "bb4634147d801aa33a95a365450f9bb53a6c2d0804af0f25d3cdbbee6d4478e1"
+    source_url: "https://sourceforge.net/projects/yodap/"
+    license: "Freeware"
+    notes: "Yoda's Protector v1.0 (2005). GUI-based PE protector with anti-debugging features."
+    size_kb: "120"
+    output_behavior: "explicit"
+    type: "Type IV"
+    type_ex: "As a 'protector' with anti-debugging features (inferred from its sibling 'crypter'), it likely uses interleaved execution."
+    known_issues:
+      - ""
+
+  - &yoda_v1012
+    packer_family: "yoda_protector"
+    packer_name: "yoda_protector_v1.01.2"
+    version: "1.01.2"
+    arch_origin: "x86"
+    supported_input_arch: "PE32"
+    supported_output_arch: "PE32"
+    dependencies: []
+    tags: ["GUI"]
+    binary_path: "./packers/yoda_protect/v1.01.2/yp.exe"
+    binary_sha256: "3b08e5d613748808ccce5b8b34ab524f97fac77a55b992a196dfa8faac97cc08"
+    source_url: "https://sourceforge.net/projects/yodap/"
+    license: "Freeware"
+    notes: "Yoda's Protector v1.01.2 (2005). GUI-based PE protector with anti-debugging features."
+    size_kb: "82"
+    output_behavior: "explicit"
+    type: "Type IV"
+    type_ex: "As a 'protector' with anti-debugging features (inferred from its sibling 'crypter'), it likely uses interleaved execution."
+    known_issues:
+      - ""
+
+  - &yoda_v102
+    packer_family: "yoda_protector"
+    packer_name: "yoda_protector_v1.02"
+    version: "1.02"
+    arch_origin: "x86"
+    supported_input_arch: "PE32"
+    supported_output_arch: "PE32"
+    dependencies: []
+    tags: ["GUI"]
+    binary_path: "./packers/yoda_protect/v1.02/yp.exe"
+    binary_sha256: "f657590e7d861efed4b17bb77d4c7f4cb5a49fded6176193623da19265bb37ba"
+    source_url: "https://sourceforge.net/projects/yodap/"
+    license: "Freeware"
+    notes: "Yoda's Protector v1.02 (2005). GUI-based PE protector with anti-debugging features."
+    size_kb: "98"
+    output_behavior: "explicit"
+    type: "Type IV"
+    type_ex: "As a 'protector' with anti-debugging features (inferred from its sibling 'crypter'), it likely uses interleaved execution."
+    known_issues:
+      - ""
+
+  - &yoda_v1032
+    packer_family: "yoda_protector"
+    packer_name: "yoda_protector_v1.03.2"
+    version: "1.03.2"
+    arch_origin: "x86"
+    supported_input_arch: "PE32"
+    supported_output_arch: "PE32"
+    dependencies: []
+    tags: ["GUI"]
+    binary_path: "./packers/yoda_protect/v1.03.2/yp.exe"
+    binary_sha256: "a48ae6f9abd8e767b5fa25727959b9fd7cf1ef601c520e0bf0e0e4544479cc89"
+    source_url: "https://sourceforge.net/projects/yodap/"
+    license: "Freeware"
+    notes: "Yoda's Protector v1.03.2 (2005). GUI-based PE protector with anti-debugging features."
+    size_kb: "120"
+    output_behavior: "explicit"
+    type: "Type IV"
+    type_ex: "As a 'protector' with anti-debugging features (inferred from its sibling 'crypter'), it likely uses interleaved execution."
+    known_issues:
+      - ""
+
+  - &yoda_v1033
+    packer_family: "yoda_protector"
+    packer_name: "yoda_protector_v1.03.3"
+    version: "1.03.3"
+    arch_origin: "x86"
+    supported_input_arch: "PE32"
+    supported_output_arch: "PE32"
+    dependencies: []
+    tags: ["GUI"]
+    binary_path: "./packers/yoda_protect/v1.03.3/yp.exe"
+    binary_sha256: "8cfd5f5c0bec0d0d3e7d141f386b13a3cb9e1d4ca9bc07ea30663698a38df0eb"
+    source_url: "https://sourceforge.net/projects/yodap/"
+    license: "Freeware"
+    notes: "Yoda's Protector v1.03.3 (2005). GUI-based PE protector with anti-debugging features. Latest SourceForge release."
+    size_kb: "112"
+    output_behavior: "explicit"
+    type: "Type IV"
+    type_ex: "As a 'protector' with anti-debugging features (inferred from its sibling 'crypter'), it likely uses interleaved execution."
+    known_issues:
+      - ""
+
+  - &zprotect_placeholder
+    packer_family: "zprotect"
+    packer_name: "zprotect"
+    version: "1.4.2.0"
+    arch_origin: "x86"
+    supported_input_arch: "PE32"
+    supported_output_arch: "PE32"
+    dependencies: []
+    tags: ["GUI", "Protector", "Anti-Debug", "Commercial"]
+    binary_path: "./packers/zprotect/ZProtect.exe"
+    binary_sha256: ""
+    source_url: ""
+    license: "Commercial (discontinued)"
+    notes: "ZProtect by Licho. A commercial PE protector with code encryption and anti-debugging. Now discontinued. BINARY NOT ACQUIRED — no official download; may be found in RE community archives."
     size_kb: ""
     output_behavior: "explicit"
-    type: "Type II"
-    type_ex: "MoleBox wraps the target PE in a virtual environment with its own VFS layer, classifying it as a multi-layer virtualizer/protector."
+    type: "Type IV"
+    type_ex: "ZProtect implements code encryption and anti-debugging at runtime, consistent with interleaved execution."
     known_issues:
-      - ""
+      - "Binary not acquired. Software is discontinued; no official download."
+      - "Automation: GUI-only."
 
 test_cases:
   # ==========================================
@@ -2498,14 +2493,6 @@ test_cases:
     <<: *kkrunchy_v023
     command_label: "Best Compression (Slow)"
     cli_template: "{bin} --best --out {out} {in}"
-    validation:
-      allow_x64_switch: false
-      allow_x86_switch: false
-
-  - id: "KKRUNCHY_003_NEW"
-    <<: *kkrunchy_v023
-    command_label: "Experimental New Frontend"
-    cli_template: "{bin} --new --out {out} {in}"
     validation:
       allow_x64_switch: false
       allow_x86_switch: false

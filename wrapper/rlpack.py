@@ -11,6 +11,7 @@ import pyperclip
 import traceback
 import win32gui
 import win32process
+import win32api
 
 
 class RLPack(BaseGUI):
@@ -148,7 +149,19 @@ class RLPack(BaseGUI):
             self.center_window_on_monitor(monitor_number=1)
             time.sleep(0.5)
 
-            # Step 6: Tab twice to reach the file browse button
+            # Step 6: Focus window and move cursor off any screen corner via
+            # win32api (bypasses pyautogui's fail-safe) before keyboard nav.
+            self.window.activate()
+            time.sleep(0.3)
+            win32api.SetCursorPos(
+                (
+                    self.window.left + self.window.width // 2,
+                    self.window.top + self.window.height // 2,
+                )
+            )
+            time.sleep(0.2)
+
+            # Step 7: Tab twice to reach the file browse button
             print("\n[INFO] Navigating to browse button (Tab x2)...")
             pyautogui.press("tab")
             time.sleep(0.2)
