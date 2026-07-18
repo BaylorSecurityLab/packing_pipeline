@@ -38,8 +38,11 @@ ALL backend bugs are now FIXED and committed (branch feature/empirical-type-back
   root_asid(live-CR3) fixes.
 - kernel_base found DETERMINISTICALLY: discover_kernel_base_from_eprocess walks
   ActiveProcessLinks -> PsActiveProcessHead (no scanning, KPTI-proof).
-- Clean exit + stop marker: launcher breaks on sample_started && active_processes==0
-  (a Windows job object never signals on empty — the old job_complete guard was dead).
+- Clean exit + stop marker: launcher waits on the SAMPLE PROCESS HANDLE
+  (WaitForSingleObject(process.hProcess)) — the reliable exit signal.  A job object
+  never signals on empty, AND active_processes==0 never happens either because the
+  launcher holds the sample's handle so its exited EPROCESS lingers referenced on
+  PsActiveProcessHead.  Latest launcher: **8361d9c3** (re-stage this one).
 Run 046/048 already recorded EVERY single-process channel (sample_start, trace_start,
 exec, write, free, unmap, exact exception dispatch+recovery). The only thing missing
 was the action-3 stop marker (the launcher bug, now fixed in launcher e1b82661).
@@ -48,9 +51,10 @@ POST-REBOOT STEPS:
 1. `free -m` / `nproc` — confirm ~12 GiB / 6 CPU now. `git status` clean on branch.
 2. Rebuild artifacts if missing: `ops/qemu/build_plugin.sh`,
    `ops/panda/build_guest_launcher.sh`, `ops/qemu/build_validation_fixture.sh`.
-3. The fixture copy `windows10-qemu-fixture.qcow2` already has launcher e1b82661,
-   fixture 2797e32e, single_process.txt, idle_ms.txt staged. If rebuilt, re-stage:
-   `sudo env SINGLE_PROCESS=1 ops/qemu/stage_fixture_launcher.sh`.
+3. RE-STAGE the latest launcher (8361d9c3 — the process-handle-wait fix) plus the
+   fixture and flag: `sudo env SINGLE_PROCESS=1 ops/qemu/stage_fixture_launcher.sh`.
+   (Runs 046/048/049 all recorded every channel but lacked the action-3 stop
+   marker; 8361d9c3 fixes exactly that, so the next run should certify.)
 4. Run the single-process cert (now with abundant CPU/RAM, no contention -> reliable):
    `run_trace.py windows10-qemu-fixture.qcow2 <work> <trace> --meta <meta> --monitor <sock> --host-timeout 1200 --guest-memory 4G --qemu <qemu> --plugin ops/qemu/paper_trace.so`
    then `validate_fixture_trace.py --single-process <trace> ops/qemu/backend_validation.json --qemu <qemu> --plugin ops/qemu/paper_trace.so --launcher ops/panda/build/guest_launcher.exe --fixture ops/qemu/build/validation_fixture.exe --ntdll empirical_results/qemu_runtime/ntdll.dll --profile-header ops/qemu/win10_profile.h`
