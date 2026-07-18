@@ -30,6 +30,98 @@ class FSG(BaseGUI):
     def get_packer_name(self) -> str:
         return "fsg_v1.0"
 
+    def _drive_fsg_picker_via_win32(self, full_path, timeout=10):
+        """
+        Drive FSG's standard #32770 file picker via Win32 SendMessage.
+
+        FSG's "please select file" dialog is a regular Windows Open dialog
+        (verified: class #32770, contains a ComboBoxEx32 + Edit for the File
+        name field, Button labeled &Open). We find the File name Edit by
+        class + lower-screen position, WM_SETTEXT the full path, and click
+        Open via BM_CLICK. No screen coordinates, no pyautogui, no
+        SetForegroundWindow -- so UIPI doesn't get in the way.
+
+        Returns True if the Open button was clicked (file selection accepted),
+        False if we couldn't find/click the controls (caller falls back to
+        pyautogui).
+        """
+        import win32con
+
+        start = time.time()
+        fsg_dialog_hwnd = None
+        # Find FSG's main dialog (the "please select file to compress" window).
+        while time.time() - start < timeout:
+            found = [None]
+
+            def _cb(h, _):
+                if win32gui.IsWindowVisible(h):
+                    t = win32gui.GetWindowText(h)
+                    if "FSG" in t and "dulek" in t:
+                        found[0] = h
+                        return False
+                return True
+
+            win32gui.EnumWindows(_cb, None)
+            if found[0]:
+                fsg_dialog_hwnd = found[0]
+                break
+            time.sleep(0.3)
+
+        if not fsg_dialog_hwnd:
+            print("[ERROR] FSG dialog never appeared (Win32)")
+            return False
+
+        # Find the File name Edit control (lower Edit in the dialog, by rect).
+        edit_hwnd = None
+
+        def _edit_cb(h, _):
+            nonlocal edit_hwnd
+            if win32gui.GetClassName(h) != "Edit":
+                return True
+            # The File name Edit sits below the file-list area; the
+            # toolbar/address Edit is much higher up. Pick the lowest Edit.
+            rect = win32gui.GetWindowRect(h)
+            if edit_hwnd is None or rect[1] > win32gui.GetWindowRect(edit_hwnd)[1]:
+                edit_hwnd = h
+            return True
+
+        win32gui.EnumChildWindows(fsg_dialog_hwnd, _edit_cb, None)
+        if not edit_hwnd:
+            print("[ERROR] FSG File name Edit not found (Win32)")
+            return False
+
+        # WM_SETTEXT the full path.
+        win32gui.SendMessage(edit_hwnd, win32con.WM_SETTEXT, 0, full_path)
+        time.sleep(0.3)
+        actual = win32gui.GetWindowText(edit_hwnd)
+        if actual != full_path:
+            print(
+                f"[ERROR] WM_SETTEXT rejected (got {actual!r}, "
+                f"expected {full_path!r}). UIPI likely blocks the wrapper."
+            )
+            return False
+
+        # Find &Open button.
+        open_btn = None
+
+        def _btn_cb(h, _):
+            nonlocal open_btn
+            if win32gui.GetClassName(h) == "Button" and "&Open" in win32gui.GetWindowText(h):
+                open_btn = h
+                return False
+            return True
+
+        win32gui.EnumChildWindows(fsg_dialog_hwnd, _btn_cb, None)
+        if not open_btn:
+            print("[ERROR] FSG Open button not found (Win32)")
+            return False
+
+        # BM_CLICK the Open button. This is the same as a real mouse click on
+        # the button and triggers the dialog's OK handler.
+        win32gui.SendMessage(open_btn, win32con.BM_CLICK, 0, 0)
+        time.sleep(1)
+        return True
+
     def _wait_for_fsg_window_or_dialog(self, timeout=15):
         """
         After file selection, wait for either the FSG main window or a TLS dialog.
@@ -189,26 +281,38 @@ class FSG(BaseGUI):
 
             directory = str(input_file.parent)
             filename = input_file.name
+            full_path = str(input_file)
 
             print(f"[INFO] Navigating to directory: {directory}")
-            pyautogui.hotkey("ctrl", "l")
-            time.sleep(0.3)
-            pyperclip.copy(directory)
-            pyautogui.hotkey("ctrl", "v")
-            time.sleep(0.3)
-            pyautogui.press("enter")
-            time.sleep(1)
-
             print(f"[INFO] Entering filename: {filename}")
-            pyautogui.hotkey("alt", "n")
-            time.sleep(0.3)
-            pyperclip.copy(filename)
-            pyautogui.hotkey("ctrl", "v")
-            time.sleep(0.3)
-            pyautogui.press("enter")
-            time.sleep(1)
 
-            print("[SUCCESS] File selected!")
+            # Drive the file picker via Win32 directly instead of pyautogui. FSG's
+            # dialog is a standard #32770 Open dialog, so we can find the File
+            # name Edit control by class+rect, write the full path with
+            # WM_SETTEXT, and click the Open button with BM_CLICK. This bypasses
+            # UIPI / SetForegroundWindow blocking that pyautogui hits when the
+            # wrapper runs at a different integrity level than FSG.
+            picker_done = self._drive_fsg_picker_via_win32(full_path)
+            if not picker_done:
+                # Fallback to pyautogui if Win32 path didn't work (e.g. dialog
+                # structure changed in a future FSG build).
+                print("[WARNING] Win32 picker drive failed; falling back to pyautogui")
+                pyautogui.hotkey("ctrl", "l")
+                time.sleep(0.3)
+                pyperclip.copy(directory)
+                pyautogui.hotkey("ctrl", "v")
+                time.sleep(0.3)
+                pyautogui.press("enter")
+                time.sleep(1)
+                pyautogui.hotkey("alt", "n")
+                time.sleep(0.3)
+                pyperclip.copy(filename)
+                pyautogui.hotkey("ctrl", "v")
+                time.sleep(0.3)
+                pyautogui.press("enter")
+                time.sleep(1)
+            else:
+                print("[SUCCESS] File selected (via Win32)!")
 
             # Step 3: Detect TLS dialog vs main window
             outcome = self._wait_for_fsg_window_or_dialog(timeout=15)
