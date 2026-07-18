@@ -34,6 +34,72 @@ def sha256(path: Path) -> str:
     return digest.hexdigest()
 
 
+# The paper stops recording after two minutes with no newly executed code (the
+# unpacking layers have settled / the payload is idle or blocked).  The launcher
+# normally emits that boundary itself, but under heavy TCG instrumentation the
+# guest's timer interrupts starve and every GUEST clock (GetTickCount64 etc.)
+# nearly freezes once execution goes idle — so the guest can neither time out nor
+# detect its own idleness.  We therefore ALSO observe the identical rule in HOST
+# real time: strictly zero new exec AND write events for a full two minutes after
+# sample_start.  Zero activity (not merely slow) distinguishes a settled sample
+# from one still crawling through unpacking, so this cannot truncate an unpack.
+HOST_IDLE_SECONDS = 120
+_ACTIVITY_MARKERS = (b'"event":"exec"', b'"event":"write"')
+
+
+def _activity_and_started(trace: Path, offset: int) -> tuple[int, int, bool]:
+    """Return (new_activity_events, new_offset, saw_sample_start_in_new_bytes)."""
+    if not trace.exists():
+        return 0, offset, False
+    with trace.open("rb") as handle:
+        handle.seek(offset)
+        chunk = handle.read()
+        new_offset = handle.tell()
+    activity = sum(chunk.count(marker) for marker in _ACTIVITY_MARKERS)
+    started = b'"event":"sample_start"' in chunk
+    return activity, new_offset, started
+
+
+def wait_or_host_idle(process, trace: Path, host_timeout: int) -> tuple[int | None, bool, bool]:
+    """Wait for qemu, terminating early on the host-observed 2-minute idle.
+
+    Returns (return_code, host_timed_out, host_observed_idle).  host_observed_idle
+    is set only when sample_start was seen AND activity strictly ceased for
+    HOST_IDLE_SECONDS — the paper's completion boundary measured in host time.
+    """
+    started_at = time.monotonic()
+    offset = 0
+    sample_started = False
+    last_activity_at = started_at
+    poll = 5.0
+    while True:
+        try:
+            return_code = process.wait(timeout=poll)
+            return return_code, False, False  # guest ended on its own
+        except subprocess.TimeoutExpired:
+            pass
+        now = time.monotonic()
+        activity, offset, saw_start = _activity_and_started(trace, offset)
+        if saw_start:
+            sample_started = True
+        if activity > 0:
+            last_activity_at = now
+        if now - started_at >= host_timeout:
+            process.terminate()
+            try:
+                return process.wait(timeout=60), True, False
+            except subprocess.TimeoutExpired:
+                process.kill()
+                return process.wait(), True, False
+        if sample_started and now - last_activity_at >= HOST_IDLE_SECONDS:
+            process.terminate()
+            try:
+                return process.wait(timeout=60), False, True
+            except subprocess.TimeoutExpired:
+                process.kill()
+                return process.wait(), False, True
+
+
 def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("base", type=Path)
@@ -132,19 +198,11 @@ def main() -> int:
         f"{plugin.resolve()},out={args.trace.resolve()}",
     ]
     started = time.monotonic()
-    host_timed_out = False
     with log.open("wb") as log_handle:
         process = subprocess.Popen(command, stdout=log_handle, stderr=log_handle)
-        try:
-            return_code = process.wait(timeout=args.host_timeout)
-        except subprocess.TimeoutExpired:
-            host_timed_out = True
-            process.terminate()
-            try:
-                return_code = process.wait(timeout=60)
-            except subprocess.TimeoutExpired:
-                process.kill()
-                return_code = process.wait()
+        return_code, host_timed_out, host_observed_idle = wait_or_host_idle(
+            process, args.trace, args.host_timeout
+        )
     elapsed = time.monotonic() - started
     summary = final_summary(args.trace)
     implemented_channels = {
@@ -228,6 +286,15 @@ def main() -> int:
     guest_idle = bool(stop_detail & 0x40000000)
     guest_query_failed = bool(stop_detail & 0x20000000)
     guest_unrecovered_exception = bool(stop_detail & 0x10000000)
+    # The host-observed idle boundary is the paper's two-minute no-execution rule
+    # measured in host real time (see wait_or_host_idle).  It is a COMPLETE
+    # recording of the unpacking — activity strictly ceased — so it is an eligible
+    # completion, on equal footing with the guest-emitted stop/idle marker, and is
+    # NOT a maximum-timeout truncation.  It only stands in when the guest could not
+    # emit its own boundary (timer starvation during the post-unpack crawl).
+    completion_observed = bool(
+        (summary and summary.get("saw_stop")) or host_observed_idle
+    )
     metadata = {
         "schema_version": 1,
         "backend": "upstream_qemu_tcg_plugin",
@@ -243,6 +310,7 @@ def main() -> int:
         "host_timeout_seconds": args.host_timeout,
         "monitor_socket": str(monitor.resolve()),
         "host_timed_out": host_timed_out,
+        "host_observed_idle": host_observed_idle,
         "guest_timed_out": guest_timed_out,
         "guest_idle": guest_idle,
         "guest_query_failed": guest_query_failed,
@@ -256,10 +324,12 @@ def main() -> int:
             else stop_detail
         ),
         "paper_termination_reason": (
-            "maximum_30_minute_timeout" if guest_timed_out
+            "maximum_timeout_host" if host_timed_out
+            else "maximum_30_minute_timeout" if guest_timed_out
             else "unrecovered_exception_two_minutes"
             if guest_unrecovered_exception
             else "two_minutes_idle" if guest_idle
+            else "two_minutes_idle_host_observed" if host_observed_idle
             else "status_query_failure" if guest_query_failed
             else "all_monitored_processes_exited"
         ),
@@ -270,25 +340,44 @@ def main() -> int:
         "implemented_channels": implemented_channels,
         "trace_integrity": trace_integrity,
         "backend_validation_complete": backend_validation_complete,
+        "certification_mode": (
+            backend_validation.get("certification_mode")
+            if isinstance(backend_validation, dict)
+            else None
+        ),
         "backend_validation_stamp": (
             str(validation_stamp.resolve()) if validation_stamp.exists() else None
         ),
         "backend_identity": current_identity,
         "paper_label_eligible": (
             backend_validation_complete
+            and completion_observed
+            and not host_timed_out
             and not guest_timed_out
             and not guest_query_failed
-            and all(trace_integrity.values())
+            # every channel-quality gate except the stop marker, which is
+            # replaced by completion_observed (guest stop OR host-observed idle).
+            and all(v for k, v in trace_integrity.items() if k != "stop_marker")
         ),
         "ineligible_reason": (
-            None if backend_validation_complete
+            None if backend_validation_complete and completion_observed
+            and not host_timed_out and not guest_timed_out
+            and not guest_query_failed
+            and all(v for k, v in trace_integrity.items() if k != "stop_marker")
             else "the exact current QEMU/plugin/profile identity has not passed "
             "the purpose-built Windows channel fixture"
+            if not backend_validation_complete
+            else "recording did not reach a completion boundary "
+            "(no stop marker and no host-observed idle)"
+            if not completion_observed
+            else "recording hit the maximum host timeout while still active"
+            if host_timed_out
+            else "a required trace channel was not clean"
         ),
     }
     meta.write_text(json.dumps(metadata, indent=2) + "\n", encoding="utf-8")
     print(json.dumps(metadata, indent=2))
-    return 0 if summary and summary.get("saw_stop") and not host_timed_out else 1
+    return 0 if metadata["paper_label_eligible"] else 1
 
 
 if __name__ == "__main__":
