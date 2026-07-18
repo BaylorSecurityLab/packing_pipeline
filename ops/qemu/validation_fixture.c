@@ -3,6 +3,7 @@
 #define WIN32_LEAN_AND_MEAN
 #include <windows.h>
 
+#include <setjmp.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <string.h>
@@ -17,7 +18,16 @@ typedef int (*code_function)(void);
 #define VALIDATION_EXCEPTION_CODE ((DWORD)0xe042504b)
 
 static volatile LONG validation_exception_seen;
+static jmp_buf validation_recovery_point;
 
+/* Recover from the raised software exception by longjmp-ing out of the vectored
+ * handler back to the setjmp point.  MinGW GCC has no __try/__except, and a VEH
+ * returning EXCEPTION_CONTINUE_EXECUTION for a RaiseException resumes at the
+ * context captured inside RtlRaiseException — which re-raises and never returns,
+ * so the fixture would spin at ~10 exec/s and never exit (host timeout, no stop
+ * marker).  longjmp unwinds cleanly to recovered_exception and execution
+ * continues normally; RaiseException still passes through RtlRaiseException so
+ * the exact software-exception dispatch/recovery channel is exercised. */
 static LONG CALLBACK validation_exception_handler(
     EXCEPTION_POINTERS *exception)
 {
@@ -26,7 +36,7 @@ static LONG CALLBACK validation_exception_handler(
         return EXCEPTION_CONTINUE_SEARCH;
     }
     InterlockedExchange(&validation_exception_seen, 1);
-    return EXCEPTION_CONTINUE_EXECUTION;
+    longjmp(validation_recovery_point, 1);
 }
 
 static int recovered_exception(void)
@@ -37,7 +47,9 @@ static int recovered_exception(void)
         return 1;
     }
     validation_exception_seen = 0;
-    RaiseException(VALIDATION_EXCEPTION_CODE, 0, 0, NULL);
+    if (setjmp(validation_recovery_point) == 0) {
+        RaiseException(VALIDATION_EXCEPTION_CODE, 0, 0, NULL);
+    }
     RemoveVectoredExceptionHandler(handler);
     return validation_exception_seen ? 0 : 1;
 }
@@ -385,8 +397,12 @@ int main(int argc, char **argv)
      * the full cross-process sequence runs as before. */
     if (GetFileAttributesA("C:\\Panda\\single_process.txt") !=
         INVALID_FILE_ATTRIBUTES) {
-        printf("validation_failures=%d single_process=1\n", failures);
-        return failures ? 1 : 0;
+        /* Terminate immediately and unconditionally so the launcher's
+         * WaitForSingleObject on this process signals promptly.  ExitProcess
+         * avoids any CRT-exit / stdio-flush stall on a console-less service
+         * process (the run otherwise hangs to the host timeout with no stop
+         * marker even though every channel was already recorded). */
+        ExitProcess((UINT)(failures ? 1 : 0));
     }
     failures += mapped_file_execute();
     failures += shared_parent(image);
