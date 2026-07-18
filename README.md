@@ -136,14 +136,7 @@ uv run utils/packer_runner.py pezor
 # Custom worker count (capped at 8 by the runner's per-packer ceiling)
 uv run utils/packer_runner.py pezor --wsl-workers 6
 ```
-The memory-budget scheduler (see `memory/pezor-memory-gate.md`) is the real throttle for PEzor — the worker count is just an upper bound on simultaneous `wsl.exe` launches. If you raise `--wsl-workers` and the WSL VM OOMs, lower it.
-
-## Phase 3: Manifest Maintenance
-
-Updates the `last_updated`, `version`, and `maintainer` fields in `packer_corpus.yaml` based on git history.
-```powershell
-uv run utils/update_manifest.py
-```
+The memory-budget scheduler is the real throttle for PEzor — the worker count is just an upper bound on simultaneous `wsl.exe` launches. If you raise `--wsl-workers` and the WSL VM OOMs, lower it.
 
 ---
 
