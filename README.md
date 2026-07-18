@@ -138,6 +138,47 @@ uv run utils/packer_runner.py pezor --wsl-workers 6
 ```
 The memory-budget scheduler is the real throttle for PEzor — the worker count is just an upper bound on simultaneous `wsl.exe` launches. If you raise `--wsl-workers` and the WSL VM OOMs, lower it.
 
+## Phase 2b: Run GUI Packers
+
+Some packers (FSG, Themida, Obsidium, Yoda's Crypter/Protector, PECompact, ZProtect, …) are **GUI-only** and cannot be scripted through `packer_runner.py`. They are driven by GUI-automation wrappers in `wrapper/` (built on `pyautogui` / `win32gui`) and orchestrated by **`wrapper/gui_runner.py`**.
+
+> ⚠️ **Run on an interactive Windows desktop.** These wrappers move the real mouse and keyboard and need a visible screen — they will **not** work headless, over SSH, or in CI. Don't touch the machine while a run is in progress.
+
+Paths are resolved relative to the script, so run these from the project root:
+```powershell
+# Pack every compatible file in benign_sources/x86 with FSG
+uv run python wrapper/gui_runner.py --packer fsg_v1.0
+
+# Smoke-test on a single input first (recommended)
+uv run python wrapper/gui_runner.py --packer fsg_v1.0 --limit 1
+
+# Pack one specific file
+uv run python wrapper/gui_runner.py --packer fsg_v1.0 --file "benign_sources\x86\example.exe"
+
+# Run every GUI packer in sequence
+uv run python wrapper/gui_runner.py --packer all
+```
+
+Output goes to `packed_sources/<packer>_<version>/` (e.g. `packed_sources/fsg_v1.0_1.0/`). Already-packed inputs are skipped by default.
+
+### Common options
+
+| Flag | Description |
+|------|-------------|
+| `--packer <name>` | GUI packer to run (`fsg_v1.0`, `themida_v3.2.4.34`, …), or `all` for every one |
+| `--file <path>` | Pack a single file instead of the whole batch |
+| `--limit N` | Only process the first N files |
+| `--dry-run` | List the files that would be packed, without packing |
+| `--no-skip` | Re-pack files even if output already exists |
+| `--recursive` | Scan sub-directories of the source dir |
+| `--exclude <p1 p2>` | With `--packer all`, skip these packers |
+| `--source-dir <dir>` | Input directory (default `benign_sources/x86`) |
+| `--output-dir <dir>` | Override the output directory |
+| `--list-packers` | List all GUI packers and their supported file types |
+| `--packer-info <name>` | Show a packer's configurable options |
+
+> ℹ️ FSG specifically needs a **PE32 / x86** input with an **ASCII-only path**, ideally **< 80 KB** — incompatible files trip a TLS dialog and are skipped automatically.
+
 ---
 
 # ⚙️ Configuration (packer_corpus.yaml)
