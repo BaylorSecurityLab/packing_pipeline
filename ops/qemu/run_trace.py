@@ -130,6 +130,17 @@ def main() -> int:
         "guest stop marker, not idle.",
     )
     parser.add_argument(
+        "--icount-shift",
+        type=int,
+        default=2,
+        help="TCG icount shift (1 insn = 2^shift virtual ns).  A FIXED LOW shift "
+        "decouples guest virtual time from the plugin-slowed host clock so the "
+        "guest scheduler tick fires every ~2^-shift*10^9 instructions instead of "
+        "every ~1-30k, ending the boot-lottery thread starvation.  shift=2 gives "
+        "~250k instructions per 1ms tick.  Do NOT use shift=auto (it reconverges "
+        "to real time and reproduces the starvation).  <0 disables icount.",
+    )
+    parser.add_argument(
         "--guest-memory",
         default="3G",
         help="fixed guest RAM allocation, e.g. 2G/2560M/3G (default 3G). On this "
@@ -199,8 +210,18 @@ def main() -> int:
         args.guest_memory,
         "-smp",
         "2",
+        # icount: fixed-shift instruction-counted virtual clock so the guest
+        # scheduler tick fires at a sane instructions-per-tick ratio despite the
+        # plugin slowdown (ends the boot-lottery thread starvation).  Keeps
+        # thread=single (icount forbids MTTCG); rr splits the budget across vCPUs.
+        # clock=vm ties the CMOS/RTC to virtual time to match.
+        *(
+            ["-icount", f"shift={args.icount_shift},sleep=on"]
+            if args.icount_shift >= 0
+            else []
+        ),
         "-rtc",
-        "base=localtime",
+        "base=localtime,clock=vm" if args.icount_shift >= 0 else "base=localtime",
         "-display",
         "none",
         "-monitor",
@@ -326,6 +347,7 @@ def main() -> int:
         "guest_memory": args.guest_memory,
         "guest_vcpus": 2,
         "tcg_threads": "single",
+        "icount_shift": args.icount_shift if args.icount_shift >= 0 else None,
         "global_event_order": True,
         "host_timeout_seconds": args.host_timeout,
         "monitor_socket": str(monitor.resolve()),
