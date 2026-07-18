@@ -60,12 +60,20 @@ def _activity_and_started(trace: Path, offset: int) -> tuple[int, int, bool]:
     return activity, new_offset, started
 
 
-def wait_or_host_idle(process, trace: Path, host_timeout: int) -> tuple[int | None, bool, bool]:
-    """Wait for qemu, terminating early on the host-observed 2-minute idle.
+def wait_or_host_idle(
+    process, trace: Path, host_timeout: int, host_idle_seconds: int = HOST_IDLE_SECONDS
+) -> tuple[int | None, bool, bool]:
+    """Wait for qemu, terminating early on the host-observed idle boundary.
 
     Returns (return_code, host_timed_out, host_observed_idle).  host_observed_idle
     is set only when sample_start was seen AND activity strictly ceased for
-    HOST_IDLE_SECONDS — the paper's completion boundary measured in host time.
+    host_idle_seconds — the paper's completion boundary measured in host time.
+
+    host_idle_seconds <= 0 DISABLES the host-idle boundary: the run then ends only
+    on the guest's own clean completion (e.g. the certification fixture's
+    ExitProcess -> launcher stop marker, which is event-driven and clock-immune)
+    or the host timeout.  Use that for the fixture cert, whose completion IS the
+    stop marker; the idle boundary is for real samples that never exit.
     """
     started_at = time.monotonic()
     offset = 0
@@ -91,7 +99,11 @@ def wait_or_host_idle(process, trace: Path, host_timeout: int) -> tuple[int | No
             except subprocess.TimeoutExpired:
                 process.kill()
                 return process.wait(), True, False
-        if sample_started and now - last_activity_at >= HOST_IDLE_SECONDS:
+        if (
+            host_idle_seconds > 0
+            and sample_started
+            and now - last_activity_at >= host_idle_seconds
+        ):
             process.terminate()
             try:
                 return process.wait(timeout=60), False, True
@@ -109,6 +121,14 @@ def main() -> int:
     parser.add_argument("--log", type=Path)
     parser.add_argument("--monitor", type=Path)
     parser.add_argument("--host-timeout", type=int, default=3600)
+    parser.add_argument(
+        "--host-idle-seconds",
+        type=int,
+        default=HOST_IDLE_SECONDS,
+        help="host-observed idle boundary (paper's 2-min no-execution rule). "
+        "<=0 disables it; use 0 for the fixture cert, whose completion is the "
+        "guest stop marker, not idle.",
+    )
     parser.add_argument(
         "--guest-memory",
         default="3G",
@@ -201,7 +221,7 @@ def main() -> int:
     with log.open("wb") as log_handle:
         process = subprocess.Popen(command, stdout=log_handle, stderr=log_handle)
         return_code, host_timed_out, host_observed_idle = wait_or_host_idle(
-            process, args.trace, args.host_timeout
+            process, args.trace, args.host_timeout, args.host_idle_seconds
         )
     elapsed = time.monotonic() - started
     summary = final_summary(args.trace)

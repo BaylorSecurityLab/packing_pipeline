@@ -32,10 +32,13 @@ for attempt in 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15; do
   D=empirical_results/qemu_runtime/cert_attempt_$attempt
   rm -rf "$D"; mkdir -p "$D"
   echo "=== attempt $attempt: launching (load $(cut -d' ' -f1 /proc/loadavg)) ==="
+  # host-idle DISABLED for the fixture: its completion is the guest stop marker
+  # (ExitProcess -> launcher action-3), event-driven and clock-immune; the 2-min
+  # idle boundary would otherwise race and kill a slow-to-exit good boot.
   setsid uv run python ops/qemu/run_trace.py "$FB" "$D/work.qcow2" "$D/trace.jsonl" \
     --meta "$D/meta.json" --log "$D/qemu.log" --monitor "$D/monitor.sock" \
-    --host-timeout 1200 --guest-memory 4G --qemu "$QEMU" --plugin "$PLUGIN" \
-    > "$D/runner.out" 2>&1 &
+    --host-timeout 1200 --host-idle-seconds 0 --guest-memory 4G \
+    --qemu "$QEMU" --plugin "$PLUGIN" > "$D/runner.out" 2>&1 &
   RP=$!
 
   started=0
