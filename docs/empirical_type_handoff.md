@@ -138,6 +138,53 @@ Current run config of record: `-accel tcg,thread=single -smp 2 -cpu qemu64
 plus plugin paper_trace.so (93ab58ef). Full evidence + all three agents'
 conclusions: empirical_results/qemu_runtime/certified/crawl_empirical_evidence.md.
 
+## ★ 2026-07-18 CLASSIFIER PHASE — e2e eligible trace; TWO issues found ★
+
+Plugin 6b003062 (adds exec-time physical re-resolution to stop dropping one-shot
+TB blocks) is CERTIFIED under icount (attempt 1). The UPX pilot (upx_label2) now
+produces an ELIGIBLE, COMPLETE, single-process trace (physical_mapping_failures=0,
+eligible=true). But the label is NOT yet a clean TYPE_I:
+
+1. FIXED: cross-process false positive. A bystander post-cutoff process (pid 3504,
+   parent 1416, job_matches=false) tripped UNRESOLVED_UNCERTIFIED_CROSS_PROCESS.
+   paper.py now requires the after_cutoff process to be the sample's descendant
+   (parent==root OR job_matches). Committed 192a84c.
+
+2. OPEN — TWO coupled problems block a clean TYPE_I (currently fallback TYPE_III):
+   a. **BUG in the physical-mapping fix (6b003062).** For one-shot TBs, the
+      exec-time `qemu_plugin_translate_vaddr` records a WRONG physical: e.g. exec
+      va 0x405a46 (page-offset 0xa46) recorded ram_addr 0xe4cc248c (page-offset
+      0x48c) -- a correct translation must preserve the intra-page offset. So the
+      stub (never virtually written) falsely aliases the write targets, and the
+      analyzer's physical_writer_layer manufactures layers 1-3 and 902 forward /
+      851 backward transitions (before this fix: layers=2, forward=5). The FIXTURE
+      CERT DID NOT CATCH THIS -- the fixture has no one-shot TBs, so the new code
+      path never runs there. Options: fix the exec-time physical resolution, or
+      emit one-shot-TB exec events with NO physical spans (virtual data is enough
+      for single-process Type I-III; physical is only for cross-process aliasing).
+   b. **Classifier order + layer definition (fable panel read the paper, docs/
+      ugarte2014.pdf pp.660-665).** classifier.py:22 checks all_code_flagged_packer
+      BEFORE the linear/layer checks -- reorder so linear (layers==2 -> TYPE_I) is
+      decided first; move the fallback into the non-linear branch. The paper defines
+      a block's layer by "the highest layer that modified THAT AREA OF MEMORY"
+      (virtual), so the layer should use the VIRTUAL writer_layer; physical_writer_
+      layer is a repo addition for cross-process aliasing, not the paper's layer.
+      Also finalize.py:38 rejects paper-runtime rows (original_match_available
+      hardcoded False) -> must gate on taxonomy_basis=="paper_runtime_heuristic".
+      NOTE: original binary is NOT needed for Type I/II/III/V/VI (paper is
+      runtime-only; original is only for Type IV separation and using it to LABEL
+      would be unfaithful).
+
+FORENSIC PROOF of 2a: empirical_results/qemu_runtime/upx_label2/trace.jsonl -- exec
+0x405a46 phys 0xe4cc248c vs write va 0x40148b phys 0xe4cc248b (offset 0x48b/0x48c),
+0 virtual writes to page 0x405xxx, yet all 22327 stub blocks flagged layer>=1.
+
+NEXT: fix 2a (physical resolution or omit physical on one-shot TBs) + re-verify the
+one-shot path explicitly (extend the fixture to exercise a one-shot TB so the cert
+covers it) + re-cert; then 2b (classifier reorder + virtual-layer + finalize gate,
+verified vs the paper); re-run pilot -> clean TYPE_I; then representative matrix
+(a few packers per Type) -> regenerate manifest/empirical_types.yaml empirical labels.
+
 ## Final objective
 
 Produce paper-faithful empirical Deep Packer Inspection labels for every usable
