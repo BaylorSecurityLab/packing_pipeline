@@ -185,6 +185,38 @@ covers it) + re-cert; then 2b (classifier reorder + virtual-layer + finalize gat
 verified vs the paper); re-run pilot -> clean TYPE_I; then representative matrix
 (a few packers per Type) -> regenerate manifest/empirical_types.yaml empirical labels.
 
+## ★ 2026-07-18 CLASSIFIER FIXES DONE; last piece = application-candidate detection ★
+
+DONE (committed):
+- 2a FIXED: plugin 496c5e4d omits physical spans on one-shot TBs (was recording
+  WRONG exec-time physicals -- proven: exec 0x405a46 phys-offset 0x48c vs its
+  virtual offset 0xa46). Audited via summary.blocks_without_physical. RE-CERT of
+  496c5e4d STILL PENDING (fixture has no one-shot TBs, so extend it to cover this
+  path for a complete cert).
+- 2b PARTLY FIXED: classifier.py reordered (linear Type-I/II before the fallback);
+  finalize.py accepts taxonomy_basis==paper_runtime_heuristic; paper.py layer now
+  uses VIRTUAL writer-layer, applying physical_writer_layer only for a DIFFERENT-
+  process writer (real cross-process shared-RAM injection). This killed the false
+  same-process physical-alias layers: UPX churn 902->9 transitions, layers now
+  correctly = 2. 67 tests pass.
+
+STILL OPEN (the last classifier piece): UPX (upx_label3 trace) now shows layers=2
+but forward=5/backward=4, linear=False, tail_transition=False, and crucially
+all_code_flagged_packer=True (candidate_code_bytes=0) -> the Section III-E
+application/packer SEPARATION finds no application candidates, so every block is
+role "packer", packer_to_app=0, tail=False -> classifier.py falls to TYPE_III.
+Root: for UPX the original program spans BOTH un-rewritten L0 code (headers/CRT/
+imports UPX kept) AND unpacked L1 code; the runtime-only 10-page heuristic + the
+backward-transition count (app executing L0 original code counted as cyclic) do not
+cleanly separate app from packer here. This is the paper's exact Section III-E
+separation + tail/backward semantics and must be fixed paper-faithfully (fable
+panel + docs/ugarte2014.pdf pp.660-665), NOT hacked. Forensic proof:
+empirical_results/qemu_runtime/upx_label3 (trace + classification.json).
+
+THEN: re-cert 496c5e4d -> re-run pilot -> clean TYPE_I -> representative matrix
+(a few packers spanning Types) -> `packer-types finalize` regenerates
+manifest/empirical_types.yaml with empirical_exact labels replacing provisional.
+
 ## Final objective
 
 Produce paper-faithful empirical Deep Packer Inspection labels for every usable
