@@ -53,7 +53,7 @@ for attempt in 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15; do
   fi
 
   prev=$(execs "$D/trace.jsonl"); stalls=0; done_ok=0
-  for i in $(seq 1 16); do
+  for i in $(seq 1 24); do
     sleep 45
     if ! kill -0 $RP 2>/dev/null; then done_ok=1; break; fi
     if has "$D/trace.jsonl" free && has "$D/trace.jsonl" unmap \
@@ -62,10 +62,17 @@ for attempt in 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15; do
       done_ok=1; break
     fi
     cur=$(execs "$D/trace.jsonl"); grow=$((cur - prev)); prev=$cur
+    # A boot that has already recorded real root progress (exec > 500) and then
+    # stalls is almost always grinding through the local_self_modify W->X SMC
+    # crawl (QEMU precise-SMC 1-insn-TB storm), which recovers and completes if
+    # given time.  A boot still at exec ~1 is a hard root stall that never
+    # recovers.  Kill the hard stall fast (2 intervals); give a progressing boot
+    # much longer (10 intervals ~= 7.5 min) to grind through the W->X crawl.
     if [ "$grow" -lt 40 ]; then
       stalls=$((stalls + 1))
-      echo "attempt $attempt: stall $stalls (grow=$grow exec=$cur)"
-      [ "$stalls" -ge 2 ] && { echo "attempt $attempt: CRAWLER, killing group"; kill_group $RP; break; }
+      limit=2; [ "$cur" -gt 500 ] && limit=10
+      echo "attempt $attempt: stall $stalls/$limit (grow=$grow exec=$cur)"
+      [ "$stalls" -ge "$limit" ] && { echo "attempt $attempt: CRAWLER, killing group"; kill_group $RP; break; }
     else
       stalls=0; echo "attempt $attempt: advancing (grow=$grow exec=$cur)"
     fi
