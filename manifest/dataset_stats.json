@@ -6,25 +6,25 @@
   },
   "basic_counts": {
     "total_packers": 111,
-    "total_test_cases": 219
+    "total_test_cases": 220
   },
   "interface_types": {
     "gui": {
-      "packers": 35,
+      "packers": 34,
       "tests": 0
     },
     "cli": {
-      "packers": 76,
-      "tests": 219
+      "packers": 77,
+      "tests": 220
     }
   },
   "tag_distribution": {
-    "GUI": 35,
+    "GUI": 34,
     "Protector": 10,
     "Anti-Debug": 9,
     "Crypter": 4,
     "Commercial": 8,
-    "CLI": 76,
+    "CLI": 77,
     "Reflective": 4,
     "Open Source": 2,
     "Security": 4,
@@ -67,9 +67,9 @@
     ".NET": 1
   },
   "output_behavior_distribution": {
-    "explicit": 92,
+    "explicit": 91,
     "input_dir_suffix": 3,
-    "in_place": 14,
+    "in_place": 15,
     "suffix_packed": 1,
     "explicit_absolute": 1
   },
@@ -91,6 +91,7 @@
     "upack": 5,
     "kkrunchy_v0.23a2": 1,
     "kkrunchy_v0.23a": 2,
+    "fsg_v1.3": 1,
     "exe32pack": 4,
     "upx_v3.95": 9,
     "upx_v3.96": 9,
@@ -258,8 +259,8 @@
       "issue_count": 3
     },
     {
-      "packer": "fsg_v1.0",
-      "issue_count": 2
+      "packer": "fsg_v1.3",
+      "issue_count": 1
     },
     {
       "packer": "hxor_packer",
