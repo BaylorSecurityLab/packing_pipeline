@@ -436,16 +436,28 @@ def analyze_paper_jsonl(path: Path, sample_id: str) -> Evidence:
                 memory_keys, block_physical_keys, state_keys, strict=True
             ):
                 byte_writers = set(writers.get(memory_key, set()))
+                # Same rule as the layer: a physical writer promotes this byte to
+                # "packer/written" ONLY when a DIFFERENT process wrote that physical
+                # (genuine cross-process shared-RAM injection).  A same-process
+                # physical alias / reused RAM offset is not an unpacking write and
+                # must not flag the executing code as packer (else it poisons the
+                # 10-page neighborhood and erases all application candidates).
+                cross_process_physical_writer = False
                 if physical_key is not None:
-                    byte_writers.update(physical_writers.get(physical_key, set()))
+                    for source in physical_writers.get(physical_key, set()):
+                        if source[0] != pid:
+                            byte_writers.add(source)
+                            cross_process_physical_writer = True
                 for source_key in byte_writers:
                     if source_key[0] != pid:
                         process_interactions.add((source_key[0], pid))
                 if byte_writers:
                     packer_blocks.update(byte_writers)
-                state[state_key] = "U" if memory_key in writer_layer else "X"
-                if physical_key is not None and physical_key in physical_writer_layer:
-                    state[state_key] = "U"
+                state[state_key] = (
+                    "U"
+                    if memory_key in writer_layer or cross_process_physical_writer
+                    else "X"
+                )
                 state_layers[memory_key].add(layer)
                 if physical_key is not None:
                     physical_locations[physical_key].add(state_key)
