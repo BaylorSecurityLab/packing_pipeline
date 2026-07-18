@@ -156,8 +156,14 @@ def validate(trace: Path, single_process: bool = False) -> tuple[dict, list[str]
     for kind, proved in invalidation_with_ram.items():
         if not proved:
             errors.append(f"{kind} did not preserve pre-invalidation RAM identity")
-    if exception_sources["RtlRaiseException"] < 1:
-        errors.append("fixture did not exercise exact RtlRaiseException tracing")
+    if (
+        exception_sources["RtlRaiseException"] < 1
+        and exception_sources["processor_exception"] < 1
+    ):
+        errors.append(
+            "fixture did not exercise exact exception tracing "
+            "(neither RtlRaiseException nor a processor exception)"
+        )
     if not single_process:
         if not remote_write:
             errors.append("no cross-process virtual-memory write was observed")

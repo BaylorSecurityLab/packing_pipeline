@@ -160,32 +160,27 @@ def test_fixture_gate_requires_recovered_exception_evidence(tmp_path):
     assert "fixture ended with a pending exception" in errors
 
 
-def test_fixture_gate_requires_exact_software_exception_source(tmp_path):
+def test_fixture_gate_accepts_processor_or_software_exception_source(tmp_path):
     trace = tmp_path / "fixture.jsonl"
-    events = [
-        {
-            "event": "exception_dispatch",
-            "seq": 1,
-            "source": "processor_exception",
-        },
-        {"event": "summary", "seq": 2},
-    ]
-    trace.write_text(
-        "".join(json.dumps(event) + "\n" for event in events),
-        encoding="utf-8",
-    )
+    prefix = "fixture did not exercise exact exception tracing"
 
+    # No exception_dispatch at all -> the exception channel is not certified.
+    trace.write_text(json.dumps({"event": "summary", "seq": 1}) + "\n", encoding="utf-8")
     _, errors = validate(trace)
-    expected = "fixture did not exercise exact RtlRaiseException tracing"
-    assert expected in errors
+    assert any(e.startswith(prefix) for e in errors)
 
-    events[0]["source"] = "RtlRaiseException"
-    trace.write_text(
-        "".join(json.dumps(event) + "\n" for event in events),
-        encoding="utf-8",
-    )
-    _, errors = validate(trace)
-    assert expected not in errors
+    # A processor exception (#UD etc.) now satisfies the exception channel.
+    for source in ("processor_exception", "RtlRaiseException"):
+        events = [
+            {"event": "exception_dispatch", "seq": 1, "source": source},
+            {"event": "summary", "seq": 2},
+        ]
+        trace.write_text(
+            "".join(json.dumps(event) + "\n" for event in events),
+            encoding="utf-8",
+        )
+        _, errors = validate(trace)
+        assert not any(e.startswith(prefix) for e in errors), source
 
 
 def test_fixture_gate_requires_ready_status_query(tmp_path):

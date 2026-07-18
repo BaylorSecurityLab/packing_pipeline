@@ -3,7 +3,6 @@
 #define WIN32_LEAN_AND_MEAN
 #include <windows.h>
 
-#include <setjmp.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <string.h>
@@ -18,25 +17,27 @@ typedef int (*code_function)(void);
 #define VALIDATION_EXCEPTION_CODE ((DWORD)0xe042504b)
 
 static volatile LONG validation_exception_seen;
-static jmp_buf validation_recovery_point;
 
-/* Recover from the raised software exception by longjmp-ing out of the vectored
- * handler back to the setjmp point.  MinGW GCC has no __try/__except, and a VEH
- * returning EXCEPTION_CONTINUE_EXECUTION for a RaiseException resumes at the
- * context captured inside RtlRaiseException — which re-raises and never returns,
- * so the fixture would spin at ~10 exec/s and never exit (host timeout, no stop
- * marker).  longjmp unwinds cleanly to recovered_exception and execution
- * continues normally; RaiseException still passes through RtlRaiseException so
- * the exact software-exception dispatch/recovery channel is exercised. */
+/* Raise a genuine PROCESSOR exception (#UD, invalid opcode) and recover it in a
+ * vectored handler that steps RIP past the 2-byte ud2 and returns
+ * EXCEPTION_CONTINUE_EXECUTION.  This is the only recovery that is both clean and
+ * buildable with MinGW GCC: a software RaiseException cannot be resumed by a VEH
+ * (CONTINUE_EXECUTION re-raises forever, longjmp corrupts the SEH state), and GCC
+ * has no __try/__except.  Because the handler fixes the fault (advances past the
+ * faulting instruction) the continue succeeds with no loop, and the thread
+ * returns to application code so the exact processor-exception dispatch+recovery
+ * channel (vector 6) is exercised.  Real Type III/VI packers use processor
+ * faults (int3, #UD, access violations) far more than RaiseException. */
 static LONG CALLBACK validation_exception_handler(
     EXCEPTION_POINTERS *exception)
 {
     if (exception->ExceptionRecord->ExceptionCode !=
-        VALIDATION_EXCEPTION_CODE) {
+        EXCEPTION_ILLEGAL_INSTRUCTION) {
         return EXCEPTION_CONTINUE_SEARCH;
     }
     InterlockedExchange(&validation_exception_seen, 1);
-    longjmp(validation_recovery_point, 1);
+    exception->ContextRecord->Rip += 2; /* skip the ud2 (0x0F 0x0B) */
+    return EXCEPTION_CONTINUE_EXECUTION;
 }
 
 static int recovered_exception(void)
@@ -47,9 +48,7 @@ static int recovered_exception(void)
         return 1;
     }
     validation_exception_seen = 0;
-    if (setjmp(validation_recovery_point) == 0) {
-        RaiseException(VALIDATION_EXCEPTION_CODE, 0, 0, NULL);
-    }
+    __asm__ __volatile__("ud2");
     RemoveVectoredExceptionHandler(handler);
     return validation_exception_seen ? 0 : 1;
 }
