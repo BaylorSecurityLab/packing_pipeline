@@ -243,7 +243,16 @@ static int run_sample(int argc, char **argv) {
                 last_execution_events = packer_status.execution_events;
                 last_execution = now;
             }
-            if (job_complete && packer_status.active_processes == 0) {
+            /* Clean completion: every monitored process has exited after sample
+             * recording started.  This must NOT depend on the job handle being
+             * signaled — a Windows job object is signaled only by a job time
+             * limit, never by becoming empty, so the old `job_complete` guard
+             * never fired and a normally-exiting sample fell through to the idle
+             * or host timeout with no stop marker.  active_processes==0 (from the
+             * plugin's exact ActiveProcessLinks count) after sample_started is
+             * the reliable all-monitored-exited boundary. */
+            (void)job_complete;
+            if (sample_started && packer_status.active_processes == 0) {
                 wait_result = WAIT_OBJECT_0;
                 break;
             }
