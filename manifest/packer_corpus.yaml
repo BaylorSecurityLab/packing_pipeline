@@ -296,27 +296,26 @@ definitions:
       - "Large Files: Fails on files with large overlays (like installers/SFX) or files > 80KB due to trial limit."
       - "Automation: Trial version has a 'nag screen' popup that may freeze scripts if no timeout is set."
 
-  - &fsg_v10
+  - &fsg_v133
     packer_family: "fsg"
-    packer_name: "fsg_v1.0"
-    version: "1.0"
+    packer_name: "fsg_v1.3"
+    version: "1.3"
     arch_origin: "x86"
     supported_input_arch: "PE32"
     supported_output_arch: "PE32"
     dependencies: []
-    tags: ["GUI", "Compressor"]
-    binary_path: "./packers/fsg/fsg.exe"
-    binary_sha256: "733038f506b52a5993f923ae29909cca60b7af0dfe66b1c703e2d4626c3b7e28"
+    tags: ["CLI", "Compressor"]
+    binary_path: "./packers/fsg/fsg13/fsg/FSG.EXE"
+    binary_sha256: "34e9c329a8dd2b4a477a52a747185bf49ec71f42cf6e94fae70b5fa23200c94e"
     source_url: "https://defacto2.net/f/b224796"
     license: "Freeware"
-    notes: "FSG (Fast Small Good) v1.0 by xtreeme (2002/2003). A GUI-only PE compressor producing very small output. Automation requires GUI click scripting."
-    size_kb: "14"
-    output_behavior: "explicit"
+    notes: "FSG (Fast Small Good) v1.33 by dulek/xtreeme (2002-11-15). Final public release. CLI supports `FSG.exe <input>` and drag&drop; GUI is still available but unnecessary. Packs in place — output filename is the input path with no sidecar."
+    size_kb: "65"
+    output_behavior: "in_place"
     type: "Type I"
     type_ex: "FSG is a single-pass compressor focused on minimal output size. No anti-debug mechanisms; pure compression."
     known_issues:
-      - "Automation: GUI-only; cannot be scripted via CLI."
-      - "Stability: Marked as 'broken' in packing-box reference corpus for some targets."
+      - "Packs in place — input file is overwritten. Run a copy if you need the original."
 
   - &hackupx_v100
     packer_family: "hackupx"
@@ -2485,6 +2484,15 @@ test_cases:
     <<: *kkrunchy_v023
     command_label: "Default Compression (Good)"
     cli_template: "{bin} --out {out} {in}"
+    validation:
+      allow_x64_switch: false
+      allow_x86_switch: false
+
+  # --- FSG v1.3 Test Group ---
+  - id: "FSG_V13_001_DEFAULT"
+    <<: *fsg_v133
+    command_label: "Default Compression (CLI)"
+    cli_template: "{bin} {in}"
     validation:
       allow_x64_switch: false
       allow_x86_switch: false

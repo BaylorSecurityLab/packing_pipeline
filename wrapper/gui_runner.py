@@ -13,7 +13,6 @@ import yaml
 from tqdm import tqdm
 
 from base_gui import close_all_windows
-from fsg import FSG
 from asm_guard import AsmGuard
 from alienyze_protector import AlienyzeProtector
 from mew import Mew
@@ -56,7 +55,6 @@ PACKER_FILE_SUPPORT: Dict[str, List[str]] = {
     "alienyze_protector": [".exe"],
     "armadillo": [".exe"],
     "asm_guard": [".exe"],
-    "fsg_v1.0": [".exe"],
     "jdpack_v1.00": [".exe"],
     "mew": [".exe"],
     "npack_v1.1": [".exe"],
@@ -111,7 +109,6 @@ PACKER_DEFAULT_STATES: Dict[str, Dict[str, bool]] = {
         "enhanced_flood_mode": False,
         "add_different_types": False,
     },
-    "fsg_v1.0": {},
     "jdpack_v1.00": {},
     "mew": {},
     "npack_v1.1": {},
@@ -465,41 +462,6 @@ class GUIWrapperRunner:
         except Exception as e:
             print(f"[ERROR] Failed to process {file_path.name}: {e}")
             import traceback
-            traceback.print_exc()
-            return False
-
-    def run_fsg(
-        self,
-        file_path: Path,
-        packer_config: Optional[Dict[str, bool]] = None,
-        output_dir: Optional[Path] = None,
-    ) -> bool:
-        """
-        Run FSG wrapper on a single file
-        """
-        print(f"\n{'=' * 60}")
-        print(f"PROCESSING: {file_path.name}")
-        print(f"{'=' * 60}")
-
-        try:
-            wrapper = FSG(str(self.yaml_path), str(self.main_dir))
-
-            if output_dir is None:
-                output_dir = self.get_output_directory("fsg_v1.0")
-
-            print(f"[INFO] Output directory: {output_dir}")
-
-            success = wrapper.run(
-                click_mode=packer_config if packer_config else "all",
-                file_path=str(file_path.resolve()),
-                output_dir=str(output_dir),
-            )
-            return success
-
-        except Exception as e:
-            print(f"[ERROR] Failed to process {file_path.name}: {e}")
-            import traceback
-
             traceback.print_exc()
             return False
 
@@ -1584,7 +1546,6 @@ class GUIWrapperRunner:
             "alienyze_protector": self.run_alienyze_protector,
             "armadillo": self.run_armadillo,
             "asm_guard": self.run_asm_guard,
-            "fsg_v1.0": self.run_fsg,
             "jdpack_v1.00": self.run_jdpack,
             "mew": self.run_mew,
             "npack_v1.1": self.run_npack,
