@@ -18,15 +18,16 @@ def _granularity(e: Evidence) -> str:
 
 
 def _classify_paper_runtime(e: Evidence) -> Classification:
-    """Section III-E decision procedure, including the Type-III fallback."""
-    if e.all_code_flagged_packer:
-        return Classification(
-            "TYPE_III",
-            1.0,
-            e,
-            "paper fallback: all executed code was conservatively flagged as packer code",
-        )
+    """Section III-E decision procedure, including the Type-III fallback.
 
+    Per Ugarte et al. III-E (docs/ugarte2014.pdf pp. 663-665, Figure 1), Types I,
+    II, III, V, and VI are decided from the layer/transition TOPOLOGY alone; only
+    Type-IV needs the packer/application separation.  The `all_code_flagged_packer`
+    tiebreak therefore belongs ONLY where that separation is consulted (the
+    interleaved / no-tail branch that distinguishes IV from V/VI), NOT ahead of the
+    linear Type-I/II decision -- a 2-layer, linear, tail-terminated trace is Type I
+    regardless of whether the separation succeeded.
+    """
     linear = bool(e.linear_transition_model)
     if e.tail_transition:
         if linear and e.layers == 2:
@@ -39,6 +40,18 @@ def _classify_paper_runtime(e: Evidence) -> Classification:
             )
         return Classification(
             "TYPE_III", 1.0, e, "cyclic layer topology followed by a tail transition"
+        )
+
+    # No tail transition: distinguishing Type-IV (interleaved, full code
+    # visibility) from Type-V/VI requires separating application from packer code.
+    # If every executed block was conservatively flagged as packer, that
+    # separation failed, so fall back to the paper's Type-III assignment.
+    if e.all_code_flagged_packer:
+        return Classification(
+            "TYPE_III",
+            1.0,
+            e,
+            "paper fallback: all executed code was conservatively flagged as packer code",
         )
 
     multi_frame = (

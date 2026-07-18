@@ -238,6 +238,10 @@ static uint64_t invalidation_events;
 static uint64_t invalidation_failures;
 static uint64_t unresolved_process_handles;
 static uint64_t physical_mapping_failures;
+/* Diagnostic-only (no gate effect): monitored exec blocks recorded with their
+ * exact virtual identity but WITHOUT physical spans (one-shot/uncached TBs whose
+ * physical could not be resolved at translate time; see block_exec). */
+static uint64_t blocks_without_physical;
 static uint64_t marker_candidate_hits;
 static uint64_t marker_callback_hits;
 static uint64_t marker_register_failures;
@@ -2586,43 +2590,21 @@ static void block_exec(unsigned int vcpu_index, void *userdata)
     }
     if (active && process_monitored(context.source_pid,
                                     context.source_eprocess)) {
-        const PhysicalSpan *emit_spans = block->spans;
-        uint32_t emit_count = block->span_count;
-        PhysicalSpan local_spans[MAX_PHYSICAL_SPANS] = {0};
-        if (!block->physical_complete) {
-            /* Physical spans failed to resolve at TRANSLATE time -- almost
-             * always a one-shot/uncached TB whose code-fetch fast path returned
-             * no RAM slot, NOT a truly absent page (those abort via #PF and
-             * never reach this callback).  The block DID execute, so re-resolve
-             * its physical spans from the LIVE guest page tables now (exec time,
-             * page resident) into a local buffer instead of dropping the event.
-             * qemu_plugin_translate_vaddr is valid in this tb-exec callback and
-             * reflects the mapping in effect when the block actually ran; only a
-             * still-unresolvable byte is a true physical mapping failure. */
-            uint32_t local_count = 0;
-            bool resolved = user_address(block->address) &&
-                            user_address(block->address + block->size - 1);
-            for (uint32_t offset = 0; resolved && offset < block->size;
-                 offset++) {
-                uint64_t physical_address;
-                uint64_t ram_address = UINT64_MAX;
-                if (qemu_plugin_translate_vaddr(block->address + offset,
-                                                &physical_address)) {
-                    ram_address =
-                        qemu_plugin_phys_addr_ram_addr(physical_address);
-                }
-                if (!add_physical_byte(local_spans, &local_count, offset,
-                                       ram_address)) {
-                    resolved = false;
-                }
-            }
-            if (!resolved) {
-                physical_mapping_failures++;
-                g_mutex_unlock(&trace_lock);
-                return;
-            }
-            emit_spans = local_spans;
-            emit_count = local_count;
+        /* One-shot/uncached TBs carry no translate-time physical mapping
+         * (physical_complete=false): the code-fetch fast path returned no RAM
+         * slot, though the block DID execute (a truly absent page aborts via #PF
+         * and never reaches this callback).  Do NOT resolve the physical at
+         * execution time -- a CoW/physical transient makes
+         * qemu_plugin_translate_vaddr return a physical from a DIFFERENT virtual
+         * alias (observed: the never-written stub aliasing the unpacked-output
+         * writes, corrupting the analyzer's layer topology).  Record the block
+         * with its exact VIRTUAL identity, which is all the paper's per-memory-
+         * area single-process layering (Type I-III) needs, and OMIT physical
+         * spans (used only for the deferred cross-process shared-RAM aliasing).
+         * Audited via blocks_without_physical; never silently dropped. */
+        bool emit_physical = block->physical_complete;
+        if (!emit_physical) {
+            blocks_without_physical++;
         }
         mapped_result = cached_mapped_file_location(
             context.attached_eprocess, block->address, &file_id, &file_offset,
@@ -2667,7 +2649,9 @@ static void block_exec(unsigned int vcpu_index, void *userdata)
                 ",\"size\":%u,\"basic_block_instructions\":%u",
                 ++sequence_number, vcpu_index, context.source_pid, context.tid,
                 block->address, block->size, block->insns);
-        emit_physical_spans(emit_spans, emit_count);
+        if (emit_physical) {
+            emit_physical_spans(block->spans, block->span_count);
+        }
         if (mapped_result == MAPPED_FILE_FOUND) {
             fprintf(trace_file,
                     ",\"file_id\":%" PRIu64
@@ -2897,6 +2881,7 @@ static void plugin_exit(void *userdata)
                 ",\"invalidation_failures\":%" PRIu64
                 ",\"unresolved_process_handles\":%" PRIu64
                 ",\"physical_mapping_failures\":%" PRIu64
+                ",\"blocks_without_physical\":%" PRIu64
                 ",\"marker_candidate_hits\":%" PRIu64
                 ",\"marker_callback_hits\":%" PRIu64
                 ",\"marker_register_failures\":%" PRIu64
@@ -2948,7 +2933,8 @@ static void plugin_exit(void *userdata)
                 context_failures,
                 invalidation_events,
                 invalidation_failures, unresolved_process_handles,
-                physical_mapping_failures, marker_candidate_hits,
+                physical_mapping_failures, blocks_without_physical,
+                marker_candidate_hits,
                 marker_callback_hits, marker_register_failures,
                 marker_query_failures, marker_query_initializing,
                 marker_query_ready, prestart_root_exec_events,
