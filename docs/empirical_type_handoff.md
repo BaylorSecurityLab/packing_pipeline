@@ -217,6 +217,40 @@ THEN: re-cert 496c5e4d -> re-run pilot -> clean TYPE_I -> representative matrix
 (a few packers spanning Types) -> `packer-types finalize` regenerates
 manifest/empirical_types.yaml with empirical_exact labels replacing provisional.
 
+## ★★ 2026-07-18 FIRST EXACT EMPIRICAL LABEL: UPX 3.95 -> TYPE_I ★★
+
+The classifier tail/linear fix (fable panel, paper III-E: topology-based, executed-
+layer producer rule) landed -> the full pipeline produces the first exact label:
+UPX_V395_001_DEFAULT / ansi2knr -> **TYPE_I** ("one unpacking layer followed by a
+tail transition", layers=2, linear, tail; eligible under certified plugin 496c5e4d).
+Preserved: empirical_results/qemu_runtime/certified/first_label_upx_v3.95_TYPE_I.json.
+
+Manifest path built: ops/qemu/run_condition_matrix.py runs a condition (n=3 x 2
+payloads) and writes finalize-compatible run dirs (run.json/sample.json/
+classification.json); `packer-types finalize` (finalize.py fixed to accept
+taxonomy_basis==paper_runtime_heuristic) aggregates -> manifest/empirical_types_matrix.yaml.
+
+Matrix result (UPX 3.95 DEFAULT, 2 payloads x 3 reps): ansi2knr 3/3 TYPE_I; cksum
+2/3 TYPE_I -- cksum rep1 failed the physical_mapping gate because the WRITE path
+DROPPED stores whose physical could not be resolved (a CoW/transient; boot-
+dependent but heavy samples like cksum hit it: 14-27k dropped writes).
+
+FIX (plugin 50a5aa94): the write path now records the store with its exact virtual
+identity and OMITS physical spans on resolution failure (audited via
+writes_without_physical), same as the exec path -- physical is only for deferred
+cross-process aliasing. Fixture unchanged. RE-CERT + re-run matrix + finalize is
+chained in ops/qemu/cert_matrix_finalize.sh (running) -> should yield exact-
+consensus empirical TYPE_I for the UPX condition in empirical_types_matrix.yaml.
+
+REMAINING for the FULL goal: (1) confirm the chain's empirical manifest; (2) a
+BROADER representative set -- run other-Type conditions (a Type-II multi-layer, a
+Type-III cyclic, a Type-V stager) and CONFIRM the classifier emits the right Type
+on real samples (only UPX/Type-I validated on a real sample so far); each condition
+~60min on the reliable icount pipeline; (3) merge into the full
+manifest/empirical_types.yaml (needs the full plan-nas plan so non-run conditions
+keep provisional/hypothesis labels). Backend + classifier are done and paper-faithful;
+this is now a compute + coverage exercise.
+
 ## Final objective
 
 Produce paper-faithful empirical Deep Packer Inspection labels for every usable
