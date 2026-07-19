@@ -13,9 +13,7 @@ label_one() {  # <nas_dir> <testcase> <family> <version>
   tag=$(printf '%s' "$3" | tr 'A-Z' 'a-z')
   git add -f "manifest/empirical_types_${tag}.yaml" doc/EMPIRICAL_TYPE_LABELS.md 2>/dev/null
   git add "empirical_results/qemu_runtime/configs/${tag}.json" 2>/dev/null || true
-  git commit -q -m "Empirical label: $3 $4 $2 (see doc/EMPIRICAL_TYPE_LABELS.md)
-
-Co-Authored-By: Claude Opus 4.8 (1M context) <noreply@anthropic.com>" || true
+  git commit -q -m "Empirical label: $3 $4 $2 (see doc/EMPIRICAL_TYPE_LABELS.md)" || true
   git push origin feature/empirical-type-backend 2>&1 | tail -1
 }
 
