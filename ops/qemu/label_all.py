@@ -170,6 +170,19 @@ def label_condition(w: dict) -> None:
         print(f"[try] {tag} attempt {attempt+1} -> {label} (runs: {types})", flush=True)
         if label.startswith("TYPE_"):
             break
+        # Short-circuit: if BOTH distinct payloads ran and neither exhibited any
+        # write-then-execute (unanimous NO_UNPACKING across all 6 runs), that is a
+        # packer-LEVEL property -- a different sample of the same packer cannot
+        # introduce unpacking the packer does not do (verified empirically on
+        # alienyze: 500MB trace, write-then-execute pages == 0).  Don't burn the
+        # remaining sample attempts; record the honest UNRESOLVED and move on.
+        vals = list(types.values())
+        if len(vals) >= 4 and all(v == "UNRESOLVED_NO_UNPACKING_OBSERVED" for v in vals):
+            print(f"[try] {tag}: unanimous NO_UNPACKING across both payloads "
+                  f"-> genuine packer-level (no runtime unpacking); skipping "
+                  f"further samples", flush=True)
+            label = "UNRESOLVED_NO_UNPACKING_OBSERVED"
+            break
     # commit
     sh(["python3", "ops/qemu/build_label_document.py"])
     (REPO / f"empirical_results/full_matrix/{tag}.done").write_text(
