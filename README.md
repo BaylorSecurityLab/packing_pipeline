@@ -114,7 +114,7 @@ evidence. Paper-faithful labels require the two-vCPU upstream-QEMU tracer,
 complete ordered basic-block/write/IPC evidence, and a passing eligibility
 gate. Backend details and validation status are in
 [`ops/qemu/README.md`](ops/qemu/README.md); the collection workflow is in
-[`docs/empirical_type_collection.md`](docs/empirical_type_collection.md).
+[`doc/empirical_type_collection.md`](doc/empirical_type_collection.md).
 
 ---
 
@@ -162,9 +162,9 @@ when a purpose-built certification fixture passes and, per condition, only on
 **exact consensus** across `n = 3 executions × ≥2 distinct payloads`.
 
 - **How to install & run it (all prerequisites, step by step):**
-  [`docs/AUTOMATIC_LABELING.md`](docs/AUTOMATIC_LABELING.md)
+  [`doc/AUTOMATIC_LABELING.md`](doc/AUTOMATIC_LABELING.md)
 - **The final packer → empirical Type document (generated):**
-  [`docs/EMPIRICAL_TYPE_LABELS.md`](docs/EMPIRICAL_TYPE_LABELS.md)
+  [`doc/EMPIRICAL_TYPE_LABELS.md`](doc/EMPIRICAL_TYPE_LABELS.md)
 
 Key components: `ops/qemu/` (QEMU build, `paper_trace.c` plugin, staging,
 `run_trace.py`, `run_condition_matrix.py`, `cert_retry_loop.sh`),

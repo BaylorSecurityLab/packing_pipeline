@@ -30,3 +30,6 @@ donut/
 inline_syscall/
 keystone/
 wclang/
+
+# local working notes / large refs — not tracked
+docs/

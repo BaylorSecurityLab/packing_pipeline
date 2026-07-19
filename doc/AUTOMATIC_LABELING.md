@@ -41,7 +41,7 @@ trace.jsonl  (exec / write / free / unmap / exception / marker events, one
 classification.json  (complexity_type = TYPE_I..VI, layers, tail, linear, ...)
    │  packer-types finalize   (exact consensus across reps × payloads)
    ▼
-manifest/empirical_types_*.yaml  +  docs/EMPIRICAL_TYPE_LABELS.md
+manifest/empirical_types_*.yaml  +  doc/EMPIRICAL_TYPE_LABELS.md
 ```
 
 Why the specific QEMU flags:
@@ -153,7 +153,7 @@ uv run packer-types finalize <runs_dir>/plan.json <runs_dir> \
 
 ```bash
 python3 ops/qemu/build_label_document.py    # scans manifest/empirical_types_*.yaml
-                                            # -> docs/EMPIRICAL_TYPE_LABELS.md
+                                            # -> doc/EMPIRICAL_TYPE_LABELS.md
 ```
 
 ---

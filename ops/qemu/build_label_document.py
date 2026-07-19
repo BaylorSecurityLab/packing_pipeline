@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Generate docs/EMPIRICAL_TYPE_LABELS.md -- the final packer -> Type document --
+"""Generate doc/EMPIRICAL_TYPE_LABELS.md -- the final packer -> Type document --
 from the empirical manifests produced by `packer-types finalize`.
 
 Scans every manifest/empirical_types_*.yaml, collects each condition that carries an
@@ -14,7 +14,7 @@ from pathlib import Path
 import yaml
 
 REPO = Path(__file__).resolve().parents[2]
-OUT = REPO / "docs" / "EMPIRICAL_TYPE_LABELS.md"
+OUT = REPO / "doc" / "EMPIRICAL_TYPE_LABELS.md"
 
 
 def main() -> int:
