@@ -59,7 +59,7 @@ def run_one(image: Path, sha: str, name: str, rep: int) -> str:
         ["uv", "run", "python", str(REPO / "ops/qemu/run_trace.py"),
          str(image), str(d / "work.qcow2"), str(d / "trace.jsonl"),
          "--meta", str(d / "meta.json"), "--log", str(d / "qemu.log"),
-         "--monitor", str(d / "monitor.sock"), "--host-timeout", "1800",
+         "--monitor", str(d / "monitor.sock"), "--host-timeout", "3600",
          "--guest-memory", "4G", "--qemu", str(QEMU), "--plugin", str(PLUGIN)],
         stdout=(d / "runner.out").open("w"), stderr=subprocess.STDOUT, cwd=str(REPO),
     )
