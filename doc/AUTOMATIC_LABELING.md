@@ -168,3 +168,33 @@ python3 ops/qemu/build_label_document.py    # scans manifest/empirical_types_*.y
   certification is `UNRESOLVED_UNCERTIFIED_CROSS_PROCESS` (never guessed).
 - A condition gets an exact label only on **consensus** across ≥2 distinct payloads
   × ≥3 consistent repetitions; otherwise it stays provisional/hypothesis.
+
+## Known limitations (fable faithfulness audit, 2026-07-18)
+
+A fable agent audited `paper.py`/`classifier.py` against the paper's Figure-1
+flowchart. Verdict: **a largely faithful reproduction** — layers, the Figure-2
+frame FSM, the 10-page separation, repacking, granularity suffixes, and the
+decision order all track the paper; 67 tests encode paper semantics. Fixes applied:
+a `layers==1` (no unpacking observed) trace is now `UNRESOLVED_NO_UNPACKING_OBSERVED`
+instead of falling through to Type IV.
+
+**The one inherent limitation is TYPE IV.** Per the paper (§III-E), Type IV
+(packer and original application code *interleaved*, no clean tail) is the ONE Type
+that needs the **original binary** to cleanly separate packer code from application
+code; Types I/II/III/V/VI are decided from the run-time topology alone. Runtime-only
+(no original binary), the 10-page heuristic cannot perfectly tell an in-place
+unpacker's own post-tail original code (Type I/II) from genuine interleaved packer
+code (Type IV). Empirically verified: forcing the stricter Type-IV rule the audit
+proposed mislabels **UPX and amber as TYPE_IV** (they are I/II). The classifier
+therefore keeps the topology-based `tail` refinement, which correctly labels real
+in-place unpackers, at the cost of possibly UNDER-detecting a genuine Type IV whose
+packer code is non-writing and interleaved after the tail. Type IV IS detected in
+the clear interleaved case (`tests/test_paper.py::test_type_iv...` passes); a
+precise Type-IV-vs-I/II decision for in-place unpackers would require wiring the
+original binary as a validation channel (deliberately not done, since using ground
+truth to LABEL would deviate from the paper's runtime-only method).
+
+Deferred audit items (do not affect the labels produced so far): compute the V/VI
+`multi_frame` ratio from the candidate code's own frames rather than per-layer
+frames; and emit an Evidence note when the topology `tail` refinement alone changed
+the outcome. Full audit is in the session record.

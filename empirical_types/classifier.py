@@ -115,6 +115,18 @@ def classify(e: Evidence) -> Classification:
                 e,
                 "paper trace contains no executed basic blocks",
             )
+        if e.layers == 1:
+            # Only layer 0 executed: no write-then-execute was observed, so no
+            # unpacking layer exists.  A no-unpacking trace is not a packer of any
+            # Type (Ugarte's taxonomy is about the unpacking structure) -- do NOT
+            # let it fall through to the no-tail branch and be labeled TYPE_IV.
+            return Classification(
+                UNRESOLVED["no_unpacking"],
+                1.0,
+                e,
+                "no unpacking layer observed (no write-then-execute); the packed "
+                "payload's unpacking was not exercised in this trace",
+            )
         return _classify_paper_runtime(e)
     if not e.original_match_available:
         return Classification(

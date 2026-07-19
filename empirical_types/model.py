@@ -10,6 +10,7 @@ UNRESOLVED = {
     "no_original_code": "UNRESOLVED_NO_ORIGINAL_CODE",
     "insufficient_coverage": "UNRESOLVED_INSUFFICIENT_COVERAGE",
     "trace_loss": "UNRESOLVED_TRACE_LOSS",
+    "no_unpacking": "UNRESOLVED_NO_UNPACKING_OBSERVED",
     "backend_failure": "UNRESOLVED_BACKEND_FAILURE",
     "uncertified_cross_process": "UNRESOLVED_UNCERTIFIED_CROSS_PROCESS",
 }
