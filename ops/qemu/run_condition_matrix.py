@@ -5,6 +5,7 @@ certified QEMU tracer + classifier, writing finalize-compatible run directories
 an exact-consensus empirical label.  icount makes each run reliable (no retries)."""
 from __future__ import annotations
 
+import hashlib
 import json
 import subprocess
 import sys
@@ -55,11 +56,17 @@ def run_one(image: Path, sha: str, name: str, rep: int) -> str:
     subprocess.run(["rm", "-rf", str(d)], check=False)
     d.mkdir(parents=True, exist_ok=True)
     print(f"[run] {sample_id}", flush=True)
+    # AF_UNIX socket paths must be < 108 bytes.  The deep all_runs/<tag>/<name>_repN
+    # run dir overflows that, so qemu refuses to start.  Put the ephemeral monitor
+    # socket under a short /tmp path (unique per run) instead of inside the run dir.
+    mon = Path("/tmp/qm") / (hashlib.md5(f"{sample_id}".encode()).hexdigest()[:12] + ".sock")
+    mon.parent.mkdir(parents=True, exist_ok=True)
+    subprocess.run(["rm", "-f", str(mon)], check=False)
     proc = subprocess.Popen(
         ["uv", "run", "python", str(REPO / "ops/qemu/run_trace.py"),
          str(image), str(d / "work.qcow2"), str(d / "trace.jsonl"),
          "--meta", str(d / "meta.json"), "--log", str(d / "qemu.log"),
-         "--monitor", str(d / "monitor.sock"), "--host-timeout", "3600",
+         "--monitor", str(mon), "--host-timeout", "1200",
          "--guest-memory", "4G", "--qemu", str(QEMU), "--plugin", str(PLUGIN)],
         stdout=(d / "runner.out").open("w"), stderr=subprocess.STDOUT, cwd=str(REPO),
     )

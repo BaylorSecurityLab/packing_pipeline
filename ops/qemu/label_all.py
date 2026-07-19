@@ -40,9 +40,19 @@ def _session():
     return smbclient
 
 
-def candidate_samples(nas_dir: str, testcase: str, limit: int = 8):
+def candidate_samples(w: dict, limit: int = 8):
+    """Candidate (remote, name) payloads for a family+version.
+
+    The enumerator pre-collects a sample pool spanning ALL of the family+version's
+    testcases (Type is invariant across testcases, so the >=2 distinct payloads a
+    consensus needs may come from any testcase).  Fall back to a live single-
+    testcase scan only if the worklist entry predates the pooled format.
+    """
+    pool = w.get("samples")
+    if pool:
+        return [(s["remote"], s["name"]) for s in pool[:limit]]
     smb = _session()
-    base = f"//10.100.99.29/samples/benign_packed/{nas_dir}/{testcase}"
+    base = f"//10.100.99.29/samples/benign_packed/{w['nas_dir']}/{w['testcase']}"
     cand = []
     for e in smb.scandir(base):
         if e.name.lower().endswith(".exe"):
@@ -147,7 +157,7 @@ def label_condition(w: dict) -> None:
         "type_hypothesis": None, "source": "yaml_test_case",
         "status": "planned", "available_samples": 2,
     }
-    cands = candidate_samples(w["nas_dir"], w["testcase"], limit=2 * MAX_SAMPLE_ATTEMPTS)
+    cands = candidate_samples(w, limit=2 * MAX_SAMPLE_ATTEMPTS)
     print(f"[cond] {tag}: {len(cands)} candidate samples", flush=True)
     label, all_types = "UNRESOLVED", {}
     for attempt in range(MAX_SAMPLE_ATTEMPTS):
