@@ -16,10 +16,10 @@ retry_run_count: 0
 in_place_validation_run_count: 0
 alternate_payload_run_count: 0
 conditions:
-- packer_family: beroexepacker
-  packer_version: 1.00.2017.01.27
-  configuration_id: bep_001_default-36b38ef87d43
-  test_case_id: BEP_001_DEFAULT
+- packer_family: enigma
+  packer_version: 7.80 build 20250205
+  configuration_id: enigma_001_default-c1cee1ed5c2d
+  test_case_id: ENIGMA_001_DEFAULT
   condition_source: yaml_test_case
   nas_status: planned
   available_nas_samples: 2
