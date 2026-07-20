@@ -43,33 +43,52 @@ def split_family_version(nas_dir: str):
     return nas_dir, "?"
 
 
+import hashlib
+
+# The NAS mixes UNPACKED ORIGINAL payloads into some packer dirs (verified: the tiny
+# ansi2knr_unxutils .exe is byte-identical across alienyze/ and amber_v2.0/).  Those
+# contaminants make the "smallest .exe" an unpacked binary that trivially classifies
+# NO_UNPACKING.  A genuinely-packed sample is UNIQUE to its packer dir (a packer's
+# output differs across packers), so we hash the small candidates and drop any hash
+# that appears in >=2 different family dirs.
+HASH_MAX_BYTES = 2_000_000        # only hash files this small (cheap; contaminants
+                                  # are tiny) -- larger files are assumed packed
+HASH_PER_DIR = 16                 # hash at most this many smallest exes per dir
+TRACE_MAX_BYTES = 40_000_000      # don't queue >40MB samples (trace time / 715MB+ apps)
+MIN_PACKED_BYTES = 4096           # ignore <4KB stubs
+
+
+def _remote(base, nas_dir, tc, nm):
+    return f"{base}/{nas_dir}/{tc}/{nm}" if tc else f"{base}/{nas_dir}/{nm}"
+
+
 def main() -> int:
     smb = session()
     base = "//10.100.99.29/samples/benign_packed"
     families = sorted(e.name for e in smb.scandir(base) if e.is_dir())
-    work = []
+
+    # ---- Pass 1: enumerate exes per dir; hash the smallest small ones ----------
+    per_dir = {}                  # nas_dir -> {"exes":[(sz,tc,nm)], "rep_tc":str}
+    hash_dirs = {}                # sha256 -> set(nas_dir) for the hashed candidates
+    sha_of = {}                   # (nas_dir, tc, nm) -> sha256
     for nas_dir in families:
-        fam, ver = split_family_version(nas_dir)
-        pool = []          # (size, testcase_rel, name) where testcase_rel is ""
-                           # for exes directly under the family dir
-        rep_tc = None
         try:
             entries = list(smb.scandir(f"{base}/{nas_dir}"))
         except Exception as ex:
             print(f"[warn] {nas_dir}: scandir failed {ex}")
             continue
-        # (a) exes directly under the family+version dir
-        for e in entries:
+        exes = []
+        rep_tc = None
+        for e in entries:                         # (a) direct exes
             if not e.is_dir() and e.name.lower().endswith(".exe"):
                 try:
                     sz = smb.stat(f"{base}/{nas_dir}/{e.name}").st_size
                 except Exception:
                     sz = 1 << 40
-                pool.append((sz, "", e.name))
-        if pool:
+                exes.append((sz, "", e.name))
+        if exes:
             rep_tc = ""
-        # (b) exes inside testcase subdirs (skip helper dirs like temp/)
-        for tc in sorted(e.name for e in entries if e.is_dir()):
+        for tc in sorted(e.name for e in entries if e.is_dir()):   # (b) subdirs
             try:
                 for e in smb.scandir(f"{base}/{nas_dir}/{tc}"):
                     if e.name.lower().endswith(".exe"):
@@ -77,28 +96,73 @@ def main() -> int:
                             sz = smb.stat(f"{base}/{nas_dir}/{tc}/{e.name}").st_size
                         except Exception:
                             sz = 1 << 40
-                        pool.append((sz, tc, e.name))
+                        exes.append((sz, tc, e.name))
             except Exception:
                 pass
-            if rep_tc is None and pool:
+            if rep_tc is None and exes:
                 rep_tc = tc
-        if len(pool) < 2:
-            print(f"[skip] {nas_dir}: only {len(pool)} exe(s) across testcases")
+        if len(exes) < 2:
+            print(f"[skip] {nas_dir}: only {len(exes)} exe(s)")
             continue
-        pool.sort()                       # smallest first (fastest to trace)
+        exes.sort()
+        per_dir[nas_dir] = {"exes": exes, "rep_tc": rep_tc}
+        # hash the smallest few small files (the contaminants live here)
+        hashed = 0
+        for sz, tc, nm in exes:
+            if sz > HASH_MAX_BYTES:
+                continue
+            try:
+                with smb.open_file(_remote(base, nas_dir, tc, nm), mode="rb") as fh:
+                    h = hashlib.sha256(fh.read()).hexdigest()
+            except Exception:
+                continue
+            sha_of[(nas_dir, tc, nm)] = h
+            hash_dirs.setdefault(h, set()).add(nas_dir)
+            hashed += 1
+            if hashed >= HASH_PER_DIR:
+                break
+
+    shared = {h for h, dirs in hash_dirs.items() if len(dirs) >= 2}
+    print(f"[enum] hashed candidates; {len(shared)} cross-dir duplicate hashes "
+          f"(unpacked originals) will be excluded")
+
+    # ---- Pass 2: build a genuinely-packed candidate pool per dir ---------------
+    work = []
+    for nas_dir, info in per_dir.items():
+        fam, ver = split_family_version(nas_dir)
+        exes = info["exes"]
+        packed, contaminated = [], []
+        for sz, tc, nm in exes:
+            if sz < MIN_PACKED_BYTES or sz > TRACE_MAX_BYTES:
+                continue
+            h = sha_of.get((nas_dir, tc, nm))
+            if h is not None and h in shared:
+                contaminated.append((sz, tc, nm))   # known unpacked original
+                continue
+            packed.append((sz, tc, nm))             # unique (or too big to hash)
+        chosen = packed or contaminated              # fall back only if nothing else
+        if len(chosen) < 2:
+            # last resort: any 2 exes (even >TRACE_MAX) so the condition is at least
+            # attempted rather than silently dropped
+            chosen = [e for e in exes if e[0] >= MIN_PACKED_BYTES][:8] or exes[:8]
+        chosen.sort()                                # smallest genuinely-packed first
         samples = [
-            {"testcase": tc, "name": nm,
-             "remote": (f"{base}/{nas_dir}/{tc}/{nm}" if tc
-                        else f"{base}/{nas_dir}/{nm}")}
-            for _, tc, nm in pool[:8]
+            {"testcase": tc, "name": nm, "size": sz,
+             "sha256": sha_of.get((nas_dir, tc, nm)),
+             "remote": _remote(base, nas_dir, tc, nm)}
+            for sz, tc, nm in chosen[:8]
         ]
+        n_excluded = len(contaminated)
+        if n_excluded and packed:
+            print(f"[enum] {nas_dir}: excluded {n_excluded} unpacked-original "
+                  f"candidate(s); pool now genuinely packed")
         work.append({
             "nas_dir": nas_dir,
             "family": fam,
             "version": ver,
-            "testcase": rep_tc or ".",
-            "n": len(pool),
-            "cid": None,                   # filled from manifest below if present
+            "testcase": info["rep_tc"] or ".",
+            "n": len(exes),
+            "cid": None,
             "samples": samples,
         })
 
