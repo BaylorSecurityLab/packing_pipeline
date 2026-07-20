@@ -191,10 +191,31 @@ def label_condition(w: dict) -> None:
     print(f"[LABEL] {tag} -> {label}", flush=True)
 
 
+# Protectors: anti-debug / nanomite / virtualization / VM-based.  They produce
+# multi-GB traces that time out (TRACE_LOSS) and are the most contaminated by
+# pass-through/unpacked-original samples, so they yield UNRESOLVED at ~3h each.
+# Defer them to LAST; do the high-yield compressive packers (which classify cleanly
+# via write->execute) FIRST so labels flow.  Protectors re-run after the NAS cleanup.
+_PROTECTORS = {
+    "acprotect_std_standard__installer", "alienyze_protector", "armadillo",
+    "asm_guard", "astral_pe", "enigma_protector", "obsidium", "pelock", "telock",
+    "themida", "zprotect", "yoda_protector", "pezor", "hyperion",
+}
+
+
+def _tier(w: dict) -> int:
+    fam = str(w.get("family", "")).lower()
+    if fam in _PROTECTORS:
+        return 2                       # protectors last
+    if fam.startswith("upx"):
+        return 0                       # UPX + upx_scrambler bulk first (cleanest)
+    return 1                           # other compressive packers in the middle
+
+
 def main() -> int:
     work = json.loads((RT / "worklist.json").read_text())
-    # order: non-UPX first (diversity), then UPX versions
-    work.sort(key=lambda w: (str(w.get("family", "")).lower() == "upx", w["nas_dir"]))
+    # order: UPX bulk -> other compressive packers -> protectors last
+    work.sort(key=lambda w: (_tier(w), w["nas_dir"]))
     print(f"[all] {len(work)} conditions to label", flush=True)
     for i, w in enumerate(work, 1):
         subprocess.run(["pkill", "-f", "qemu-system-x86_64 -name paper"], check=False)
