@@ -188,6 +188,21 @@ def label_condition(w: dict) -> None:
         f"Empirical label: {tag} -> {label} ({w['testcase']})"])
     sh(["git", "push", "origin", "feature/empirical-type-backend"],
        stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    # Free disk: the label + manifest are committed, so the multi-GB raw traces and
+    # qcow2 overlays are disposable.  Keep the small per-run evidence (classification/
+    # meta/sample json).  Parallel runs on big samples otherwise fill the disk fast.
+    rd = REPO / f"empirical_results/qemu_runtime/all_runs/{tag}"
+    for junk in list(rd.glob("*/trace.jsonl")) + list(rd.glob("*/work.qcow2")):
+        try:
+            junk.unlink()
+        except Exception:
+            pass
+    # staged per-sample images for this tag are also disposable after finalize
+    for img in RT.glob(f"windows10-qemu-{tag}[12].qcow2"):
+        try:
+            img.unlink()
+        except Exception:
+            pass
     print(f"[LABEL] {tag} -> {label}", flush=True)
 
 

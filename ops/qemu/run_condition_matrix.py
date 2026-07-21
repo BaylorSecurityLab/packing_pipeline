@@ -7,9 +7,11 @@ from __future__ import annotations
 
 import hashlib
 import json
+import os
 import subprocess
 import sys
 import time
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
 
 REPO = Path(__file__).resolve().parents[2]
@@ -42,6 +44,11 @@ CONDITION = _cfg["condition"]
 PAYLOADS = [(REPO / p[0], p[1], p[2]) for p in _cfg["payloads"]]
 REPS = int(_cfg.get("reps", 3))
 RUNS = REPO / _cfg.get("runs_dir", "empirical_results/qemu_runtime/matrix_runs")
+# Parallelism: the REPS x len(PAYLOADS) runs are independent -- each has its own
+# run dir, its own qcow2 overlay (base is read-only backing), and a unique monitor
+# socket (hashed on sample_id), so they run concurrently safely.  Sized by the
+# LABEL_JOBS env var (or cfg "jobs"); default 1 keeps the old sequential behavior.
+JOBS = max(1, int(_cfg.get("jobs") or os.environ.get("LABEL_JOBS", "1")))
 
 
 def run_one(image: Path, sha: str, name: str, rep: int) -> str:
@@ -99,9 +106,22 @@ def run_one(image: Path, sha: str, name: str, rep: int) -> str:
 def main() -> int:
     RUNS.mkdir(parents=True, exist_ok=True)
     start = time.time()
-    for image, sha, name in PAYLOADS:
-        for rep in range(1, REPS + 1):
-            run_one(image, sha, name, rep)
+    tasks = [(image, sha, name, rep)
+             for image, sha, name in PAYLOADS
+             for rep in range(1, REPS + 1)]
+    if JOBS <= 1:
+        for t in tasks:
+            run_one(*t)
+    else:
+        print(f"[matrix] running {len(tasks)} traces with {JOBS} parallel workers",
+              flush=True)
+        with ThreadPoolExecutor(max_workers=JOBS) as ex:
+            futs = {ex.submit(run_one, *t): t for t in tasks}
+            for f in as_completed(futs):
+                try:
+                    f.result()
+                except Exception as e:            # a dead run must not sink the batch
+                    print(f"[run-error] {futs[f][2]} rep{futs[f][3]}: {e}", flush=True)
     print(f"[matrix] all runs done in {int((time.time()-start)/60)} min", flush=True)
     # plan.json for finalize
     plan = {"conditions": [CONDITION]}
