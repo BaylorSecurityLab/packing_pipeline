@@ -14,7 +14,9 @@ import json
 import os
 import subprocess
 import sys
+import threading
 import time
+from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
 REPO = Path(__file__).resolve().parents[2]
@@ -22,6 +24,13 @@ RT = REPO / "empirical_results/qemu_runtime"
 SUDO_PW = "resbears"
 MAX_SAMPLE_ATTEMPTS = 3        # distinct payload-pairs to try before giving up
 REPS = 3
+# Condition-level parallelism (Phase 2).  Each condition runs its own 6 traces with
+# LABEL_JOBS run-level parallelism, so total concurrent qemus = CONDITIONS*LABEL_JOBS.
+# The two shared resources are serialized: stage_sample.sh uses a fixed nbd device,
+# and git commit/push + doc regeneration touch shared files.
+CONDITIONS = max(1, int(os.environ.get("LABEL_CONDITIONS", "1")))
+STAGE_LOCK = threading.Lock()
+GIT_LOCK = threading.Lock()
 
 
 def sh(cmd, **kw):
@@ -74,9 +83,11 @@ def fetch(remote: str, dest: Path) -> str:
 
 
 def stage(sample: Path, image: Path) -> bool:
-    p = subprocess.run(["sudo", "-S", "ops/qemu/stage_sample.sh", str(sample),
-                        str(image), "300"], cwd=str(REPO), input=SUDO_PW + "\n",
-                       text=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    # stage_sample.sh mounts via a fixed nbd device, so only one stage at a time.
+    with STAGE_LOCK:
+        p = subprocess.run(["sudo", "-S", "ops/qemu/stage_sample.sh", str(sample),
+                            str(image), "300"], cwd=str(REPO), input=SUDO_PW + "\n",
+                           text=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
     return p.returncode == 0
 
 
@@ -177,17 +188,25 @@ def label_condition(w: dict) -> None:
         # sample-fallback is to then try a DIFFERENT (genuinely packed) sample, so
         # keep going through the attempts.  Sample selection (enumerate_nas.py) now
         # excludes cross-dir duplicate originals so the pool is genuinely packed.
-    # commit
-    sh(["python3", "ops/qemu/build_label_document.py"])
+    if label == "STAGE_FAILED":
+        # Infrastructure failure (e.g. /dev/nbd0 left connected by a killed run), NOT
+        # an empirical verdict.  Never persist a .done marker for it -- otherwise a
+        # transient staging error permanently skips the condition on every later run.
+        print(f"[LABEL] {tag} -> STAGE_FAILED (not recorded; will retry next run)",
+              flush=True)
+        return
     (REPO / f"empirical_results/full_matrix/{tag}.done").write_text(
         json.dumps({"label": label, "runs": all_types}), encoding="utf-8")
-    sh(["git", "add", "-f", f"manifest/empirical_types_{tag}.yaml",
-        "doc/EMPIRICAL_TYPE_LABELS.md"])
-    sh(["git", "add", f"empirical_results/qemu_runtime/configs/{tag}.json"])
-    sh(["git", "commit", "-q", "-m",
-        f"Empirical label: {tag} -> {label} ({w['testcase']})"])
-    sh(["git", "push", "origin", "feature/empirical-type-backend"],
-       stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    # commit -- serialized: the doc + git index are shared across parallel conditions
+    with GIT_LOCK:
+        sh(["python3", "ops/qemu/build_label_document.py"])
+        sh(["git", "add", "-f", f"manifest/empirical_types_{tag}.yaml",
+            "doc/EMPIRICAL_TYPE_LABELS.md"])
+        sh(["git", "add", f"empirical_results/qemu_runtime/configs/{tag}.json"])
+        sh(["git", "commit", "-q", "-m",
+            f"Empirical label: {tag} -> {label} ({w['testcase']})"])
+        sh(["git", "push", "origin", "feature/empirical-type-backend"],
+           stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
     # Free disk: the label + manifest are committed, so the multi-GB raw traces and
     # qcow2 overlays are disposable.  Keep the small per-run evidence (classification/
     # meta/sample json).  Parallel runs on big samples otherwise fill the disk fast.
@@ -227,19 +246,34 @@ def _tier(w: dict) -> int:
     return 1                           # other compressive packers in the middle
 
 
+def _process(idx_total_w) -> None:
+    i, total, w = idx_total_w
+    print(f"===== [{i}/{total}] {w['nas_dir']} =====", flush=True)
+    try:
+        label_condition(w)
+    except Exception as e:
+        print(f"[error] {w['nas_dir']}: {e}", flush=True)
+
+
 def main() -> int:
     work = json.loads((RT / "worklist.json").read_text())
     # order: UPX bulk -> other compressive packers -> protectors last
     work.sort(key=lambda w: (_tier(w), w["nas_dir"]))
-    print(f"[all] {len(work)} conditions to label", flush=True)
-    for i, w in enumerate(work, 1):
-        subprocess.run(["pkill", "-f", "qemu-system-x86_64 -name paper"], check=False)
-        time.sleep(2)
-        print(f"===== [{i}/{len(work)}] {w['nas_dir']} =====", flush=True)
-        try:
-            label_condition(w)
-        except Exception as e:
-            print(f"[error] {w['nas_dir']}: {e}", flush=True)
+    # skip already-labeled up front so the parallel pool isn't clogged by skips
+    todo = [w for w in work if not already_labeled(w["nas_dir"])]
+    print(f"[all] {len(work)} conditions ({len(todo)} to do); "
+          f"{CONDITIONS} parallel x {os.environ.get('LABEL_JOBS','1')} runs each",
+          flush=True)
+    # one clean slate for orphaned qemus at startup; run_trace cleans up its own
+    subprocess.run(["pkill", "-f", "qemu-system-x86_64 -name paper"], check=False)
+    time.sleep(2)
+    items = [(i, len(todo), w) for i, w in enumerate(todo, 1)]
+    if CONDITIONS <= 1:
+        for it in items:
+            _process(it)
+    else:
+        with ThreadPoolExecutor(max_workers=CONDITIONS) as ex:
+            list(ex.map(_process, items))
     print("[all] DONE", flush=True)
     return 0
 
