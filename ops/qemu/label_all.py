@@ -24,6 +24,10 @@ RT = REPO / "empirical_results/qemu_runtime"
 SUDO_PW = "resbears"
 MAX_SAMPLE_ATTEMPTS = 3        # distinct payload-pairs to try before giving up
 REPS = 3
+# A payload executing fewer than this many basic blocks never really ran the program
+# (it starts, does nothing, and idles).  Such a run is an invalid observation, not a
+# "no unpacking" verdict about the packer.
+MIN_MEANINGFUL_EXEC = 50_000
 # Condition-level parallelism (Phase 2).  Each condition runs its own 6 traces with
 # LABEL_JOBS run-level parallelism, so total concurrent qemus = CONDITIONS*LABEL_JOBS.
 # The two shared resources are serialized: stage_sample.sh uses a fixed nbd device,
@@ -119,6 +123,36 @@ def run_pair(tag: str, cond: dict, pair) -> tuple[str, dict]:
                 types[rd.name] = json.loads(cj.read_text())["complexity_type"]
             except Exception:
                 types[rd.name] = "?"
+    # Reject DUD payloads before they can veto a Type.  A payload that executes only a
+    # few thousand blocks and then idles did not run the program -- that is a failed
+    # observation, not evidence that the packer performs no unpacking.  Exact consensus
+    # needs BOTH payloads to agree, so letting a failed-to-launch sample report
+    # "NO_UNPACKING" silently vetoes a Type the working payload demonstrates (verified
+    # on fsg_v1.3: payload A executed 2.4M blocks -> TYPE_I x3, payload B executed 6k).
+    # Signal the caller to try a different pair instead.
+    per_payload: dict[str, list[int]] = {}
+    for rd in sorted(d.glob("*/")):
+        mj = rd / "meta.json"
+        if not mj.exists():
+            continue
+        try:
+            summ = (json.loads(mj.read_text()).get("summary") or {})
+            ex = int(summ.get("exec_events") or 0)
+        except Exception:
+            continue
+        key = "A" if "A_rep" in rd.name else ("B" if "B_rep" in rd.name else "?")
+        per_payload.setdefault(key, []).append(ex)
+    if len(per_payload) >= 2:
+        med = {k: sorted(v)[len(v) // 2] for k, v in per_payload.items() if v}
+        if med:
+            hi_k = max(med, key=lambda k: med[k])
+            lo_k = min(med, key=lambda k: med[k])
+            hi, lo = med[hi_k], med[lo_k]
+            if hi >= MIN_MEANINGFUL_EXEC and lo < MIN_MEANINGFUL_EXEC and hi > 20 * max(lo, 1):
+                print(f"[dud] {tag}: payload {lo_k} executed only {lo} blocks vs "
+                      f"{hi} for {hi_k} -- treating as a failed observation, not a "
+                      f"verdict; trying a different payload", flush=True)
+                return "BAD_PAYLOAD", types
     # finalize
     plan = REPO / runs_dir / "plan.json"
     if plan.exists():
@@ -195,6 +229,10 @@ def label_condition(w: dict) -> None:
         print(f"[LABEL] {tag} -> STAGE_FAILED (not recorded; will retry next run)",
               flush=True)
         return
+    if label == "BAD_PAYLOAD":
+        # Every attempt ended with a payload that never really ran.  That is a corpus
+        # problem, so record it as unresolved rather than as a claim about the packer.
+        label = "UNRESOLVED"
     (REPO / f"empirical_results/full_matrix/{tag}.done").write_text(
         json.dumps({"label": label, "runs": all_types}), encoding="utf-8")
     # commit -- serialized: the doc + git index are shared across parallel conditions
