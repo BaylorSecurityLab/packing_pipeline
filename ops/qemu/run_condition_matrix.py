@@ -49,6 +49,11 @@ RUNS = REPO / _cfg.get("runs_dir", "empirical_results/qemu_runtime/matrix_runs")
 # socket (hashed on sample_id), so they run concurrently safely.  Sized by the
 # LABEL_JOBS env var (or cfg "jobs"); default 1 keeps the old sequential behavior.
 JOBS = max(1, int(_cfg.get("jobs") or os.environ.get("LABEL_JOBS", "1")))
+# Per-trace host timeout.  1200s suits compressive packers; protectors emit multi-GB
+# traces and get truncated (TRACE_LOSS) at that cap, so the retry pass raises it via
+# LABEL_HOST_TIMEOUT rather than mislabeling a slow packer as unresolvable.
+HOST_TIMEOUT = str(int(_cfg.get("host_timeout") or
+                       os.environ.get("LABEL_HOST_TIMEOUT", "1200")))
 
 
 def run_one(image: Path, sha: str, name: str, rep: int) -> str:
@@ -73,7 +78,7 @@ def run_one(image: Path, sha: str, name: str, rep: int) -> str:
         ["uv", "run", "python", str(REPO / "ops/qemu/run_trace.py"),
          str(image), str(d / "work.qcow2"), str(d / "trace.jsonl"),
          "--meta", str(d / "meta.json"), "--log", str(d / "qemu.log"),
-         "--monitor", str(mon), "--host-timeout", "1200",
+         "--monitor", str(mon), "--host-timeout", HOST_TIMEOUT,
          "--guest-memory", "4G", "--qemu", str(QEMU), "--plugin", str(PLUGIN)],
         stdout=(d / "runner.out").open("w"), stderr=subprocess.STDOUT, cwd=str(REPO),
     )
