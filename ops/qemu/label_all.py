@@ -210,8 +210,17 @@ def label_condition(w: dict) -> None:
     # Free disk: the label + manifest are committed, so the multi-GB raw traces and
     # qcow2 overlays are disposable.  Keep the small per-run evidence (classification/
     # meta/sample json).  Parallel runs on big samples otherwise fill the disk fast.
+    # EXCEPTION: for a non-TYPE (UNRESOLVED) verdict, keep ONE representative trace so
+    # the root cause (sample defect vs methodology/backend limit) can be investigated
+    # afterwards.  Keeping all 6 per condition would exceed the traces volume.
     rd = REPO / f"empirical_results/qemu_runtime/all_runs/{tag}"
-    for junk in list(rd.glob("*/trace.jsonl")) + list(rd.glob("*/work.qcow2")):
+    traces = sorted(rd.glob("*/trace.jsonl"))
+    keep = set()
+    if traces and not label.startswith("TYPE_"):
+        keep.add(traces[0])
+    for junk in traces + list(rd.glob("*/work.qcow2")):
+        if junk in keep:
+            continue
         try:
             junk.unlink()
         except Exception:
