@@ -11,6 +11,7 @@ import os
 import subprocess
 import sys
 import time
+import threading
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
 
@@ -54,6 +55,10 @@ JOBS = max(1, int(_cfg.get("jobs") or os.environ.get("LABEL_JOBS", "1")))
 # LABEL_HOST_TIMEOUT rather than mislabeling a slow packer as unresolvable.
 HOST_TIMEOUT = str(int(_cfg.get("host_timeout") or
                        os.environ.get("LABEL_HOST_TIMEOUT", "1200")))
+# Concurrent classifications are capped independently of concurrent traces: the
+# classifier is the memory hog (~10GB per multi-GB trace), tracing is not.
+CLASSIFY_SEM = threading.Semaphore(
+    max(1, int(os.environ.get("LABEL_CLASSIFY_JOBS", "4"))))
 
 
 def run_one(image: Path, sha: str, name: str, rep: int) -> str:
@@ -83,13 +88,18 @@ def run_one(image: Path, sha: str, name: str, rep: int) -> str:
         stdout=(d / "runner.out").open("w"), stderr=subprocess.STDOUT, cwd=str(REPO),
     )
     proc.wait()
-    # classify
-    subprocess.run(
-        ["uv", "run", "packer-types", "classify-paper-trace", str(d / "trace.jsonl"),
-         "--sample-id", sample_id, "--meta", str(d / "meta.json"),
-         "--output", str(d / "classification.json")],
-        cwd=str(REPO), check=False,
-    )
+    # Classify under a SEPARATE concurrency cap.  Tracing is cheap on RAM (~3.6GB per
+    # qemu) but classification loads the whole trace analysis (~10GB on a multi-GB
+    # protector trace), so tying the two together forced the trace concurrency down to
+    # whatever the classifier could afford and left most of the CPU idle.  Gating only
+    # the classify step lets many more traces run in parallel with bounded peak memory.
+    with CLASSIFY_SEM:
+        subprocess.run(
+            ["uv", "run", "packer-types", "classify-paper-trace", str(d / "trace.jsonl"),
+             "--sample-id", sample_id, "--meta", str(d / "meta.json"),
+             "--output", str(d / "classification.json")],
+            cwd=str(REPO), check=False,
+        )
     # finalize-compatible metadata
     (d / "sample.json").write_text(json.dumps({
         "sample_id": sample_id,
