@@ -22,16 +22,9 @@ from pathlib import Path
 REPO = Path(__file__).resolve().parents[2]
 RT = REPO / "empirical_results/qemu_runtime"
 SUDO_PW = "resbears"
-MAX_SAMPLE_ATTEMPTS = 4        # distinct payload-pairs to try before giving up
+MAX_SAMPLE_ATTEMPTS = 4
 REPS = 3
-# A payload executing fewer than this many basic blocks never really ran the program
-# (it starts, does nothing, and idles).  Such a run is an invalid observation, not a
-# "no unpacking" verdict about the packer.
 MIN_MEANINGFUL_EXEC = 50_000
-# Condition-level parallelism (Phase 2).  Each condition runs its own 6 traces with
-# LABEL_JOBS run-level parallelism, so total concurrent qemus = CONDITIONS*LABEL_JOBS.
-# The two shared resources are serialized: stage_sample.sh uses a fixed nbd device,
-# and git commit/push + doc regeneration touch shared files.
 CONDITIONS = max(1, int(os.environ.get("LABEL_CONDITIONS", "1")))
 STAGE_LOCK = threading.Lock()
 GIT_LOCK = threading.Lock()
@@ -73,7 +66,7 @@ def candidate_samples(w: dict, limit: int = 8):
                 cand.append((smb.stat(base + "/" + e.name).st_size, e.name))
             except Exception:
                 pass
-    cand.sort()  # smallest first (fastest to trace)
+    cand.sort()
     return [(base + "/" + nm, nm) for _, nm in cand[:limit]]
 
 
@@ -87,7 +80,6 @@ def fetch(remote: str, dest: Path) -> str:
 
 
 def stage(sample: Path, image: Path) -> bool:
-    # stage_sample.sh mounts via a fixed nbd device, so only one stage at a time.
     with STAGE_LOCK:
         p = subprocess.run(["sudo", "-S", "ops/qemu/stage_sample.sh", str(sample),
                             str(image), "300"], cwd=str(REPO), input=SUDO_PW + "\n",
@@ -113,7 +105,6 @@ def run_pair(tag: str, cond: dict, pair) -> tuple[str, dict]:
     cfg_path.write_text(json.dumps(cfg, indent=2))
     sh(["rm", "-rf", str(REPO / runs_dir)])
     sh(["python3", "ops/qemu/run_condition_matrix.py", str(cfg_path)])
-    # collect per-run types
     types = {}
     d = REPO / runs_dir
     for rd in sorted(d.glob("*/")):
@@ -123,13 +114,6 @@ def run_pair(tag: str, cond: dict, pair) -> tuple[str, dict]:
                 types[rd.name] = json.loads(cj.read_text())["complexity_type"]
             except Exception:
                 types[rd.name] = "?"
-    # Reject DUD payloads before they can veto a Type.  A payload that executes only a
-    # few thousand blocks and then idles did not run the program -- that is a failed
-    # observation, not evidence that the packer performs no unpacking.  Exact consensus
-    # needs BOTH payloads to agree, so letting a failed-to-launch sample report
-    # "NO_UNPACKING" silently vetoes a Type the working payload demonstrates (verified
-    # on fsg_v1.3: payload A executed 2.4M blocks -> TYPE_I x3, payload B executed 6k).
-    # Signal the caller to try a different pair instead.
     per_payload: dict[str, list[int]] = {}
     for rd in sorted(d.glob("*/")):
         mj = rd / "meta.json"
@@ -152,10 +136,7 @@ def run_pair(tag: str, cond: dict, pair) -> tuple[str, dict]:
                 print(f"[dud] {tag}: payload {lo_k} executed only {lo} blocks vs "
                       f"{hi} for {hi_k} -- treating as a failed observation, not a "
                       f"verdict; trying a different payload", flush=True)
-                # Report WHICH slot was the dud so the caller can keep the payload that
-                # demonstrably ran and replace only the broken one.
                 return f"BAD_PAYLOAD:{lo_k}", types
-    # finalize
     plan = REPO / runs_dir / "plan.json"
     if plan.exists():
         pd = json.loads(plan.read_text())
@@ -176,8 +157,6 @@ def run_pair(tag: str, cond: dict, pair) -> tuple[str, dict]:
 
 
 def already_labeled(tag: str) -> bool:
-    # A .done marker (written after processing, incl. UNRESOLVED-after-exhaustion)
-    # is authoritative.
     if (REPO / f"empirical_results/full_matrix/{tag}.done").exists():
         return True
     f = REPO / f"manifest/empirical_types_{tag}.yaml"
@@ -212,7 +191,7 @@ def label_condition(w: dict) -> None:
               flush=True)
         return
     pair = [cands[0], cands[1]]
-    nxt = 2                                  # next unused candidate
+    nxt = 2
     for attempt in range(MAX_SAMPLE_ATTEMPTS):
         print(f"[try] {tag} attempt {attempt+1}: {[p[1] for p in pair]}", flush=True)
         label, types = run_pair(tag, cond, pair)
@@ -221,10 +200,6 @@ def label_condition(w: dict) -> None:
         if label.startswith("TYPE_"):
             break
         if label.startswith("BAD_PAYLOAD:"):
-            # Keep the payload that demonstrably RAN and swap out only the dud.  The
-            # old positional pairing threw away a proven-good payload alongside the
-            # broken one, so a dir with a few bad samples could never assemble a valid
-            # pair even when one payload had already produced a clean Type.
             i = 0 if label.split(":", 1)[1] == "A" else 1
             if nxt >= len(cands):
                 print(f"[swap] {tag}: candidate pool exhausted; keeping "
@@ -235,33 +210,19 @@ def label_condition(w: dict) -> None:
             pair[i] = cands[nxt]
             nxt += 1
             continue
-        # any other non-Type outcome: rotate BOTH payloads to a fresh pair
         if nxt + 1 < len(cands):
             pair = [cands[nxt], cands[nxt + 1]]
             nxt += 2
         else:
             break
-        # NO short-circuit on NO_UNPACKING: a NO_UNPACKING verdict most often means
-        # this payload was not actually packed (the NAS mixes unpacked original
-        # payloads into some packer dirs -- verified: a tiny unxutils .exe is
-        # byte-identical across alienyze/ and amber_v2.0/).  The whole point of the
-        # sample-fallback is to then try a DIFFERENT (genuinely packed) sample, so
-        # keep going through the attempts.  Sample selection (enumerate_nas.py) now
-        # excludes cross-dir duplicate originals so the pool is genuinely packed.
     if label == "STAGE_FAILED":
-        # Infrastructure failure (e.g. /dev/nbd0 left connected by a killed run), NOT
-        # an empirical verdict.  Never persist a .done marker for it -- otherwise a
-        # transient staging error permanently skips the condition on every later run.
         print(f"[LABEL] {tag} -> STAGE_FAILED (not recorded; will retry next run)",
               flush=True)
         return
     if label.startswith("BAD_PAYLOAD"):
-        # Every attempt ended with a payload that never really ran.  That is a corpus
-        # problem, so record it as unresolved rather than as a claim about the packer.
         label = "UNRESOLVED"
     (REPO / f"empirical_results/full_matrix/{tag}.done").write_text(
         json.dumps({"label": label, "runs": all_types}), encoding="utf-8")
-    # commit -- serialized: the doc + git index are shared across parallel conditions
     with GIT_LOCK:
         sh(["python3", "ops/qemu/build_label_document.py"])
         sh(["git", "add", "-f", f"manifest/empirical_types_{tag}.yaml",
@@ -271,12 +232,6 @@ def label_condition(w: dict) -> None:
             f"Empirical label: {tag} -> {label} ({w['testcase']})"])
         sh(["git", "push", "origin", "feature/empirical-type-backend"],
            stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-    # Free disk: the label + manifest are committed, so the multi-GB raw traces and
-    # qcow2 overlays are disposable.  Keep the small per-run evidence (classification/
-    # meta/sample json).  Parallel runs on big samples otherwise fill the disk fast.
-    # EXCEPTION: for a non-TYPE (UNRESOLVED) verdict, keep ONE representative trace so
-    # the root cause (sample defect vs methodology/backend limit) can be investigated
-    # afterwards.  Keeping all 6 per condition would exceed the traces volume.
     rd = REPO / f"empirical_results/qemu_runtime/all_runs/{tag}"
     traces = sorted(rd.glob("*/trace.jsonl"))
     keep = set()
@@ -289,7 +244,6 @@ def label_condition(w: dict) -> None:
             junk.unlink()
         except Exception:
             pass
-    # staged per-sample images for this tag are also disposable after finalize
     for img in RT.glob(f"windows10-qemu-{tag}[12].qcow2"):
         try:
             img.unlink()
@@ -298,11 +252,6 @@ def label_condition(w: dict) -> None:
     print(f"[LABEL] {tag} -> {label}", flush=True)
 
 
-# Protectors: anti-debug / nanomite / virtualization / VM-based.  They produce
-# multi-GB traces that time out (TRACE_LOSS) and are the most contaminated by
-# pass-through/unpacked-original samples, so they yield UNRESOLVED at ~3h each.
-# Defer them to LAST; do the high-yield compressive packers (which classify cleanly
-# via write->execute) FIRST so labels flow.  Protectors re-run after the NAS cleanup.
 _PROTECTORS = {
     "acprotect_std_standard__installer", "alienyze_protector", "armadillo",
     "asm_guard", "astral_pe", "enigma_protector", "obsidium", "pelock", "telock",
@@ -313,10 +262,10 @@ _PROTECTORS = {
 def _tier(w: dict) -> int:
     fam = str(w.get("family", "")).lower()
     if fam in _PROTECTORS:
-        return 2                       # protectors last
+        return 2
     if fam.startswith("upx"):
-        return 0                       # UPX + upx_scrambler bulk first (cleanest)
-    return 1                           # other compressive packers in the middle
+        return 0
+    return 1
 
 
 def _process(idx_total_w) -> None:
@@ -330,14 +279,11 @@ def _process(idx_total_w) -> None:
 
 def main() -> int:
     work = json.loads((RT / "worklist.json").read_text())
-    # order: UPX bulk -> other compressive packers -> protectors last
     work.sort(key=lambda w: (_tier(w), w["nas_dir"]))
-    # skip already-labeled up front so the parallel pool isn't clogged by skips
     todo = [w for w in work if not already_labeled(w["nas_dir"])]
     print(f"[all] {len(work)} conditions ({len(todo)} to do); "
           f"{CONDITIONS} parallel x {os.environ.get('LABEL_JOBS','1')} runs each",
           flush=True)
-    # one clean slate for orphaned qemus at startup; run_trace cleans up its own
     subprocess.run(["pkill", "-f", "qemu-system-x86_64 -name paper"], check=False)
     time.sleep(2)
     items = [(i, len(todo), w) for i, w in enumerate(todo, 1)]

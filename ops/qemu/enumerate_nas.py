@@ -45,17 +45,10 @@ def split_family_version(nas_dir: str):
 
 import hashlib
 
-# The NAS mixes UNPACKED ORIGINAL payloads into some packer dirs (verified: the tiny
-# ansi2knr_unxutils .exe is byte-identical across alienyze/ and amber_v2.0/).  Those
-# contaminants make the "smallest .exe" an unpacked binary that trivially classifies
-# NO_UNPACKING.  A genuinely-packed sample is UNIQUE to its packer dir (a packer's
-# output differs across packers), so we hash the small candidates and drop any hash
-# that appears in >=2 different family dirs.
-HASH_MAX_BYTES = 2_000_000        # only hash files this small (cheap; contaminants
-                                  # are tiny) -- larger files are assumed packed
-HASH_PER_DIR = 16                 # hash at most this many smallest exes per dir
-TRACE_MAX_BYTES = 40_000_000      # don't queue >40MB samples (trace time / 715MB+ apps)
-MIN_PACKED_BYTES = 4096           # ignore <4KB stubs
+HASH_MAX_BYTES = 700_000
+HASH_PER_DIR = 90
+TRACE_MAX_BYTES = 40_000_000
+MIN_PACKED_BYTES = 4096
 
 
 def _remote(base, nas_dir, tc, nm):
@@ -67,10 +60,9 @@ def main() -> int:
     base = "//10.100.99.29/samples/benign_packed"
     families = sorted(e.name for e in smb.scandir(base) if e.is_dir())
 
-    # ---- Pass 1: enumerate exes per dir; hash the smallest small ones ----------
-    per_dir = {}                  # nas_dir -> {"exes":[(sz,tc,nm)], "rep_tc":str}
-    hash_dirs = {}                # sha256 -> set(nas_dir) for the hashed candidates
-    sha_of = {}                   # (nas_dir, tc, nm) -> sha256
+    per_dir = {}
+    hash_dirs = {}
+    sha_of = {}
     for nas_dir in families:
         try:
             entries = list(smb.scandir(f"{base}/{nas_dir}"))
@@ -79,7 +71,7 @@ def main() -> int:
             continue
         exes = []
         rep_tc = None
-        for e in entries:                         # (a) direct exes
+        for e in entries:
             if not e.is_dir() and e.name.lower().endswith(".exe"):
                 try:
                     sz = smb.stat(f"{base}/{nas_dir}/{e.name}").st_size
@@ -88,7 +80,7 @@ def main() -> int:
                 exes.append((sz, "", e.name))
         if exes:
             rep_tc = ""
-        for tc in sorted(e.name for e in entries if e.is_dir()):   # (b) subdirs
+        for tc in sorted(e.name for e in entries if e.is_dir()):
             try:
                 for e in smb.scandir(f"{base}/{nas_dir}/{tc}"):
                     if e.name.lower().endswith(".exe"):
@@ -106,7 +98,6 @@ def main() -> int:
             continue
         exes.sort()
         per_dir[nas_dir] = {"exes": exes, "rep_tc": rep_tc}
-        # hash the smallest few small files (the contaminants live here)
         hashed = 0
         for sz, tc, nm in exes:
             if sz > HASH_MAX_BYTES:
@@ -126,7 +117,6 @@ def main() -> int:
     print(f"[enum] hashed candidates; {len(shared)} cross-dir duplicate hashes "
           f"(unpacked originals) will be excluded")
 
-    # ---- Pass 2: build a genuinely-packed candidate pool per dir ---------------
     work = []
     for nas_dir, info in per_dir.items():
         fam, ver = split_family_version(nas_dir)
@@ -137,15 +127,13 @@ def main() -> int:
                 continue
             h = sha_of.get((nas_dir, tc, nm))
             if h is not None and h in shared:
-                contaminated.append((sz, tc, nm))   # known unpacked original
+                contaminated.append((sz, tc, nm))
                 continue
-            packed.append((sz, tc, nm))             # unique (or too big to hash)
-        chosen = packed or contaminated              # fall back only if nothing else
+            packed.append((sz, tc, nm))
+        chosen = packed or contaminated
         if len(chosen) < 2:
-            # last resort: any 2 exes (even >TRACE_MAX) so the condition is at least
-            # attempted rather than silently dropped
             chosen = [e for e in exes if e[0] >= MIN_PACKED_BYTES][:8] or exes[:8]
-        chosen.sort()                                # smallest genuinely-packed first
+        chosen.sort()
         samples = [
             {"testcase": tc, "name": nm, "size": sz,
              "sha256": sha_of.get((nas_dir, tc, nm)),
@@ -166,7 +154,6 @@ def main() -> int:
             "samples": samples,
         })
 
-    # recover configuration_id from manifest yamls (best-effort)
     try:
         import yaml
         for mf in (REPO / "manifest").glob("*.yaml"):

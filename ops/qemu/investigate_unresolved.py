@@ -95,7 +95,6 @@ def classify(tag: str, ev: list[dict]) -> dict:
     no_unpack = sum(1 for e in ev if e.get("type") == "UNRESOLVED_NO_UNPACKING_OBSERVED")
     concrete = {t: c for t, c in types.items() if str(t).startswith("TYPE_")}
 
-    # averages over runs that reported counters
     def avg(key):
         vals = [e[key] for e in ev if isinstance(e.get(key), (int, float))]
         return sum(vals) / len(vals) if vals else 0
@@ -111,7 +110,6 @@ def classify(tag: str, ev: list[dict]) -> dict:
         "trace_kept": any(e.get("trace_kept") for e in ev),
     }
 
-    # 1) infrastructure first -- a truncated/timed-out trace says nothing about the packer
     if timed_out or incomplete or loss:
         return {"verdict": "INFRASTRUCTURE",
                 "why": (f"{timed_out}/{n} runs hit the host timeout, {incomplete} had an "
@@ -119,14 +117,12 @@ def classify(tag: str, ev: list[dict]) -> dict:
                         f"never reached a usable end state (retryable)"),
                 "evidence": base}
 
-    # 2) disagreement between otherwise-valid runs
     if len(concrete) > 1:
         return {"verdict": "NO_CONSENSUS",
                 "why": (f"runs disagreed ({concrete}); exact consensus requires the same "
                         f"Type across all reps x >=2 payloads"),
                 "evidence": base}
 
-    # 3) no unpacking observed -- sample defect vs methodology limit
     if no_unpack:
         cross = any(e.get("cross_process") for e in ev)
         if cross:
@@ -136,7 +132,6 @@ def classify(tag: str, ev: list[dict]) -> dict:
                             "outside the single-process certification"),
                     "evidence": base}
         if ex and mapped_ratio > 0.99:
-            # every executed block came from a mapped file: the code was never written
             if wr > 100000:
                 return {"verdict": "METHODOLOGY_LIMIT",
                         "why": (f"all execution came from mapped sections "
