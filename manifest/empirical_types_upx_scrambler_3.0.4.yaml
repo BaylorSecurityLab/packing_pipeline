@@ -16,10 +16,10 @@ retry_run_count: 0
 in_place_validation_run_count: 0
 alternate_payload_run_count: 0
 conditions:
-- packer_family: amber
-  packer_version: '2.0'
-  configuration_id: amber_v2_001_default_build-0559d11933b7
-  test_case_id: AMBER_V2_002_REFLECTIVE
+- packer_family: upx_scrambler
+  packer_version: 3.0.4
+  configuration_id: gui-71a5b349d36e
+  test_case_id: .
   condition_source: yaml_test_case
   nas_status: planned
   available_nas_samples: 2
