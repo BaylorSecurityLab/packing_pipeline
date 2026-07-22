@@ -1,14 +1,4 @@
 #!/bin/sh
-# Retry the single-process certification.  Good boots (runs 046/048/049/052/054)
-# complete every channel in a few minutes; bad boots either never reach
-# sample_start or start then crawl mid-run (guest freezes inside
-# local_self_modify, ~1 root block/min while system code idle-spins).
-#
-# CRITICAL: each attempt runs in its OWN process group (setsid) so a fast-fail
-# kills run_trace.py AND its qemu child.  Leaking qemus piles up host load and
-# starves later boots into a death spiral (observed: 2 orphans -> load 9 -> all
-# subsequent boots miss sample_start).  kill_group + a hard qemu sweep between
-# attempts guarantee a clean slate.  Stops on the first VALIDATED: true.
 set -u
 repo=$(CDPATH= cd -- "$(dirname -- "$0")/../.." && pwd)
 cd "$repo"
@@ -32,9 +22,6 @@ for attempt in 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15; do
   D=empirical_results/qemu_runtime/cert_attempt_$attempt
   rm -rf "$D"; mkdir -p "$D"
   echo "=== attempt $attempt: launching (load $(cut -d' ' -f1 /proc/loadavg)) ==="
-  # host-idle DISABLED for the fixture: its completion is the guest stop marker
-  # (ExitProcess -> launcher action-3), event-driven and clock-immune; the 2-min
-  # idle boundary would otherwise race and kill a slow-to-exit good boot.
   setsid uv run python ops/qemu/run_trace.py "$FB" "$D/work.qcow2" "$D/trace.jsonl" \
     --meta "$D/meta.json" --log "$D/qemu.log" --monitor "$D/monitor.sock" \
     --host-timeout 1200 --host-idle-seconds 0 --guest-memory 4G \
@@ -62,12 +49,6 @@ for attempt in 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15; do
       done_ok=1; break
     fi
     cur=$(execs "$D/trace.jsonl"); grow=$((cur - prev)); prev=$cur
-    # A boot that has already recorded real root progress (exec > 500) and then
-    # stalls is almost always grinding through the local_self_modify W->X SMC
-    # crawl (QEMU precise-SMC 1-insn-TB storm), which recovers and completes if
-    # given time.  A boot still at exec ~1 is a hard root stall that never
-    # recovers.  Kill the hard stall fast (2 intervals); give a progressing boot
-    # much longer (10 intervals ~= 7.5 min) to grind through the W->X crawl.
     if [ "$grow" -lt 40 ]; then
       stalls=$((stalls + 1))
       limit=2; [ "$cur" -gt 500 ] && limit=10

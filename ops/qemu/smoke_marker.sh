@@ -32,7 +32,6 @@ set +e
 status=$?
 set -e
 
-# isa-debug-exit returns (value << 1) | 1; the guest writes 0x10.
 test "$status" -eq 33
 python3 - "$trace" <<'PY'
 import json

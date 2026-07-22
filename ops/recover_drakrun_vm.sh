@@ -1,5 +1,4 @@
 #!/bin/sh
-# Recover only drakrun's fixed vm-1 analysis slot after a failed Xen restore.
 set -u
 
 DRAKRUN=/opt/pydrakvuf/.venv/bin/drakrun

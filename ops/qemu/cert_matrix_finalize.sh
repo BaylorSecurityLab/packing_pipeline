@@ -1,6 +1,4 @@
 #!/bin/sh
-# End-to-end: re-certify the current plugin under icount, then run the UPX 3.95
-# DEFAULT condition (n=3 x 2 payloads) and finalize an empirical manifest.
 set -u
 cd "$(CDPATH= cd -- "$(dirname -- "$0")/../.." && pwd)"
 

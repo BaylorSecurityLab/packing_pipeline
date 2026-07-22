@@ -1,10 +1,4 @@
 #!/bin/sh
-# Stage a real packed sample into a COPY of the pristine Windows base image and
-# switch the PandaPilot service to run it live (not the certification fixture).
-# Never mutates the base.  Run as root (qemu-nbd + mount + offline hive edit).
-#
-#   sudo ops/qemu/stage_sample.sh <sample.exe> <out_image.qcow2> [timeout_seconds]
-#
 set -eu
 
 repo=$(CDPATH= cd -- "$(dirname -- "$0")/../.." && pwd)

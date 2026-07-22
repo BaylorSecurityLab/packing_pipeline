@@ -1,6 +1,4 @@
 #!/bin/sh
-# Label a queue of NAS conditions end-to-end, committing+pushing after each.
-# Each condition: fetch 2 payloads -> stage -> run n=3x2 -> finalize -> doc.
 set -u
 cd "$(CDPATH= cd -- "$(dirname -- "$0")/../.." && pwd)"
 

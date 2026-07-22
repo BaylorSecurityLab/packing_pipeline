@@ -1,11 +1,4 @@
 #!/bin/sh
-# Stage the validation launcher + idle override into a COPY of the Windows base
-# image, so the pristine base is never mutated.  Run as root (needs qemu-nbd +
-# mount).  Defensive: refuses a hibernated/dirty NTFS, verifies SHA-256 in the
-# mounted image, and always disconnects NBD.
-#
-#   sudo ops/qemu/stage_fixture_launcher.sh
-#
 set -eu
 
 repo=$(CDPATH= cd -- "$(dirname -- "$0")/../.." && pwd)
@@ -44,7 +37,6 @@ sleep 1
 partprobe "$nbd" 2>/dev/null || true
 sleep 1
 
-# Find the NTFS partition that contains the Panda directory.
 target=""
 for part in "$nbd"p1 "$nbd"p2 "$nbd"p3 "$nbd"p4 "$nbd"; do
     [ -b "$part" ] || continue
@@ -74,9 +66,6 @@ echo "== stage launcher + fixture + idle override =="
 cp -f "$launcher" "$mnt/Panda/guest_launcher.exe"
 cp -f "$fixture" "$mnt/Panda/validation_fixture.exe"
 cp -f "$idle_src" "$mnt/Panda/idle_ms.txt"
-# Single-process certification flag: present => fixture exits cleanly after the
-# single-process channels.  SINGLE_PROCESS=0 removes it for a full cross-process
-# run.  Default: staged when the flag source exists.
 sp_src="$repo/ops/qemu/fixture_single_process.txt"
 if [ "${SINGLE_PROCESS:-1}" != "0" ] && [ -f "$sp_src" ]; then
     cp -f "$sp_src" "$mnt/Panda/single_process.txt"
