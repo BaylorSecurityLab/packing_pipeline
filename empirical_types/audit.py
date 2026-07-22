@@ -54,7 +54,7 @@ def audit_matrix(
                 continue
             seen_run_identities[run_identity] = run_path
             by_configuration[configuration_id].append(row)
-        except Exception as error:  # preserve all corrupt evidence for the audit
+        except Exception as error:
             parse_errors.append({"run": str(run_path), "error": repr(error)})
 
     conditions = []

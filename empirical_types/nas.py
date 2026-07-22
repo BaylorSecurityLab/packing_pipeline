@@ -237,10 +237,6 @@ def plan_matrix(
                     }
                 )
             elif score >= 0.75 and condition["status"] == "missing_on_nas":
-                # A GUI packer can have a real NAS directory containing only
-                # failure logs (FSG 1.0 is one such case).  Record that as an
-                # observed-but-empty condition rather than claiming that the
-                # packer/version directory is absent.
                 condition.update(
                     {
                         "nas_packer_directory": packer_entry.name,
@@ -413,11 +409,6 @@ def stage_retry_matrix(
                 break
         retry_records.extend(partial_retry_records)
 
-        # A single transient failure should not force the experiment to discard a
-        # payload that already produced n-1 valid independent executions.  Add a
-        # bounded rep_004/rep_005 attempt for such payloads before consuming a new
-        # alternate.  Persistently failing payloads (including UAC-only samples)
-        # still fall through to alternate selection.
         in_place_retry_records = []
         remaining_needed = needed - len(partial_retry_records)
         if remaining_needed:

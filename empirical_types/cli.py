@@ -316,9 +316,6 @@ def main(argv: list[str] | None = None) -> int:
             evidence.trace_complete = False
             reason = metadata.get("ineligible_reason", "required trace channel missing")
             evidence.notes.append(reason)
-        # A single-process-only backend certification cannot vouch for a trace
-        # that performed cross-process work; the classifier hard-fails that
-        # combination to UNRESOLVED (see Evidence.cross_process_certified).
         if metadata.get("certification_mode") == "single_process":
             evidence.cross_process_certified = False
             evidence.notes.append(

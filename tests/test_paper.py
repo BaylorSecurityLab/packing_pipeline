@@ -172,8 +172,6 @@ class PaperFaithfulTraceTests(unittest.TestCase):
                 execute(0x20000),
             ]
         )
-        # The second mapping is still produced by L0.  Treating unmap as an
-        # ordinary L1 write would incorrectly invent L2 and change the type.
         self.assertEqual(evidence.layers, 2)
 
     def test_unmap_clears_stale_physical_alias_provenance(self):
@@ -193,8 +191,6 @@ class PaperFaithfulTraceTests(unittest.TestCase):
                         {"offset": 0, "size": 1, "address": 0xA000}
                     ],
                 },
-                # The guest allocator reuses the same RAM byte for unrelated
-                # L0 code.  It must not retain the old L1 provenance.
                 {**execute(0x30000), "physical_address": 0xA000},
             ]
         )

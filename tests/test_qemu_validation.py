@@ -164,12 +164,10 @@ def test_fixture_gate_accepts_processor_or_software_exception_source(tmp_path):
     trace = tmp_path / "fixture.jsonl"
     prefix = "fixture did not exercise exact exception tracing"
 
-    # No exception_dispatch at all -> the exception channel is not certified.
     trace.write_text(json.dumps({"event": "summary", "seq": 1}) + "\n", encoding="utf-8")
     _, errors = validate(trace)
     assert any(e.startswith(prefix) for e in errors)
 
-    # A processor exception (#UD etc.) now satisfies the exception channel.
     for source in ("processor_exception", "RtlRaiseException"):
         events = [
             {"event": "exception_dispatch", "seq": 1, "source": source},

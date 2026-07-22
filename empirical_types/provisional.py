@@ -12,10 +12,6 @@ def _json_lines(path: Path) -> list[dict]:
     if not path.exists():
         return []
     rows = []
-    # DRAKVUF logs can grow substantially across a complete matrix.  Reading the
-    # whole file and then splitting it temporarily holds the source text, the
-    # split strings, and every decoded object at once.  Stream the JSONL input so
-    # validation remains bounded by the decoded rows actually needed for one run.
     with path.open(encoding="utf-8", errors="replace") as source:
         for line in source:
             try:

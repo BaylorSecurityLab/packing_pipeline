@@ -41,12 +41,6 @@ class Evidence:
     candidate_code_bytes: int = 0
     candidate_multiframe_bytes: int = 0
     all_code_flagged_packer: bool = False
-    # Set by the analyzer when the trace shows the sample created/enrolled/wrote
-    # into another process.  cross_process_certified is set False when the
-    # backend stamp only certified the single-process channel set; the
-    # combination is a hard UNRESOLVED so a single-process stamp can never
-    # silently label a packer that did cross-process work (whose child activity
-    # this backend may not have observed).
     cross_process_activity: bool = False
     cross_process_certified: bool = True
     linear_transition_model: bool | None = None

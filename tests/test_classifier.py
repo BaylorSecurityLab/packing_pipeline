@@ -22,14 +22,10 @@ class ClassifierTests(unittest.TestCase):
         return Evidence(**base)
 
     def test_single_process_cert_rejects_cross_process_trace(self):
-        # A normal single-process trace still classifies under a single-process
-        # certification.
         self.assertEqual(
             classify(self.evidence(cross_process_certified=False)).complexity_type,
             "TYPE_I",
         )
-        # But if the same trace shows cross-process activity, the single-process
-        # certification must refuse to label it.
         self.assertEqual(
             classify(
                 self.evidence(
@@ -38,7 +34,6 @@ class ClassifierTests(unittest.TestCase):
             ).complexity_type,
             "UNRESOLVED_UNCERTIFIED_CROSS_PROCESS",
         )
-        # A fully-certified backend labels the cross-process trace normally.
         self.assertEqual(
             classify(
                 self.evidence(
@@ -332,9 +327,6 @@ class ClassifierTests(unittest.TestCase):
             )
             function_evidence = analyze_jsonl(path, "sample", 32)
         self.assertEqual(function_evidence.frame_function_aligned, [True, True])
-        # The paper's reported suffixes are P/B/G. Function-sized frames are
-        # included in the paper's function (F) category unless their average
-        # is one basic block.
         self.assertEqual(classify(function_evidence).complexity_type, "TYPE_V-B")
 
     def test_original_rva_tracks_reused_decode_buffer(self):

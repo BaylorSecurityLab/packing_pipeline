@@ -52,9 +52,6 @@ def collect_drakrun(
     if result_path.exists():
         try:
             data = json.loads(result_path.read_text(encoding="utf-8"))
-            # Evidence evolves as the paper-faithful classifier gains fields.
-            # Older completed runs remain valid cache entries: let dataclass
-            # defaults fill fields that did not exist when they were written.
             evidence_values = {
                 key: data[key]
                 for key in Evidence.__dataclass_fields__
@@ -136,8 +133,6 @@ def collect_drakrun(
             metadata["backend_recovery_return_code"] = recovered.returncode
             metadata["backend_recovery_stderr_tail"] = recovered.stderr[-2000:]
             if recovered.returncode == 0:
-                # A failed restore still creates drakrun's output directory.
-                # Reusing it makes the CLI abort before the recovered retry.
                 if analysis_dir.exists():
                     shutil.rmtree(analysis_dir)
                 completed = subprocess.run(

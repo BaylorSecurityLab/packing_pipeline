@@ -36,15 +36,7 @@ def _resolved_classification(run_dir: Path, expected_sample_id: str) -> str | No
     if data.get("trace_complete") is not True:
         return None
     if data.get("taxonomy_basis") == "paper_runtime_heuristic":
-        # Paper-runtime evidence assigns the Type from the layer/transition
-        # topology alone (Ugarte et al. III-E), WITHOUT an original binary -- that
-        # is the published method's design, not a shortfall.  Its validity is
-        # fully established by the checks above (exact Type, matching sample,
-        # completed termination, complete trace); original_match_available /
-        # union_code_coverage are original-binary-match fields that do not apply.
         return value
-    # Original-binary-matched (DRAKVUF collector) evidence must actually carry the
-    # match it claims.
     if data.get("original_match_available") is not True:
         return None
     coverage = data.get("union_code_coverage")

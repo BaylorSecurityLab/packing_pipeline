@@ -113,9 +113,6 @@ def verify_artifacts(
             ),
         }
         for field, expected in expected_design.items():
-            # Retry provenance was added to schema-v1 artifacts after the initial
-            # verifier shipped.  Accept older fixtures/artifacts that omit it, but
-            # require exact agreement whenever the audit provides the counters.
             if field in {
                 "retry_run_count",
                 "in_place_validation_run_count",
@@ -137,9 +134,6 @@ def verify_artifacts(
         if extra:
             errors.append(f"{source}: extra {len(extra)} conditions: {extra[:5]}")
 
-    # The corpus assigns one taxonomy type to a packer family.  Test cases and
-    # versions are repeated observations of that assignment, not independent
-    # opportunities to silently change it.
     for group_fields, description in (
         (("packer_family", "packer_version"), "family/version"),
         (("packer_family",), "family"),

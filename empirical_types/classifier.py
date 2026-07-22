@@ -11,9 +11,6 @@ def _granularity(e: Evidence) -> str:
         return "P"
     if e.frame_basic_blocks and sum(e.frame_basic_blocks) / len(e.frame_basic_blocks) == 1:
         return "B"
-    # Figure 1 names this middle category Function (F).  Section III-E
-    # explains that the automated fallback also includes irregular generic
-    # blocks/functionality-sized frames in this category.
     return "F"
 
 
@@ -42,10 +39,6 @@ def _classify_paper_runtime(e: Evidence) -> Classification:
             "TYPE_III", 1.0, e, "cyclic layer topology followed by a tail transition"
         )
 
-    # No tail transition: distinguishing Type-IV (interleaved, full code
-    # visibility) from Type-V/VI requires separating application from packer code.
-    # If every executed block was conservatively flagged as packer, that
-    # separation failed, so fall back to the paper's Type-III assignment.
     if e.all_code_flagged_packer:
         return Classification(
             "TYPE_III",
@@ -96,10 +89,6 @@ def classify(e: Evidence) -> Classification:
             UNRESOLVED["trace_loss"], 1.0, e, "required trace events are missing"
         )
     if e.cross_process_activity and not e.cross_process_certified:
-        # The sample created/enrolled/wrote into another process, but the backend
-        # was only certified for the single-process channel set.  Refuse to label
-        # rather than risk a Type derived from a trace whose cross-process
-        # behavior this backend may not have fully observed.
         return Classification(
             UNRESOLVED["uncertified_cross_process"],
             1.0,
@@ -116,10 +105,6 @@ def classify(e: Evidence) -> Classification:
                 "paper trace contains no executed basic blocks",
             )
         if e.layers == 1:
-            # Only layer 0 executed: no write-then-execute was observed, so no
-            # unpacking layer exists.  A no-unpacking trace is not a packer of any
-            # Type (Ugarte's taxonomy is about the unpacking structure) -- do NOT
-            # let it fall through to the no-tail branch and be labeled TYPE_IV.
             return Classification(
                 UNRESOLVED["no_unpacking"],
                 1.0,
