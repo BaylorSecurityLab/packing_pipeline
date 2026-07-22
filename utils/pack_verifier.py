@@ -50,6 +50,12 @@ except ImportError:
     HAS_YARA = False
 
 try:
+    import peid
+    HAS_PEID = True
+except ImportError:
+    HAS_PEID = False
+
+try:
     import yaml
     HAS_YAML = True
 except ImportError:
@@ -633,6 +639,55 @@ class VerifyState:
 
 
 # ============================================================
+# DETECTOR 6: PEiD (signature-based packer identification)
+# ============================================================
+# The embedded PEiD database also carries compiler/linker signatures
+# (e.g. "Microsoft Visual C++"), so a raw match is NOT proof of packing.
+# Only signatures whose names look like a packer/protector count as a
+# positive — mirroring the YARA detector's keyword filter.
+_PEID_PACKER_KEYWORDS = (
+    "pack", "upx", "aspack", "themida", "vmprotect", "mpress", "petite",
+    "fsg", "pecompact", "rlpack", "upack", "cryptor", "crypter", "protector",
+    "obfuscat", "encrypt", "compress", "telock", "mew", "nspack", "npack",
+    "obsidium", "enigma", "armadillo", "execryptor", "molebox", "morphine",
+    "yoda", "shrink", "scrambl", "winlicense", "acprotect", "pespin",
+)
+
+
+def detect_peid(filepath):
+    """Identify packers via the PEiD signature database (packing-box/peid).
+
+    Uses the embedded signature DB. Because that DB also contains compiler
+    signatures, only packer/protector-looking matches count as a positive.
+    Returns the usual tri-state: True (packer sig), False (none / compiler
+    sig only), None (error or not installed).
+    """
+    if not HAS_PEID:
+        return None, "peid not installed"
+
+    try:
+        # identify_packer returns [(path, [signature_names])] for one path.
+        results = peid.identify_packer(filepath)
+        matches = results[0][1] if results else []
+        if not matches:
+            return False, "No PEiD signature"
+
+        packer_hits = [
+            name for name in matches
+            if any(kw in name.lower() for kw in _PEID_PACKER_KEYWORDS)
+            or any(p in name.lower() for p in _KNOWN_PACKERS)
+        ]
+
+        if packer_hits:
+            return True, f"PEiD: {', '.join(packer_hits[:5])}"
+        # Matched only compiler/linker signatures — not a packer.
+        return False, f"PEiD non-packer: {', '.join(matches[:3])}"
+
+    except Exception as e:
+        return None, f"Error: {e}"
+
+
+# ============================================================
 # FAST DETECTOR BUNDLE (all non-capa detectors in one call)
 # ============================================================
 _FAST_DETECTORS = [
@@ -640,6 +695,7 @@ _FAST_DETECTORS = [
     ("manalyze", detect_manalyze),
     ("yara", detect_yara),
     ("entropy", detect_entropy),
+    ("peid", detect_peid),
 ]
 
 
@@ -718,6 +774,13 @@ def _extract_packer_name(*detail_pairs):
                     if rule_l.startswith(packer):
                         return packer
 
+        elif det == "peid":
+            # "PEiD: UPX 3.0" / "PEiD: ASPack v2.12" — names are already clean.
+            cleaned = re.sub(r'^peid(?:\s+non-packer)?:\s*', '', detail_l).strip()
+            for packer in _KNOWN_PACKERS:
+                if packer in cleaned:
+                    return packer
+
         elif det in ("manalyze", "entropy", "capa"):
             # "packed with VMProtect", or section name ".vmp0", "UPX0"
             m = re.search(r'packed with ([A-Za-z0-9][\w.\-+]*)', detail, re.IGNORECASE)
@@ -748,6 +811,8 @@ CSV_COLUMNS = [
     "yara_detail",
     "entropy_verdict",
     "entropy_detail",
+    "peid_verdict",
+    "peid_detail",
     "overall_packed",
 ]
 
@@ -833,7 +898,7 @@ def verify_all_files(
     # Pre-populate results from state for files that only need some detectors
     for fp in pending_files:
         fast_results[fp] = {}
-        for det in ["die", "manalyze", "yara", "entropy"]:
+        for det in ["die", "manalyze", "yara", "entropy", "peid"]:
             cached = state.get(fp, det)
             if cached is not None:
                 fast_results[fp][det] = cached
@@ -893,7 +958,7 @@ def verify_all_files(
     # Pull fully-done files' results from state
     for fp in done_files:
         fast_results[fp] = {}
-        for det in ["die", "manalyze", "yara", "entropy"]:
+        for det in ["die", "manalyze", "yara", "entropy", "peid"]:
             cached = state.get(fp, det)
             fast_results[fp][det] = cached if cached is not None else (None, "not run")
         cached = state.get(fp, "capa")
@@ -915,6 +980,7 @@ def verify_all_files(
             det.get("manalyze", (None,))[0],
             det.get("yara", (None,))[0],
             det.get("entropy", (None,))[0],
+            det.get("peid", (None,))[0],
         ]
         is_packed = any(v is True for v in all_verdicts)
         all_errors = all(v is None for v in all_verdicts)
@@ -945,9 +1011,11 @@ def verify_all_files(
         manalyze_detail = det.get("manalyze", (None, ""))[1]
         yara_detail     = det.get("yara",     (None, ""))[1]
         entropy_detail  = det.get("entropy",  (None, ""))[1]
+        peid_detail     = det.get("peid",     (None, ""))[1]
 
         detected_name = _extract_packer_name(
             ("die",      die_detail),
+            ("peid",     peid_detail),
             ("yara",     yara_detail),
             ("manalyze", manalyze_detail),
             ("entropy",  entropy_detail),
@@ -972,6 +1040,8 @@ def verify_all_files(
             "yara_detail": yara_detail,
             "entropy_verdict": _v(det.get("entropy", (None,))[0]),
             "entropy_detail": entropy_detail,
+            "peid_verdict": _v(det.get("peid", (None,))[0]),
+            "peid_detail": peid_detail,
             "overall_packed": "yes" if is_packed else ("error" if all_errors else "no"),
         }
         all_rows.append(row)
@@ -1087,6 +1157,7 @@ def main():
     print(f"    Manalyze: {'OK' if os.path.exists(MANALYZE_BIN) else 'MISSING'}")
     print(f"    YARA:     {'OK' if HAS_YARA else 'NOT INSTALLED'}")
     print(f"    pefile:   {'OK' if HAS_PEFILE else 'NOT INSTALLED'}")
+    print(f"    PEiD:     {'OK' if HAS_PEID else 'NOT INSTALLED (pip install peid)'}")
     print(f"    YAML meta: {'OK' if HAS_YAML else 'NOT INSTALLED (pip install pyyaml)'}")
     print(f"[*] Workers: {args.workers} total  ({fast_workers} fast / {capa_workers} capa)")
 
