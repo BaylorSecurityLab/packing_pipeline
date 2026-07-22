@@ -15,15 +15,24 @@ venv/
 /manifest/~$packer_catalog.xlsx
 packed_sources/
 benign_sources
+empirical_results/
+ops/qemu/*.so
+ops/qemu/build/
+ops/panda/build/
+*.egg-info/
 .claude
 
 # --- PEzor build artifacts / vendored dependencies ---
+CLAUDE.md
 _pezor_src.sh
 _prefix_PEzor_/
 donut/
 inline_syscall/
 keystone/
 wclang/
+
+# local working notes / large refs — not tracked
+docs/
 
 # --- Manual test / diagnostic scratch artifacts (not part of the pipeline) ---
 _fsg_test/

@@ -520,8 +520,8 @@ def _load_packer_meta(yaml_path=None):
         meta[dir_key] = {
             "packer_family": defn.get("packer_family", ""),
             "version": version,
-            "packer_type": defn.get("type", ""),
-            "type_ex": defn.get("type_ex", ""),
+            "packer_type": defn.get("type_hypothesis", ""),
+            "type_ex": defn.get("type_hypothesis_rationale", ""),
             "arch_origin": defn.get("arch_origin", ""),
             "license": defn.get("license", ""),
         }
