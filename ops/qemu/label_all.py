@@ -22,7 +22,7 @@ from pathlib import Path
 REPO = Path(__file__).resolve().parents[2]
 RT = REPO / "empirical_results/qemu_runtime"
 SUDO_PW = "resbears"
-MAX_SAMPLE_ATTEMPTS = 3        # distinct payload-pairs to try before giving up
+MAX_SAMPLE_ATTEMPTS = 4        # distinct payload-pairs to try before giving up
 REPS = 3
 # A payload executing fewer than this many basic blocks never really ran the program
 # (it starts, does nothing, and idles).  Such a run is an invalid observation, not a
@@ -152,7 +152,9 @@ def run_pair(tag: str, cond: dict, pair) -> tuple[str, dict]:
                 print(f"[dud] {tag}: payload {lo_k} executed only {lo} blocks vs "
                       f"{hi} for {hi_k} -- treating as a failed observation, not a "
                       f"verdict; trying a different payload", flush=True)
-                return "BAD_PAYLOAD", types
+                # Report WHICH slot was the dud so the caller can keep the payload that
+                # demonstrably ran and replace only the broken one.
+                return f"BAD_PAYLOAD:{lo_k}", types
     # finalize
     plan = REPO / runs_dir / "plan.json"
     if plan.exists():
@@ -205,15 +207,39 @@ def label_condition(w: dict) -> None:
     cands = candidate_samples(w, limit=2 * MAX_SAMPLE_ATTEMPTS)
     print(f"[cond] {tag}: {len(cands)} candidate samples", flush=True)
     label, all_types = "UNRESOLVED", {}
+    if len(cands) < 2:
+        print(f"[cond] {tag}: fewer than 2 candidates; cannot form a consensus pair",
+              flush=True)
+        return
+    pair = [cands[0], cands[1]]
+    nxt = 2                                  # next unused candidate
     for attempt in range(MAX_SAMPLE_ATTEMPTS):
-        pair = cands[2 * attempt: 2 * attempt + 2]
-        if len(pair) < 2:
-            break
         print(f"[try] {tag} attempt {attempt+1}: {[p[1] for p in pair]}", flush=True)
         label, types = run_pair(tag, cond, pair)
         all_types = types
         print(f"[try] {tag} attempt {attempt+1} -> {label} (runs: {types})", flush=True)
         if label.startswith("TYPE_"):
+            break
+        if label.startswith("BAD_PAYLOAD:"):
+            # Keep the payload that demonstrably RAN and swap out only the dud.  The
+            # old positional pairing threw away a proven-good payload alongside the
+            # broken one, so a dir with a few bad samples could never assemble a valid
+            # pair even when one payload had already produced a clean Type.
+            i = 0 if label.split(":", 1)[1] == "A" else 1
+            if nxt >= len(cands):
+                print(f"[swap] {tag}: candidate pool exhausted; keeping "
+                      f"{pair[1 - i][1]} but no replacement left", flush=True)
+                break
+            print(f"[swap] {tag}: keeping {pair[1 - i][1]} (it ran), replacing dud "
+                  f"{pair[i][1]} with {cands[nxt][1]}", flush=True)
+            pair[i] = cands[nxt]
+            nxt += 1
+            continue
+        # any other non-Type outcome: rotate BOTH payloads to a fresh pair
+        if nxt + 1 < len(cands):
+            pair = [cands[nxt], cands[nxt + 1]]
+            nxt += 2
+        else:
             break
         # NO short-circuit on NO_UNPACKING: a NO_UNPACKING verdict most often means
         # this payload was not actually packed (the NAS mixes unpacked original
@@ -229,7 +255,7 @@ def label_condition(w: dict) -> None:
         print(f"[LABEL] {tag} -> STAGE_FAILED (not recorded; will retry next run)",
               flush=True)
         return
-    if label == "BAD_PAYLOAD":
+    if label.startswith("BAD_PAYLOAD"):
         # Every attempt ended with a payload that never really ran.  That is a corpus
         # problem, so record it as unresolved rather than as a claim about the packer.
         label = "UNRESOLVED"
