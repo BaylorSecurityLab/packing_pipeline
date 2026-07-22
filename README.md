@@ -14,7 +14,6 @@ packer-corpus/
 │   └── manifest/         # JSON tracking files (processed_ids.json, x64.json)
 ├── packers/              # [Submodule] Packer binaries (Linked to 'tools' repo)
 │   └── exe32pack/
-├── packed_sources/       # [Submodule] Output artifacts (Linked to 'outputs' repo)
 ├── manifest/             # Configuration
 │   └── packer_corpus.yaml # Main definition file for packers and test cases
 ├── utils/                # Python Automation Scripts
@@ -24,6 +23,8 @@ packer-corpus/
 ├── pyproject.toml        # Dependency definitions
 └── uv.lock               # Lockfile for reproducible builds
 ```
+
+Note: `packed_sources/` (the generated output artifacts) is **not committed to this repo** — it's produced by GitHub Actions runs and published to a separate `outputs` repo.
 
 # 🚀 Prerequisites & Installation
 
@@ -43,12 +44,21 @@ We use `uv` for extremely fast dependency management and script execution. Run t
 powershell -c "irm https://astral.sh/uv/install.ps1 | iex"
 ```
 
-## 3. Clone the Repository
+## 3. Install Go (required for amber v2.0)
+
+amber v2.0 shells out to `go build` to compile its runtime stub. The prebuilt amber.exe predates Go modules (no `go.mod` in its tree), so Go 1.21+ must be told to use the legacy GOPATH build mode.
+
+- **Recommended:** Install Go via Scoop (`scoop install go`) — the runner auto-detects `C:\Users\<you>\scoop\shims\go.exe`.
+- **Manual:** Install Go from <https://go.dev/dl/> and ensure `go.exe` is on `PATH`.
+
+The runner also sets `GO111MODULE=off` automatically for `amber_v2.0`, so you don't need to change your global Go config.
+
+## 4. Clone the Repository
 
 Because this repo uses submodules, you must use the `--recurse-submodules` flag to pull the linked projects immediately.
 ```powershell
-git clone --recurse-submodules git@gitlab.ecs.baylor.edu:leal-security-lab/automated-packing/corpus.git
-cd corpus
+git clone --recurse-submodules https://github.com/BaylorSecurityLab/packing_pipeline.git
+cd packing_pipeline
 ```
 
 **Already cloned without submodules?** Run this to fix it:
@@ -56,12 +66,29 @@ cd corpus
 git submodule update --init --recursive
 ```
 
-## 4. Install Dependencies
+## 5. Install Dependencies
 
 Initialize the environment and install dependencies defined in `pyproject.toml`.
 ```powershell
 uv sync
 ```
+
+## 6. Install WSL2 (required for PEzor)
+
+PEzor shells into WSL2 to compile its C++ stub. Other packers are pure Windows binaries and don't need WSL.
+
+```powershell
+wsl --install
+# Reboot if prompted, then set the default distro:
+wsl --set-default-version 2
+```
+
+Inside WSL, install the build toolchain PEzor needs (clang, make, git):
+```bash
+wsl -d Ubuntu-26.04 -u root -- bash -c 'apt-get update && apt-get install -y build-essential clang git'
+```
+
+Verify with `wsl --status` — you should see `Default Version: 2`.
 
 ---
 
@@ -99,12 +126,58 @@ Some shareware packers (like evaluation versions) have strict file size limits. 
 uv run utils/packer_runner.py exe32pack --max-size-kb 80
 ```
 
-## Phase 3: Manifest Maintenance
+### PEzor WSL worker count:
 
-Updates the `last_updated`, `version`, and `maintainer` fields in `packer_corpus.yaml` based on git history.
+PEzor shells into WSL2 and compiles C++ per job. By default it runs **4 concurrent `wsl.exe` invocations**; bump it with `--wsl-workers N` (the runner caps N at the per-packer ceiling of 8 and logs the effective value at start-up):
 ```powershell
-uv run utils/update_manifest.py
+# Default 4 — fine for most boxes
+uv run utils/packer_runner.py pezor
+
+# Custom worker count (capped at 8 by the runner's per-packer ceiling)
+uv run utils/packer_runner.py pezor --wsl-workers 6
 ```
+The memory-budget scheduler is the real throttle for PEzor — the worker count is just an upper bound on simultaneous `wsl.exe` launches. If you raise `--wsl-workers` and the WSL VM OOMs, lower it.
+
+## Phase 2b: Run GUI Packers
+
+Some packers (FSG, Themida, Obsidium, Yoda's Crypter/Protector, PECompact, ZProtect, …) are **GUI-only** and cannot be scripted through `packer_runner.py`. They are driven by GUI-automation wrappers in `wrapper/` (built on `pyautogui` / `win32gui`) and orchestrated by **`wrapper/gui_runner.py`**.
+
+> ⚠️ **Run on an interactive Windows desktop.** These wrappers move the real mouse and keyboard and need a visible screen — they will **not** work headless, over SSH, or in CI. Don't touch the machine while a run is in progress.
+
+Paths are resolved relative to the script, so run these from the project root:
+```powershell
+# Pack every compatible file in benign_sources/x86 with FSG
+uv run python wrapper/gui_runner.py --packer fsg_v1.0
+
+# Smoke-test on a single input first (recommended)
+uv run python wrapper/gui_runner.py --packer fsg_v1.0 --limit 1
+
+# Pack one specific file
+uv run python wrapper/gui_runner.py --packer fsg_v1.0 --file "benign_sources\x86\example.exe"
+
+# Run every GUI packer in sequence
+uv run python wrapper/gui_runner.py --packer all
+```
+
+Output goes to `packed_sources/<packer>_<version>/` (e.g. `packed_sources/fsg_v1.0_1.0/`). Already-packed inputs are skipped by default.
+
+### Common options
+
+| Flag | Description |
+|------|-------------|
+| `--packer <name>` | GUI packer to run (`fsg_v1.0`, `themida_v3.2.4.34`, …), or `all` for every one |
+| `--file <path>` | Pack a single file instead of the whole batch |
+| `--limit N` | Only process the first N files |
+| `--dry-run` | List the files that would be packed, without packing |
+| `--no-skip` | Re-pack files even if output already exists |
+| `--recursive` | Scan sub-directories of the source dir |
+| `--exclude <p1 p2>` | With `--packer all`, skip these packers |
+| `--source-dir <dir>` | Input directory (default `benign_sources/x86`) |
+| `--output-dir <dir>` | Override the output directory |
+| `--list-packers` | List all GUI packers and their supported file types |
+| `--packer-info <name>` | Show a packer's configurable options |
+
+> ℹ️ FSG specifically needs a **PE32 / x86** input with an **ASCII-only path**, ideally **< 80 KB** — incompatible files trip a TLS dialog and are skipped automatically.
 
 ## Phase 4: Empirical Type I–VI collection
 

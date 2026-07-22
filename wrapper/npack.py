@@ -52,11 +52,20 @@ class NPack(BaseGUI):
 
         start_time = time.time()
         time.sleep(10)
+        missing_count = 0
+        max_missing_checks = 6
 
         while time.time() - start_time < timeout:
             elapsed = int(time.time() - start_time)
 
+            error_dialog = self.find_error_dialog(timeout=0)
+            if error_dialog:
+                print(f"\n[ERROR] nPack reported a fatal error dialog at {elapsed}s; aborting.")
+                self.dismiss_dialog(error_dialog)
+                return None
+
             if input_path.exists():
+                missing_count = 0
                 current_size = input_path.stat().st_size
 
                 if self.is_file_locked(str(input_path)):
@@ -73,8 +82,12 @@ class NPack(BaseGUI):
                         print(f"[INFO] Final size: {current_size:,} bytes")
                         return str(input_path)
             else:
-                print(f"  [{elapsed}s] File not found, waiting...")
+                missing_count += 1
+                print(f"  [{elapsed}s] File not found ({missing_count}/{max_missing_checks}), waiting...")
                 stable_count = 0
+                if missing_count >= max_missing_checks:
+                    print(f"\n[ERROR] Input file missing for ~{missing_count * check_interval}s — packer likely crashed; aborting.")
+                    return None
 
             time.sleep(check_interval)
 
@@ -143,6 +156,16 @@ class NPack(BaseGUI):
             self.click_at_percent(0.3, 0.8, "Compress button")
             time.sleep(1)
             print("[INFO] Compression initiated!")
+
+            error_dialog = self.find_error_dialog(timeout=self.SHORT_TIMEOUT)
+            if error_dialog:
+                print(
+                    "[ERROR] nPack reported a fatal internal error "
+                    "(access violation) on Compress; treating as failure."
+                )
+                self.dismiss_dialog(error_dialog)
+                self.close_application()
+                return False
 
             # Step 6: Watch file for lock release
             packed_file = self.wait_for_packing_complete(str(input_file))

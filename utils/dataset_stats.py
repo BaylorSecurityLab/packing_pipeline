@@ -49,8 +49,8 @@ class DatasetStatistics:
             raise FileNotFoundError(f"YAML file not found: {yaml_path}")
 
         self.data = self._load_yaml()
-        self.definitions = self.data.get('definitions', [])
-        self.test_cases = self.data.get('test_cases', [])
+        self.definitions = self.data.get('definitions') or []
+        self.test_cases = self.data.get('test_cases') or []
 
     def _load_yaml(self) -> Dict[str, Any]:
         """Load YAML file"""
@@ -67,21 +67,21 @@ class DatasetStatistics:
 
     def get_gui_count(self) -> Dict[str, int]:
         """Count GUI packers and tests"""
-        gui_packers = sum(1 for p in self.definitions if 'GUI' in p.get('tags', []))
-        gui_tests = sum(1 for t in self.test_cases if 'GUI' in t.get('tags', []))
+        gui_packers = sum(1 for p in self.definitions if 'GUI' in (p.get('tags') or []))
+        gui_tests = sum(1 for t in self.test_cases if 'GUI' in (t.get('tags') or []))
         return {'packers': gui_packers, 'tests': gui_tests}
 
     def get_cli_count(self) -> Dict[str, int]:
         """Count CLI packers and tests"""
-        cli_packers = sum(1 for p in self.definitions if 'CLI' in p.get('tags', []))
-        cli_tests = sum(1 for t in self.test_cases if 'CLI' in t.get('tags', []))
+        cli_packers = sum(1 for p in self.definitions if 'CLI' in (p.get('tags') or []))
+        cli_tests = sum(1 for t in self.test_cases if 'CLI' in (t.get('tags') or []))
         return {'packers': cli_packers, 'tests': cli_tests}
 
     def get_tag_distribution(self) -> Counter:
         """Get distribution of all tags"""
         all_tags = []
         for definition in self.definitions:
-            all_tags.extend(definition.get('tags', []))
+            all_tags.extend(definition.get('tags') or [])
         return Counter(all_tags)
 
     def get_tests_per_packer(self) -> Dict[str, int]:
@@ -127,8 +127,8 @@ class DatasetStatistics:
         """Get list of packers with known issues"""
         packers_with_issues = []
         for definition in self.definitions:
-            issues = definition.get('known_issues', [])
-            # Filter out empty strings
+            issues = definition.get('known_issues') or []
+            # Filter out empty strings (and tolerate a null known_issues: key)
             issues = [i for i in issues if i and i.strip()]
             if issues:
                 packers_with_issues.append({

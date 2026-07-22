@@ -161,6 +161,19 @@ PACKER_SETTINGS = {
         "use_dialog_killer": False,
         "timeout": 60,
     },
+    "fsg_v1.3": {
+        "use_dialog_killer": False,
+        # FSG v1.33 packs on the CLI (`FSG.EXE <input>`) but pops a
+        # "compression ratio" dialog at the end and never exits on its
+        # own -- the process hangs forever. The runner's subprocess
+        # times out (exit code 0xFFFFFFFF) and reports failure even
+        # though the file IS packed. success_by_hash tells the runner
+        # to detect success by comparing the staged-input SHA-256
+        # before vs after: if it changed, the pack succeeded and the
+        # timeout was just the dialog refusing to dismiss itself.
+        "timeout": 30,
+        "success_by_hash": True,
+    },
     "pezor": {
         "use_dialog_killer": False,
         "timeout": 600,
@@ -171,8 +184,11 @@ PACKER_SETTINGS = {
         # WSL VM and crash it (host-level Wsl/Service/E_UNEXPECTED). Gate jobs by
         # estimated RAM instead. Budget stays under the VM's ~9.3 GB usable so the
         # VM never OOMs. max_workers is just an upper ceiling on wsl.exe launches;
-        # the memory gate is the real throttle.
+        # the memory gate is the real throttle. wsl_workers is the default
+        # concurrent wsl.exe count; --workers on the CLI overrides it (capped at
+        # max_workers) and the runner logs the effective value at start-up.
         "max_workers": 8,
+        "wsl_workers": 4,
         "mem_budget_mb": 7500,
         "mem_floor_mb": 250,
         "mem_per_input_mb": 60,
@@ -208,6 +224,106 @@ def _silent_remove(path):
         if os.path.exists(path):
             os.remove(path)
     except OSError:
+        pass
+
+
+def _maybe_success_by_hash(
+    packer_settings,
+    packer_bin,
+    pre_hash,
+    staging_path,
+    dst_path,
+    output_behavior,
+):
+    """Fallback success detector for packers that never exit cleanly.
+
+    FSG v1.33 packs the input in place but hangs on a "compression
+    ratio" dialog and never returns; the runner's subprocess times out
+    with exit code 0xFFFFFFFF even though the file was packed. When
+    PACKER_SETTINGS[packer]["success_by_hash"] is True, compare the
+    staged input's SHA-256 before vs after: a change means packing
+    succeeded -- return True and promote staging_path to dst_path.
+
+    Also opportunistically terminates any lingering packer process
+    (FSG.EXE never exits; the next job would otherwise collide on the
+    file lock).
+    """
+    if not packer_settings or not packer_settings.get("success_by_hash"):
+        return False
+    if output_behavior != "in_place" or not pre_hash:
+        return False
+    try:
+        if not os.path.exists(staging_path):
+            return False
+        with open(staging_path, "rb") as f:
+            post_hash = hashlib.sha256(f.read()).hexdigest()
+    except OSError:
+        return False
+    if post_hash == pre_hash:
+        return False
+    try:
+        shutil.copyfile(staging_path, dst_path)
+    except OSError:
+        return False
+    _kill_packer_process_by_name(packer_bin)
+    return True
+
+
+def _kill_packer_process_by_name(packer_bin):
+    """Kill any process whose executable basename matches the packer binary.
+
+    Some packers (notably FSG v1.33) never exit cleanly -- they pop a
+    "compression ratio" dialog and the runner's subprocess times out.
+    Even after the timeout, the child process is still alive and would
+    hold the staged file open for the next job. Best-effort: find any
+    running process with a matching image name and terminate it.
+    """
+    if os.name != "nt" or not packer_bin:
+        return
+    try:
+        target = os.path.basename(packer_bin).lower()
+        import ctypes
+        from ctypes import wintypes
+
+        TH32CS_SNAPPROCESS = 0x00000002
+        kernel32 = ctypes.windll.kernel32
+        CreateToolhelp32Snapshot = kernel32.CreateToolhelp32Snapshot
+        Process32FirstW = kernel32.Process32FirstW
+        Process32NextW = kernel32.Process32NextW
+        CloseHandle = kernel32.CloseHandle
+
+        class PROCESSENTRY32W(ctypes.Structure):
+            _fields_ = [
+                ("dwSize", wintypes.DWORD),
+                ("cntUsage", wintypes.DWORD),
+                ("th32ProcessID", wintypes.DWORD),
+                ("th32DefaultHeapID", ctypes.c_void_p),
+                ("th32ModuleID", wintypes.DWORD),
+                ("cntThreads", wintypes.DWORD),
+                ("th32ParentProcessID", wintypes.DWORD),
+                ("pcPriClassBase", wintypes.LONG),
+                ("dwFlags", wintypes.DWORD),
+                ("szExeFile", ctypes.c_wchar * 260),
+            ]
+
+        snap = CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS, 0)
+        if snap == ctypes.c_void_p(-1).value:
+            return
+        try:
+            entry = PROCESSENTRY32W()
+            entry.dwSize = ctypes.sizeof(PROCESSENTRY32W)
+            ok = Process32FirstW(snap, ctypes.byref(entry))
+            while ok:
+                if entry.szExeFile.lower() == target:
+                    handle = kernel32.OpenProcess(0x0001, False, entry.th32ProcessID)
+                    if handle:
+                        kernel32.TerminateProcess(handle, 1)
+                        kernel32.CloseHandle(handle)
+                ok = Process32NextW(snap, ctypes.byref(entry))
+        finally:
+            CloseHandle(snap)
+    except Exception:
+        # Best-effort -- never let cleanup kill the runner.
         pass
 
 
@@ -432,11 +548,17 @@ def pack_single_file(args):
         dependencies,
         config,
         project_file,
+        packer_name,
     ) = args
 
     filename = os.path.basename(src_path)
     safe_filename = sanitize_filename(filename)
     dst_path = os.path.join(output_dir, safe_filename)
+
+    # Per-packer settings (timeout, success_by_hash, etc.). The
+    # hash-based success fallback for hang-on-dialog packers (FSG) is
+    # gated on this lookup.
+    pk_settings = get_packer_settings(packer_name)
 
     if max_size_kb > 0:
         file_size_kb = os.path.getsize(src_path) / 1024
@@ -600,18 +722,62 @@ def pack_single_file(args):
     pack_env["TEMP"] = os.path.abspath(local_temp)
     pack_env["TMP"] = os.path.abspath(local_temp)
 
+    # amber v2.0 shells out to `go build` to compile a runtime stub. The prebuilt
+    # amber.exe is from the GOPATH era (no go.mod); Go 1.21+ defaults to module
+    # mode outside GOPATH and refuses the build. GO111MODULE=off restores the
+    # legacy behavior so v2.0's stub compiles. The Go toolchain must also be on
+    # PATH -- prefer Scoop's shim, then fall back to other common installs.
+    if packer_name.lower() == "amber_v2.0":
+        pack_env["GO111MODULE"] = "off"
+        go_path_candidates = [
+            r"C:\Users\Towshi\scoop\shims",
+            r"C:\Program Files\Go\bin",
+            r"C:\Go\bin",
+        ]
+        existing = pack_env.get("PATH", "")
+        prepend = []
+        for p in go_path_candidates:
+            if os.path.isdir(p) and any(f.lower() == "go.exe" for f in os.listdir(p)):
+                prepend.append(p)
+        pack_env["PATH"] = ";".join(prepend + [existing]) if prepend else existing
+
     # In-place packers modify a single file (named via {in} or {out}). Stage that
     # file inside local_temp so dst_path stays untouched until success.
+    staged_pre_hash = None
     if output_behavior == "in_place":
         try:
             shutil.copyfile(safe_input_path, staging_out)
         except OSError as e:
             return False, f"Failed to setup in-place file: {e}"
+        # Capture the SHA-256 of the staged input BEFORE invoking the packer
+        # so the post-failure check can detect that in-place packing actually
+        # happened even when the subprocess times out (FSG v1.33 hangs on a
+        # "compression ratio" dialog and never exits cleanly).
+        try:
+            with open(staging_out, "rb") as _f:
+                staged_pre_hash = hashlib.sha256(_f.read()).hexdigest()
+        except OSError:
+            staged_pre_hash = None
 
     # --- Robust Command Construction ---
     raw_parts = cmd_template.split()
     command_list = []
     is_wsl_command = raw_parts[0].lower() == "wsl" if raw_parts else False
+
+    # Shell scripts invoked by WSL (e.g. PEzor's pezor_wrap.sh) can't tolerate
+    # Windows-style CRLF line endings -- bash on Linux reads the \r as part of
+    # the token, silently corrupting keywords like `if`/`fi`/`then` and failing
+    # with "unexpected end of file from 'if' command". Strip CRs at the source
+    # path before WSL sees the file. No-op for non-shell-script packers.
+    if is_wsl_command and packer_bin.lower().endswith((".sh", ".bash")):
+        try:
+            with open(packer_bin, "rb") as f:
+                content = f.read()
+            if b"\r\n" in content:
+                with open(packer_bin, "wb") as f:
+                    f.write(content.replace(b"\r\n", b"\n"))
+        except OSError as e:
+            return False, f"Failed to normalize shell script line endings: {e}"
 
     # Prepare values for substitution
     # Use short paths for Windows binaries to avoid space issues
@@ -666,6 +832,11 @@ def pack_single_file(args):
         gate_held = gate.acquire(est_mb)
 
     try:
+        # cwd = packer binary's directory. Hyperion (v1.2 and v2.3.1) shells out
+        # to Fasm\FASM.EXE with relative paths under Src\FasmContainer32\, so it
+        # MUST run from its own dir or it fails with "Could not open output file
+        # Src\FasmContainer32\infile.asm". Don't change this without re-testing
+        # hyperion on at least one small sample.
         cwd = os.path.dirname(packer_bin)
 
         # DEBUG: Uncomment the next line to see exactly what runs
@@ -719,14 +890,34 @@ def pack_single_file(args):
         )
 
     except subprocess.TimeoutExpired:
+        # FSG v1.33 hangs forever on its "compression ratio" dialog and
+        # never exits; the runner's subprocess times out and reports
+        # failure even though the file was already packed in place.
+        # success_by_hash in PACKER_SETTINGS tells us to fall back to a
+        # staged-input hash comparison.
+        if _maybe_success_by_hash(
+            pk_settings, packer_bin, staged_pre_hash, staging_out, dst_path,
+            output_behavior,
+        ):
+            return True, "Packed (detected via hash change after timeout)"
         return False, "Timeout (possible stuck dialog)"
 
     except subprocess.CalledProcessError as e:
         out = e.stdout.strip() if e.stdout else ""
         err = e.stderr.strip() if e.stderr else ""
+        if _maybe_success_by_hash(
+            pk_settings, packer_bin, staged_pre_hash, staging_out, dst_path,
+            output_behavior,
+        ):
+            return True, "Packed (detected via hash change after non-zero exit)"
         return False, f"Exit Code {e.returncode} - STDOUT: {out} | STDERR: {err}"
 
     except Exception as e:
+        if _maybe_success_by_hash(
+            pk_settings, packer_bin, staged_pre_hash, staging_out, dst_path,
+            output_behavior,
+        ):
+            return True, "Packed (detected via hash change after exception)"
         return False, f"Exception: {str(e)}"
 
     finally:
@@ -739,7 +930,7 @@ def pack_single_file(args):
             _silent_remove(leftover)
 
 
-def run_packing(packer_name_input, max_size_kb=0, config=None, workers=1):
+def run_packing(packer_name_input, max_size_kb=0, config=None, workers=1, wsl_workers=None):
     _cancel_event.clear()
     if config is None:
         config = load_yaml(YAML_CONFIG_FILE)
@@ -758,9 +949,26 @@ def run_packing(packer_name_input, max_size_kb=0, config=None, workers=1):
         print(f"[!] Packer definition not found for: {packer_name_input}")
         return []
 
+    pk_settings = get_packer_settings(packer_name_input)
+
     # Some packers (e.g. PEzor) can't tolerate the global worker count because
     # each job spawns a heavy WSL/compile subprocess. Honor a per-packer cap.
-    pk_settings = get_packer_settings(packer_name_input)
+    # wsl_workers_override (None unless the user passed --wsl-workers) takes
+    # precedence over the packer's wsl_workers default; falls back to that
+    # default if neither the override nor --workers exceeds the floor.
+    wsl_workers_default = pk_settings.get("wsl_workers")
+    if wsl_workers is not None:
+        workers = wsl_workers
+        print(
+            f"[*] {packer_name_input} wsl_workers override: {workers} "
+            f"(packer cap={pk_settings.get('max_workers')})"
+        )
+    elif wsl_workers_default is not None and workers < wsl_workers_default:
+        print(
+            f"[*] {packer_name_input} defaulting to wsl_workers={wsl_workers_default} "
+            f"(use --wsl-workers N to override; cap={pk_settings.get('max_workers')})"
+        )
+        workers = wsl_workers_default
     max_workers_cap = pk_settings.get("max_workers")
     if max_workers_cap and workers > max_workers_cap:
         print(
@@ -913,6 +1121,7 @@ def run_packing(packer_name_input, max_size_kb=0, config=None, workers=1):
                         dependencies,
                         config,
                         project_file_path,
+                        packer_name_input,
                     )
                 )
 
@@ -1096,6 +1305,14 @@ if __name__ == "__main__":
         help=f"Number of parallel threads (default: {default_workers})",
     )
     parser.add_argument(
+        "--wsl-workers",
+        type=int,
+        default=None,
+        help="Override the per-packer WSL worker count (e.g. PEzor; default 4). "
+        "Caps at the per-packer max_workers ceiling. Has no effect on packers "
+        "that don't define a wsl_workers setting.",
+    )
+    parser.add_argument(
         "--verify",
         action="store_true",
         help="Run pack verification after packing to delete unverified samples.",
@@ -1156,7 +1373,13 @@ if __name__ == "__main__":
     all_results = []
     for p in packer_bar:
         packer_bar.set_postfix_str(p)
-        rows = run_packing(p, args.max_size_kb, main_config, args.workers)
+        rows = run_packing(
+            p,
+            args.max_size_kb,
+            main_config,
+            args.workers,
+            wsl_workers=args.wsl_workers,
+        )
         all_results.extend(rows or [])
         tqdm.write("=" * 40)
     packer_bar.close()

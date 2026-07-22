@@ -1,0 +1,13 @@
+# Force LF line endings for shell scripts. WSL bash silently treats
+# \r as part of the token, corrupting `if`/`fi`/`then` and producing
+# "syntax error: unexpected end of file from 'if' command" when a
+# script is committed on Windows with core.autocrlf=true and ends up
+# on the WSL side as CRLF. Keep shell scripts LF on disk too.
+*.sh text eol=lf
+*.bash text eol=lf
+
+# Manifest + YAML: keep LF so the line-ending churn doesn't pollute
+# future diffs (this repo had a 3000-line spurious diff once because
+# HEAD was LF and on-disk was CRLF).
+*.yaml text eol=lf
+*.yml text eol=lf
