@@ -286,6 +286,18 @@ def main() -> int:
           flush=True)
     subprocess.run(["pkill", "-f", "qemu-system-x86_64 -name paper"], check=False)
     time.sleep(2)
+    runs_root = RT / "all_runs"
+    freed = 0
+    for pat in ("*/trace.jsonl", "*/work.qcow2"):
+        for stale in runs_root.glob(pat):
+            try:
+                freed += stale.stat().st_size
+                stale.unlink()
+            except Exception:
+                pass
+    if freed:
+        print(f"[all] purged {freed // (1024 ** 3)}GB of stale traces from prior runs",
+              flush=True)
     items = [(i, len(todo), w) for i, w in enumerate(todo, 1)]
     if CONDITIONS <= 1:
         for it in items:
