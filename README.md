@@ -181,11 +181,10 @@ Output goes to `packed_sources/<packer>_<version>/` (e.g. `packed_sources/fsg_v1
 
 ## Phase 4: Empirical Type I–VI collection
 
-The manifest's complexity labels are hypotheses, not measured truth. DRAKVUF
-results remain useful behavioral diagnostics but are not accepted as Type I–VI
-evidence. Paper-faithful labels require the two-vCPU upstream-QEMU tracer,
-complete ordered basic-block/write/IPC evidence, and a passing eligibility
-gate. Backend details and validation status are in
+Type I–VI labels are assigned empirically from real dynamic traces. A label is
+emitted only on exact consensus across ≥2 distinct payloads × 3 repetitions,
+using the two-vCPU upstream-QEMU tracer with complete ordered
+basic-block/write/IPC evidence and a passing eligibility gate. Backend details and validation status are in
 [`ops/qemu/README.md`](ops/qemu/README.md); the collection workflow is in
 [`doc/empirical_type_collection.md`](doc/empirical_type_collection.md).
 

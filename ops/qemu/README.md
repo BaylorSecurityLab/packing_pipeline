@@ -1,7 +1,6 @@
 # Upstream QEMU paper tracer
 
-This backend replaces the DRAKVUF proxy and the unstable PANDA pilot for
-Type I–VI evidence.  It uses upstream QEMU TCG callbacks for executed basic
+This is the Type I–VI evidence backend.  It uses upstream QEMU TCG callbacks for executed basic
 blocks and every successful memory store.  Run the analysis VM with two guest
 CPUs and single-threaded TCG (`-smp 2 -accel tcg,thread=single`) so events from
 both CPUs form one ordered stream, as required by the paper's transition
