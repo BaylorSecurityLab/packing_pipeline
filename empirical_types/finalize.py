@@ -9,7 +9,6 @@ from pathlib import Path
 import yaml
 
 from .provisional import (
-    _normalize_type,
     dynamic_validation,
     repetition_identity,
     sample_identity,
@@ -76,7 +75,6 @@ def finalize_labels(
             if row["resolved_classification"]
         ]
         exact_counts = Counter(exact)
-        hypothesis = _normalize_type(planned.get("type_hypothesis"))
         original_mapped_samples = {
             sample_identity(row) for row in members if row.get("original_path")
         }
@@ -126,16 +124,6 @@ def finalize_labels(
             status = "empirical_exact_trace_consensus"
             confidence = 0.95
             evidence_level = "A_exact_layer_frame_trace"
-        elif meets_dynamic_gate and hypothesis:
-            label = f"PROVISIONAL_{hypothesis}"
-            status = "provisional_stack_cross_check"
-            confidence = 0.55
-            evidence_level = "B_dynamic_proxy_plus_taxonomy_hypothesis"
-        elif hypothesis:
-            label = f"HYPOTHESIS_ONLY_{hypothesis}"
-            status = "pending_dynamic_evidence"
-            confidence = 0.25
-            evidence_level = "C_taxonomy_hypothesis_only"
         conditions.append(
             {
                 "packer_family": planned["packer_family"],
@@ -177,7 +165,6 @@ def finalize_labels(
                         if row["dynamic_failure_reason"]
                     )
                 ),
-                "taxonomy_hypothesis": hypothesis,
                 "label": label,
                 "label_status": status,
                 "confidence": confidence,
@@ -231,7 +218,7 @@ def finalize_labels(
                 "taxonomy": "Ugarte et al. Type I-VI",
                 "warning": (
                     "Only empirical_exact_trace_consensus is an exact paper-faithful "
-                    "measurement; provisional and hypothesis-only labels retain their provenance."
+                    "measurement; conditions without it remain explicitly unresolved."
                 ),
                 "minimum_repetitions_per_sample": minimum_repetitions,
                 "minimum_distinct_samples": minimum_distinct_samples,
@@ -270,7 +257,6 @@ def finalize_labels(
             "target_event_totals",
             "original_mapped_distinct_samples",
             "exact_trace_resolved_runs",
-            "taxonomy_hypothesis",
             "label",
             "label_status",
             "confidence",
