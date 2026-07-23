@@ -190,6 +190,60 @@ basic-block/write/IPC evidence and a passing eligibility gate. Backend details a
 
 ---
 
+# 🔒 SHA Quality Gate
+
+Every produced sample is verified against a **SHA-256 gate** before it lands in `packed_sources/`. The gate prevents two recurring contamination classes from ever being published:
+
+1. **Pass-throughs** — the packer returned the input bytes unchanged (`sha_out == sha_in`).
+2. **Cross-packer duplicates** — the same SHA-256 already exists under a *different* `<packer>_<version>` directory (proves an unpacked original leaked in, or two packers produced identical bytes).
+
+Both runners wire the same `utils/sha_gate.ShaGate` instance into their `pack_single_file` / `run_packer` paths, so a single rejected output is removed before any further accounting and surfaces in the final report as `PACK_FAILED_PASSTHROUGH`, `PACK_OUTPUT_MATCHES_OTHER_INPUT`, or `PACK_DUP_ACROSS_PACKERS`.
+
+### Enable / disable
+
+| Runner | Flag |
+|---|---|
+| `utils/packer_runner.py` | `--sha-gate` (default) / `--no-sha-gate` |
+| `wrapper/gui_runner.py`  | `--sha-gate` (default) / `--no-sha-gate` |
+
+`--no-sha-gate` is an escape hatch for diagnostic re-runs. The default is on; ship a PR that requires disabling it and reviewers will ask why.
+
+### State files (under `packed_sources/_audit/`)
+
+| File | Purpose |
+|---|---|
+| `published_shas.jsonl` | Authoritative cross-packer state. Reconciled with the on-disk tree (`size` + `mtime_ns`) at every launch so the 30 k+ file corpus does not require a full rehash. |
+| `manifest.jsonl` | Append-only provenance log. One row per `verify_pack` call (accepted or rejected). |
+
+Both runners share the audit dir; the gate reconciles state on startup so two processes launched back-to-back see each other's published outputs.
+
+---
+
+# 🧹 Cleanup pass (`utils/nas_cleanup.py`)
+
+Once a SHA gate is in place it stops new contamination, but the existing corpus may already contain unpacked originals and pass-throughs. The cleanup pass walks `packed_sources/`, finds them, and moves them to `packed_sources/_quarantine/` (never deletes in place).
+
+```powershell
+# 1) Walk every .exe and write _audit/nas_inventory.jsonl (~30 k rows, minutes)
+uv run python utils/nas_cleanup.py inventory
+
+# 2) Diff the inventory against benign_sources/x86 and emit flagged rows
+#    + a human-readable Markdown report.
+uv run python utils/nas_cleanup.py report
+
+# 3) Review packed_sources/_audit/nas_cleanup_report.md, then move
+#    flagged files into packed_sources/_quarantine/. Idempotent;
+#    refuses stale data; blocks packer_dirs that would drop below 2
+#    genuine samples (those surface as "needs re-packing").
+uv run python utils/nas_cleanup.py quarantine
+```
+
+Pass `--packed-root <dir>` / `--benign-dir <dir>` to point the script at a copy of the corpus (e.g. a snapshot on a different drive) — defaults are the live repo paths.
+
+Outputs land under `<packed_root>/_audit/` and `<packed_root>/_quarantine/`.
+
+---
+
 # ⚙️ Configuration (packer_corpus.yaml)
 
 The `manifest/packer_corpus.yaml` file is the source of truth for the experiment. It defines:

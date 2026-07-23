@@ -31,6 +31,11 @@ packer-types = "empirical_types.cli:main"
 [project.urls]
 Repository = "https://github.com/codingb3ar/packer-corpus"
 
+[dependency-groups]
+dev = [
+    "pytest>=8",
+]
+
 [build-system]
 requires = ["setuptools>=77"]
 build-backend = "setuptools.build_meta"
@@ -43,6 +48,7 @@ package = true
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+pythonpath = ["."]
 norecursedirs = ["empirical_results"]
 
 [tool.bumpversion]

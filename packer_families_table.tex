@@ -1,0 +1,42 @@
+% Requires \usepackage{booktabs} in the preamble.
+% Single-column IEEE table (fits one column of a two-column layout).
+\begin{table}[t]
+\centering
+\caption{Packer families and variant counts in the corpus. The corpus
+comprises \textbf{108} packer variants across \textbf{42} distinct
+families; the UPX family contributes the largest share, covering its
+full v0.60--v5.1.1 release history. ``\#V'' denotes the number of
+variants per family.}
+\label{tab:packer_families}
+\footnotesize
+\setlength{\tabcolsep}{4pt}
+\begin{tabular}{@{}lr@{\hspace{1.6em}}lr@{}}
+\toprule
+Family & \#V & Family & \#V \\
+\midrule
+UPX                 & 50 & hxor\_packer     & 1 \\
+UPX\_Scrambler      & 6  & jdpack           & 1 \\
+yoda\_protector     & 5  & mew              & 1 \\
+amber               & 3  & molebox          & 1 \\
+petite              & 3  & npack            & 1 \\
+hyperion            & 2  & nspack           & 1 \\
+kkrunchy            & 2  & obsidium         & 1 \\
+mpress              & 2  & packman          & 1 \\
+yoda\_crypter       & 2  & pe\_diminisher   & 1 \\
+acprotect           & 1  & pelock           & 1 \\
+alienyze\_protector & 1  & pepacker         & 1 \\
+alushpacker         & 1  & pezor            & 1 \\
+armadillo           & 1  & rlpack           & 1 \\
+asm\_guard          & 1  & shrinker         & 1 \\
+astral\_pe          & 1  & simpledpack      & 1 \\
+beroexepacker       & 1  & telock           & 1 \\
+enigma              & 1  & themida          & 1 \\
+eronona             & 1  & upack            & 1 \\
+exe32pack           & 1  & winupack         & 1 \\
+fsg                 & 1  & xcomp            & 1 \\
+hackupx             & 1  & zprotect         & 1 \\
+\midrule
+\multicolumn{4}{@{}l}{\textbf{Total: 42 families, 108 variants}} \\
+\bottomrule
+\end{tabular}
+\end{table}

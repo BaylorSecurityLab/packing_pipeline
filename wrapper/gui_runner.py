@@ -3,6 +3,7 @@ GUI Wrapper Runner
 Scans benign_sources/x86 directory and runs appropriate GUI packers on compatible files
 """
 
+import os
 import sys
 import re
 import shutil
@@ -12,7 +13,24 @@ import argparse
 import yaml
 from tqdm import tqdm
 
-from base_gui import close_all_windows
+# The script is commonly launched directly (`python wrapper/gui_runner.py`)
+# which leaves the repo root off sys.path. Bootstrap it so the SHA gate
+# shared with the CLI runner is importable.
+_REPO_ROOT = Path(__file__).resolve().parent.parent
+if str(_REPO_ROOT) not in sys.path:
+    sys.path.insert(0, str(_REPO_ROOT))
+
+try:
+    from utils.sha_gate import ShaGate
+except ImportError:
+    from sha_gate import ShaGate
+
+from base_gui import (
+    BaseGUI,
+    close_all_windows,
+    clear_last_moved_output,
+    consume_last_moved_output,
+)
 from asm_guard import AsmGuard
 from alienyze_protector import AlienyzeProtector
 from mew import Mew
@@ -43,11 +61,7 @@ from acprotect import ACProtect
 from telock import Telock
 from pelock import PELock
 from armadillo import Armadillo
-from pecompact import PECompact
 from themida_gui import ThemidaGUI
-from obsidium_v1880_gui import ObsidiumV1880GUI
-from obsidium_v152_gui import ObsidiumV152GUI
-from xpa_v143_gui import XPAV143GUI
 from zprotect_gui import ZProtectGUI
 
 PACKER_FILE_SUPPORT: Dict[str, List[str]] = {
@@ -59,11 +73,8 @@ PACKER_FILE_SUPPORT: Dict[str, List[str]] = {
     "mew": [".exe"],
     "npack_v1.1": [".exe"],
     "nspack_v3.7": [".exe"],
-    "obsidium_v1.5.2": [".exe"],
-    "obsidium_v1.8.8": [".exe"],
     "packman": [".exe"],
     "pe_diminisher": [".exe"],
-    "pecompact_v1.84": [".exe"],
     "pelock_v2.40": [".exe"],
     "rlpack": [".exe"],
     "shrinker_v3.4_demo": [".exe"],
@@ -76,7 +87,6 @@ PACKER_FILE_SUPPORT: Dict[str, List[str]] = {
     "upx_scrambler_rc105": [".exe"],
     "upx_scrambler_rc1b10": [".exe"],
     "winupack": [".exe"],
-    "xpa_v1.43": [".exe"],
     "yoda_crypter_v1.2": [".exe"],
     "yoda_crypter_v1.3": [".exe"],
     "yoda_protector_v1.0": [".exe"],
@@ -113,11 +123,8 @@ PACKER_DEFAULT_STATES: Dict[str, Dict[str, bool]] = {
     "mew": {},
     "npack_v1.1": {},
     "nspack_v3.7": {},
-    "obsidium_v1.5.2": {},
-    "obsidium_v1.8.8": {},
     "packman": {},
     "pe_diminisher": {},
-    "pecompact_v1.84": {},
     "pelock_v2.40": {},
     "rlpack": {},
     "shrinker_v3.4_demo": {},
@@ -130,7 +137,6 @@ PACKER_DEFAULT_STATES: Dict[str, Dict[str, bool]] = {
     "upx_scrambler_rc105": {},
     "upx_scrambler_rc1b10": {},
     "winupack": {},
-    "xpa_v1.43": {},
     "yoda_crypter_v1.2": {},
     "yoda_crypter_v1.3": {},
     "yoda_protector_v1.0": {},
@@ -146,7 +152,13 @@ DEFAULT_PACKER = "all"
 
 
 class GUIWrapperRunner:
-    def __init__(self, source_dir: str, main_dir: str, yaml_path: str):
+    def __init__(
+        self,
+        source_dir: str,
+        main_dir: str,
+        yaml_path: str,
+        sha_gate: Optional[object] = None,
+    ):
         """
         Initialize the GUI Wrapper Runner
 
@@ -154,10 +166,12 @@ class GUIWrapperRunner:
             source_dir: Directory containing files to pack (e.g., benign_sources/x86)
             main_dir: Main project directory
             yaml_path: Path to packer_corpus.yaml
+            sha_gate: Optional ShaGate instance shared with the CLI runner.
         """
         self.source_dir = Path(source_dir).resolve()
         self.main_dir = Path(main_dir).resolve()
         self.yaml_path = Path(yaml_path).resolve()
+        self.sha_gate = sha_gate
 
         # One row per packer batch, accumulated across the whole run (including
         # partial rows recorded on Ctrl+C) and printed by print_final_report.
@@ -190,6 +204,16 @@ class GUIWrapperRunner:
         """Get default option states for a packer"""
         return PACKER_DEFAULT_STATES.get(packer_name, {})
 
+    def get_packer_directory_name(self, packer_name: str) -> str:
+        """
+        Canonical ``<packer>_<safe_version>`` directory name used for the
+        SHA gate's packer identity (independent of any --output-dir override).
+        """
+        version = self._version_map.get(packer_name.lower(), "unknown")
+        # Sanitize version for filesystem (replace spaces, parens, etc.)
+        safe_version = re.sub(r'[^\w\.\-]', '_', version).strip('_')
+        return f"{packer_name}_{safe_version}"
+
     def get_output_directory(self, packer_name: str) -> Path:
         """
         Get the output directory for a packer's packed files
@@ -200,10 +224,7 @@ class GUIWrapperRunner:
         Returns:
             Path: Output directory (e.g., main_dir/packed_sources/asm_guard_2.9.4)
         """
-        version = self._version_map.get(packer_name.lower(), "unknown")
-        # Sanitize version for filesystem (replace spaces, parens, etc.)
-        safe_version = re.sub(r'[^\w\.\-]', '_', version).strip('_')
-        dir_name = f"{packer_name}_{safe_version}"
+        dir_name = self.get_packer_directory_name(packer_name)
         output_dir = self.main_dir / "packed_sources" / dir_name
         output_dir.mkdir(parents=True, exist_ok=True)
         return output_dir
@@ -1332,41 +1353,6 @@ class GUIWrapperRunner:
             traceback.print_exc()
             return False
 
-    def run_pecompact(
-        self,
-        file_path: Path,
-        packer_config: Optional[Dict[str, bool]] = None,
-        output_dir: Optional[Path] = None,
-    ) -> bool:
-        """
-        Run PECompact wrapper - launch, wait 60 seconds, close.
-        PECompact is GUI-only; no CLI scripting is possible.
-        """
-        print(f"\n{'=' * 60}")
-        print(f"PROCESSING: {file_path.name}")
-        print(f"{'=' * 60}")
-
-        try:
-            wrapper = PECompact(str(self.yaml_path), str(self.main_dir))
-
-            if output_dir is None:
-                output_dir = self.get_output_directory("pecompact_v1.84")
-
-            print(f"[INFO] Output directory: {output_dir}")
-
-            success = wrapper.run(
-                click_mode="none",
-                file_path=str(file_path.resolve()),
-                output_dir=str(output_dir),
-            )
-            return success
-
-        except Exception as e:
-            print(f"[ERROR] Failed to process {file_path.name}: {e}")
-            import traceback
-            traceback.print_exc()
-            return False
-
     def run_themida(
         self,
         file_path: Path,
@@ -1391,101 +1377,6 @@ class GUIWrapperRunner:
 
             success = wrapper.run(
                 click_mode="none",
-                file_path=str(file_path.resolve()),
-                output_dir=str(output_dir),
-            )
-            return success
-
-        except Exception as e:
-            print(f"[ERROR] Failed to process {file_path.name}: {e}")
-            import traceback
-            traceback.print_exc()
-            return False
-
-    def run_obsidium_v1880(
-        self,
-        file_path: Path,
-        packer_config: Optional[Dict[str, bool]] = None,
-        output_dir: Optional[Path] = None,
-    ) -> bool:
-        """Run Obsidium v1.8.8 GUI wrapper (stub)."""
-        print(f"\n{'=' * 60}")
-        print(f"PROCESSING: {file_path.name}")
-        print(f"{'=' * 60}")
-
-        try:
-            wrapper = ObsidiumV1880GUI(str(self.yaml_path), str(self.main_dir))
-
-            if output_dir is None:
-                output_dir = self.get_output_directory("obsidium_v1.8.8")
-
-            print(f"[INFO] Output directory: {output_dir}")
-
-            success = wrapper.run(
-                click_mode="none",
-                file_path=str(file_path.resolve()),
-                output_dir=str(output_dir),
-            )
-            return success
-
-        except Exception as e:
-            print(f"[ERROR] Failed to process {file_path.name}: {e}")
-            import traceback
-            traceback.print_exc()
-            return False
-
-    def run_obsidium_v152(
-        self,
-        file_path: Path,
-        packer_config: Optional[Dict[str, bool]] = None,
-        output_dir: Optional[Path] = None,
-    ) -> bool:
-        """Run Obsidium v1.5.2 GUI wrapper (stub)."""
-        print(f"\n{'=' * 60}")
-        print(f"PROCESSING: {file_path.name}")
-        print(f"{'=' * 60}")
-
-        try:
-            wrapper = ObsidiumV152GUI(str(self.yaml_path), str(self.main_dir))
-
-            if output_dir is None:
-                output_dir = self.get_output_directory("obsidium_v1.5.2")
-
-            print(f"[INFO] Output directory: {output_dir}")
-
-            success = wrapper.run(
-                click_mode="none",
-                file_path=str(file_path.resolve()),
-                output_dir=str(output_dir),
-            )
-            return success
-
-        except Exception as e:
-            print(f"[ERROR] Failed to process {file_path.name}: {e}")
-            import traceback
-            traceback.print_exc()
-            return False
-
-    def run_xpa_v143(
-        self,
-        file_path: Path,
-        packer_config: Optional[Dict[str, bool]] = None,
-        output_dir: Optional[Path] = None,
-    ) -> bool:
-        """Run XPA v1.43 GUI wrapper."""
-        print(f"\n{'=' * 60}")
-        print(f"PROCESSING: {file_path.name}")
-        print(f"{'=' * 60}")
-
-        try:
-            wrapper = XPAV143GUI(str(self.yaml_path), str(self.main_dir))
-
-            if output_dir is None:
-                output_dir = self.get_output_directory("xpa_v1.43")
-
-            print(f"[INFO] Output directory: {output_dir}")
-
-            success = wrapper.run(
                 file_path=str(file_path.resolve()),
                 output_dir=str(output_dir),
             )
@@ -1550,11 +1441,8 @@ class GUIWrapperRunner:
             "mew": self.run_mew,
             "npack_v1.1": self.run_npack,
             "nspack_v3.7": self.run_nspack,
-            "obsidium_v1.5.2": self.run_obsidium_v152,
-            "obsidium_v1.8.8": self.run_obsidium_v1880,
             "packman": self.run_packman,
             "pe_diminisher": self.run_pe_diminisher,
-            "pecompact_v1.84": self.run_pecompact,
             "pelock_v2.40": self.run_pelock,
             "rlpack": self.run_rlpack,
             "shrinker_v3.4_demo": self.run_shrinker,
@@ -1567,7 +1455,6 @@ class GUIWrapperRunner:
             "upx_scrambler_rc105": self.run_upx_scrambler_rc105,
             "upx_scrambler_rc1b10": self.run_upx_scrambler_rc1b10,
             "winupack": self.run_winupack,
-            "xpa_v1.43": self.run_xpa_v143,
             "yoda_crypter_v1.2": self.run_yoda_crypter_v12,
             "yoda_crypter_v1.3": self.run_yoda_crypter,
             "yoda_protector_v1.0": self.run_yoda_protector_v10,
@@ -1586,14 +1473,61 @@ class GUIWrapperRunner:
         if output_dir is None:
             output_dir = self.get_output_directory(packer_name)
 
-        # Copy input file to temp directory inside output directory
+        # Copy input file to temp directory inside output directory.
         temp_file = self.copy_to_temp(file_path, output_dir)
 
-        return packer_methods[packer_name](
-            temp_file,  # Use the temp copy instead of the original
+        # The SHA gate needs an input SHA that does not change after the
+        # wrapper runs (the GUI packer frequently modifies or moves the
+        # temp copy in place). Hash it immediately while its bytes are
+        # guaranteed to be the pre-pack input.
+        input_sha = (
+            self.sha_gate.add_input(temp_file)
+            if self.sha_gate is not None
+            else None
+        )
+
+        # Clear any stale thread-local path from a previous wrapper call
+        # so we only consume the move THIS call performs.
+        clear_last_moved_output()
+
+        wrapper_ok = packer_methods[packer_name](
+            temp_file,
             packer_config=packer_config,
             output_dir=output_dir,
         )
+
+        if not wrapper_ok:
+            return False
+
+        final_path = consume_last_moved_output()
+        if final_path is None:
+            if self.sha_gate is not None:
+                print(
+                    f"[ERROR] [PACK_SHA_GATE_ERROR] packer={packer_name} "
+                    f"app={file_path.name}: wrapper reported success without a "
+                    f"final output path"
+                )
+            return False
+
+        if self.sha_gate is None:
+            return True
+
+        result = self.sha_gate.verify_pack(
+            input_path=temp_file,
+            input_sha256=input_sha,
+            output_path=final_path,
+            packer_dir=self.get_packer_directory_name(packer_name),
+            app=file_path.name,
+        )
+        if result.accepted:
+            return True
+
+        print(f"[ERROR] [GATE] {result.message}")
+        try:
+            Path(final_path).unlink(missing_ok=True)
+        except OSError as e:
+            print(f"[WARNING] Could not remove rejected output {final_path}: {e}")
+        return False
 
     def is_already_packed(self, file_path: Path, packer_name: str) -> bool:
         """
@@ -1689,6 +1623,14 @@ class GUIWrapperRunner:
             print("\n[DRY RUN] No files will be processed")
             self._record_report_row(packer_name, {}, [], note="dry run")
             return {f.name: None for f in files}
+
+        # Prime the SHA gate with the input batch BEFORE any wrapper call so
+        # an output cannot equal an input that hasn't been packed yet. The
+        # individual run_packer() call still re-hashes the per-file temp
+        # copy (which may differ when --no-skip overrides existing outputs),
+        # so the gate's input set is authoritative.
+        if self.sha_gate is not None:
+            self.sha_gate.prime_inputs(files)
 
         # ========== SNAPSHOT SOURCE DIRECTORY BEFORE PROCESSING ==========
         print("\n[INFO] Taking snapshot of source directory before processing...")
@@ -1984,10 +1926,13 @@ Examples:
 
     parser.add_argument(
         "--packer",
-        type=str,
-        default=DEFAULT_PACKER,
+        nargs="+",
+        default=[DEFAULT_PACKER],
+        metavar="PACKER",
         choices=list(PACKER_FILE_SUPPORT.keys()) + ["all"],
-        help=f"Packer to use (default: {DEFAULT_PACKER}), or 'all' to run every GUI packer",
+        help=f"One or more packers (space-separated), or 'all' to run every "
+        f"GUI packer (default: {DEFAULT_PACKER}). Example: "
+        f"--packer upx_scrambler_rc1 telock_v0.98 winupack",
     )
 
     parser.add_argument(
@@ -2058,6 +2003,24 @@ Examples:
         help="Process all files even if already packed",
     )
 
+    parser.add_argument(
+        "--gui-timeout",
+        type=int,
+        default=BaseGUI.EXTRA_LONG_TIMEOUT,
+        metavar="SECONDS",
+        help=f"Max seconds to wait for a single file to finish packing "
+        f"(default: {BaseGUI.EXTRA_LONG_TIMEOUT}). Raise this for large "
+        f"inputs (e.g. --gui-timeout 1500 for 60+ MB files).",
+    )
+
+    parser.add_argument(
+        "--sha-gate",
+        action=argparse.BooleanOptionalAction,
+        default=True,
+        help="Reject SHA pass-throughs and cross-packer duplicate outputs "
+             "(default: enabled; use --no-sha-gate for legacy/debug runs).",
+    )
+
     # Add packer-specific options for default packer
     build_packer_argparser(DEFAULT_PACKER, parser)
 
@@ -2088,17 +2051,60 @@ Examples:
     script_dir = Path(__file__).parent.resolve()
     main_dir = script_dir.parent
 
-    # Source directory - always resolve to absolute
-    source_dir = (
-        Path(args.source_dir).resolve()
-        if Path(args.source_dir).is_absolute()
-        else (script_dir / args.source_dir).resolve()
-    )
+    # Source directory - resolve to absolute. A relative path is tried
+    # against, in order: the wrapper/ script dir (so the default
+    # "../benign_sources/x86" keeps resolving exactly as before), then the
+    # current working directory (what the user naturally types from the
+    # project root, e.g. "benign_sources/x86"), then the project root.
+    # First existing match wins; otherwise fall back to the script-relative
+    # form so the error message shows a sensible path.
+    raw_src = Path(args.source_dir)
+    if raw_src.is_absolute():
+        source_dir = raw_src.resolve()
+    else:
+        candidates = [script_dir / raw_src, Path.cwd() / raw_src, main_dir / raw_src]
+        source_dir = next(
+            (c.resolve() for c in candidates if c.exists()),
+            (script_dir / raw_src).resolve(),
+        )
 
     # Output directory (if specified via CLI)
     output_dir = Path(args.output_dir).resolve() if args.output_dir else None
 
     yaml_path = main_dir / "manifest" / "packer_corpus.yaml"
+
+    # --packer is a list (nargs="+"). Normalize it into the concrete run
+    # list: "all" (alone or mixed in) expands to every GUI packer minus
+    # --exclude; otherwise take the names given, de-duplicated in order.
+    requested = args.packer
+    if "all" in requested:
+        packers_to_run = list(PACKER_FILE_SUPPORT.keys())
+        if args.exclude:
+            excluded = set(args.exclude)
+            packers_to_run = [p for p in packers_to_run if p not in excluded]
+            print(
+                f"[INFO] Excluding {len(excluded)} packer(s): "
+                f"{', '.join(sorted(excluded))}"
+            )
+    else:
+        seen = set()
+        packers_to_run = []
+        for p in requested:
+            if p not in seen:
+                seen.add(p)
+                packers_to_run.append(p)
+    multi_run = len(packers_to_run) > 1
+
+    # Override the per-file packing timeout for every wrapper at once. Every
+    # wrapper reads self.EXTRA_LONG_TIMEOUT at call time, so setting the base
+    # class attribute here propagates to all of them (e.g. 62 MB inputs need
+    # more than the 500s default to finish scrambling).
+    if args.gui_timeout != BaseGUI.EXTRA_LONG_TIMEOUT:
+        print(
+            f"[INFO] Per-file packing timeout: {args.gui_timeout}s "
+            f"(default {BaseGUI.EXTRA_LONG_TIMEOUT}s)"
+        )
+    BaseGUI.EXTRA_LONG_TIMEOUT = args.gui_timeout
 
     print(f"Script directory: {script_dir}")
     print(f"Main directory: {main_dir}")
@@ -2106,8 +2112,21 @@ Examples:
     print(f"YAML path: {yaml_path}")
     if output_dir:
         print(f"Output directory (CLI): {output_dir}")
+    elif multi_run:
+        print(f"Packers: {', '.join(packers_to_run)}")
     else:
-        print(f"Output directory: ../packed_sources/{args.packer}/ (default)")
+        print(f"Output directory: ../packed_sources/{packers_to_run[0]}/ (default)")
+
+    # Instantiate the SHA gate once for the entire --packer all run so
+    # state (input SHAs, published output SHAs) is shared across every
+    # GUI packer in this process.
+    packed_root = main_dir / "packed_sources"
+    sha_gate = ShaGate(packed_root, pipeline="gui") if args.sha_gate else None
+    if sha_gate is not None:
+        print("[*] SHA gate: ENABLED  (use --no-sha-gate to disable)")
+    else:
+        print("[!] SHA gate: DISABLED  (pass-throughs and cross-packer "
+              "duplicates will be accepted)")
 
     runner = None
     try:
@@ -2115,25 +2134,22 @@ Examples:
             source_dir=str(source_dir),
             main_dir=str(main_dir),
             yaml_path=str(yaml_path),
+            sha_gate=sha_gate,
         )
 
-        # Build packer-specific config from args
-        packer_config = runner.build_packer_config(
-            args.packer,
-            check_options=getattr(args, "check", None),
-            uncheck_options=getattr(args, "uncheck", None),
-        )
+        # Build packer-specific config from args. Per-packer options only
+        # make sense for a single packer; a multi-packer run uses defaults.
+        packer_config = None
+        if not multi_run:
+            packer_config = runner.build_packer_config(
+                packers_to_run[0],
+                check_options=getattr(args, "check", None),
+                uncheck_options=getattr(args, "uncheck", None),
+            )
 
-        # "all" mode — run every packer in sequence
-        if args.packer == "all":
-            all_packers = list(PACKER_FILE_SUPPORT.keys())
-            if args.exclude:
-                excluded = set(args.exclude)
-                all_packers = [p for p in all_packers if p not in excluded]
-                print(
-                    f"[INFO] Excluding {len(excluded)} packer(s): "
-                    f"{', '.join(sorted(excluded))}"
-                )
+        # Multi-packer mode — run each packer in sequence.
+        if multi_run:
+            all_packers = packers_to_run
             any_failed = False
 
             packer_bar = tqdm(
@@ -2188,6 +2204,9 @@ Examples:
             packer_bar.close()
             return 1 if any_failed else 0
 
+        # Single-packer mode
+        single_packer = packers_to_run[0]
+
         # Single file mode
         if args.file:
             file_path = Path(args.file).resolve()
@@ -2196,18 +2215,18 @@ Examples:
                 return 1
 
             success = runner.run_packer(
-                args.packer,
+                single_packer,
                 file_path,
                 packer_config=packer_config,
                 output_dir=output_dir,
             )
-            runner._record_report_row(args.packer, {file_path.name: success}, [])
+            runner._record_report_row(single_packer, {file_path.name: success}, [])
 
             return 0 if success else 1
 
         # Batch mode
         results = runner.run_batch(
-            packer_name=args.packer,
+            packer_name=single_packer,
             packer_config=packer_config,
             output_dir=output_dir,
             recursive=args.recursive,
