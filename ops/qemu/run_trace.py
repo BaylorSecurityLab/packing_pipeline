@@ -150,6 +150,19 @@ def main() -> int:
     parser.add_argument("--qemu", type=Path)
     parser.add_argument("--plugin", type=Path)
     parser.add_argument("--validation-stamp", type=Path)
+    parser.add_argument(
+        "--sandbox",
+        action="store_true",
+        help="opt-in QEMU seccomp sandbox for untrusted (malware) samples: adds "
+        "-sandbox on,obsolete=deny,elevateprivileges=deny,spawn=deny,"
+        "resourcecontrol=deny. Off by default; the benign sweep does not set it.",
+    )
+    parser.add_argument(
+        "--runas",
+        default=None,
+        help="opt-in: run the QEMU process as this unprivileged user (-runas). Off "
+        "by default. Use for malware runs so an escape does not run as the caller.",
+    )
     args = parser.parse_args()
 
     repo = Path(__file__).resolve().parents[2]
@@ -196,10 +209,20 @@ def main() -> int:
         stdout=subprocess.DEVNULL,
     )
 
+    hardening: list[str] = []
+    if args.sandbox:
+        hardening += [
+            "-sandbox",
+            "on,obsolete=deny,elevateprivileges=deny,spawn=deny,resourcecontrol=deny",
+        ]
+    if args.runas:
+        hardening += ["-runas", args.runas]
+
     command = [
         str(qemu),
         "-name",
         "paper-trace",
+        *hardening,
         "-machine",
         "pc-i440fx-5.2",
         "-accel",
