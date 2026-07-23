@@ -153,6 +153,11 @@ def run_pair(tag: str, cond: dict, pair) -> tuple[str, dict]:
                       f"{hi} for {hi_k} -- treating as a failed observation, not a "
                       f"verdict; trying a different payload", flush=True)
                 return f"BAD_PAYLOAD:{lo_k}", types
+            if hi == 0:
+                print(f"[dud] {tag}: no payload executed a single block "
+                      f"(loaded but never started) -- both are duds, trying two "
+                      f"different payloads", flush=True)
+                return "BAD_PAYLOAD:BOTH", types
     plan = REPO / runs_dir / "plan.json"
     if plan.exists():
         pd = json.loads(plan.read_text())
@@ -215,6 +220,23 @@ def label_condition(w: dict) -> None:
         print(f"[try] {tag} attempt {attempt+1} -> {label} (runs: {types})", flush=True)
         if label.startswith("TYPE_"):
             break
+        if label == "BAD_PAYLOAD:BOTH":
+            if nxt >= len(cands):
+                print(f"[swap] {tag}: candidate pool exhausted; no payload ever "
+                      f"executed -- UNRESOLVED", flush=True)
+                label = "UNRESOLVED"
+                break
+            repl = [cands[nxt]]
+            nxt += 1
+            if nxt < len(cands):
+                repl.append(cands[nxt])
+                nxt += 1
+            else:
+                repl.append(pair[1])
+            print(f"[swap] {tag}: no payload ran; replacing both with "
+                  f"{[p[1] for p in repl]}", flush=True)
+            pair = repl
+            continue
         if label.startswith("BAD_PAYLOAD:"):
             i = 0 if label.split(":", 1)[1] == "A" else 1
             if nxt >= len(cands):

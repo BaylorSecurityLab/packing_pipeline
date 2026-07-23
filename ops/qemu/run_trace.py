@@ -44,36 +44,51 @@ def sha256(path: Path) -> str:
 # sample_start.  Zero activity (not merely slow) distinguishes a settled sample
 # from one still crawling through unpacking, so this cannot truncate an unpack.
 HOST_IDLE_SECONDS = 120
+NO_START_SECONDS = 600
 _ACTIVITY_MARKERS = (b'"event":"exec"', b'"event":"write"')
+_READ_OVERLAP = 64
 
 
 def _activity_and_started(trace: Path, offset: int) -> tuple[int, int, bool]:
-    """Return (new_activity_events, new_offset, saw_sample_start_in_new_bytes)."""
+    """Return (new_activity_events, new_offset, saw_sample_start_in_new_bytes).
+
+    Reads from _READ_OVERLAP bytes before `offset` so a marker split across two
+    polls by a partial stdio flush is still matched; activity is counted only in
+    the strictly-new bytes to avoid double counting the overlap region.
+    """
     if not trace.exists():
         return 0, offset, False
+    seek_to = max(0, offset - _READ_OVERLAP)
     with trace.open("rb") as handle:
-        handle.seek(offset)
+        handle.seek(seek_to)
         chunk = handle.read()
         new_offset = handle.tell()
-    activity = sum(chunk.count(marker) for marker in _ACTIVITY_MARKERS)
+    overlap = offset - seek_to
+    fresh = chunk[overlap:]
+    activity = sum(fresh.count(marker) for marker in _ACTIVITY_MARKERS)
     started = b'"event":"sample_start"' in chunk
     return activity, new_offset, started
 
 
 def wait_or_host_idle(
-    process, trace: Path, host_timeout: int, host_idle_seconds: int = HOST_IDLE_SECONDS
-) -> tuple[int | None, bool, bool]:
+    process, trace: Path, host_timeout: int, host_idle_seconds: int = HOST_IDLE_SECONDS,
+    no_start_seconds: int = NO_START_SECONDS,
+) -> tuple[int | None, bool, bool, bool]:
     """Wait for qemu, terminating early on the host-observed idle boundary.
 
-    Returns (return_code, host_timed_out, host_observed_idle).  host_observed_idle
-    is set only when sample_start was seen AND activity strictly ceased for
-    host_idle_seconds — the paper's completion boundary measured in host time.
+    Returns (return_code, host_timed_out, host_observed_idle, never_started).
+    host_observed_idle is set only when sample_start was seen AND activity strictly
+    ceased for host_idle_seconds — the paper's completion boundary measured in host
+    time.  never_started is set when sample_start was NEVER seen within
+    no_start_seconds — the sample loaded but its entrypoint never executed, so the
+    idle boundary can never arm and the run would otherwise burn the full timeout.
 
-    host_idle_seconds <= 0 DISABLES the host-idle boundary: the run then ends only
-    on the guest's own clean completion (e.g. the certification fixture's
-    ExitProcess -> launcher stop marker, which is event-driven and clock-immune)
-    or the host timeout.  Use that for the fixture cert, whose completion IS the
-    stop marker; the idle boundary is for real samples that never exit.
+    host_idle_seconds <= 0 DISABLES both the host-idle boundary and the no-start
+    boundary: the run then ends only on the guest's own clean completion (e.g. the
+    certification fixture's ExitProcess -> launcher stop marker, which is
+    event-driven and clock-immune) or the host timeout.  Use that for the fixture
+    cert, whose completion IS the stop marker; the boundaries are for real samples
+    that either never exit or never start.
     """
     started_at = time.monotonic()
     offset = 0
@@ -83,7 +98,7 @@ def wait_or_host_idle(
     while True:
         try:
             return_code = process.wait(timeout=poll)
-            return return_code, False, False  # guest ended on its own
+            return return_code, False, False, False  # guest ended on its own
         except subprocess.TimeoutExpired:
             pass
         now = time.monotonic()
@@ -95,10 +110,22 @@ def wait_or_host_idle(
         if now - started_at >= host_timeout:
             process.terminate()
             try:
-                return process.wait(timeout=60), True, False
+                return process.wait(timeout=60), True, False, False
             except subprocess.TimeoutExpired:
                 process.kill()
-                return process.wait(), True, False
+                return process.wait(), True, False, False
+        if (
+            host_idle_seconds > 0
+            and not sample_started
+            and no_start_seconds > 0
+            and now - started_at >= no_start_seconds
+        ):
+            process.terminate()
+            try:
+                return process.wait(timeout=60), False, False, True
+            except subprocess.TimeoutExpired:
+                process.kill()
+                return process.wait(), False, False, True
         if (
             host_idle_seconds > 0
             and sample_started
@@ -106,10 +133,10 @@ def wait_or_host_idle(
         ):
             process.terminate()
             try:
-                return process.wait(timeout=60), False, True
+                return process.wait(timeout=60), False, True, False
             except subprocess.TimeoutExpired:
                 process.kill()
-                return process.wait(), False, True
+                return process.wait(), False, True, False
 
 
 def _backing_chain(base: Path) -> list[Path]:
@@ -182,6 +209,15 @@ def main() -> int:
         help="host-observed idle boundary (paper's 2-min no-execution rule). "
         "<=0 disables it; use 0 for the fixture cert, whose completion is the "
         "guest stop marker, not idle.",
+    )
+    parser.add_argument(
+        "--no-start-seconds",
+        type=int,
+        default=NO_START_SECONDS,
+        help="fast-fail boundary: if sample_start is never observed within this "
+        "many host seconds, the sample loaded but never executed -- terminate "
+        "instead of burning the full host timeout. <=0 disables it; ignored "
+        "entirely when --host-idle-seconds<=0 (fixture cert).",
     )
     parser.add_argument(
         "--icount-shift",
@@ -330,8 +366,11 @@ def main() -> int:
     started = time.monotonic()
     with log.open("wb") as log_handle:
         process = subprocess.Popen(command, stdout=log_handle, stderr=log_handle)
-        return_code, host_timed_out, host_observed_idle = wait_or_host_idle(
-            process, args.trace, args.host_timeout, args.host_idle_seconds
+        return_code, host_timed_out, host_observed_idle, never_started = (
+            wait_or_host_idle(
+                process, args.trace, args.host_timeout, args.host_idle_seconds,
+                args.no_start_seconds,
+            )
         )
     elapsed = time.monotonic() - started
     summary = final_summary(args.trace)
@@ -442,6 +481,7 @@ def main() -> int:
         "monitor_socket": str(monitor.resolve()),
         "host_timed_out": host_timed_out,
         "host_observed_idle": host_observed_idle,
+        "never_started": never_started,
         "guest_timed_out": guest_timed_out,
         "guest_idle": guest_idle,
         "guest_query_failed": guest_query_failed,
@@ -455,7 +495,8 @@ def main() -> int:
             else stop_detail
         ),
         "paper_termination_reason": (
-            "maximum_timeout_host" if host_timed_out
+            "no_execution_launch_failed" if never_started
+            else "maximum_timeout_host" if host_timed_out
             else "maximum_30_minute_timeout" if guest_timed_out
             else "unrecovered_exception_two_minutes"
             if guest_unrecovered_exception
