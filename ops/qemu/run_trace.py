@@ -112,6 +112,60 @@ def wait_or_host_idle(
                 return process.wait(), False, True
 
 
+def _backing_chain(base: Path) -> list[Path]:
+    out = [base.resolve()]
+    try:
+        info = subprocess.run(
+            ["/usr/bin/qemu-img", "info", "--backing-chain", "--output=json",
+             str(base.resolve())],
+            capture_output=True, text=True, check=True,
+        )
+        for node in json.loads(info.stdout):
+            fn = node.get("filename")
+            if fn:
+                out.append(Path(fn).resolve())
+    except Exception:
+        pass
+    seen, chain = set(), []
+    for p in out:
+        if str(p) not in seen:
+            seen.add(str(p))
+            chain.append(p)
+    return chain
+
+
+def _bwrap_prefix(qemu: Path, plugin: Path, base: Path, rw_dirs) -> list[str]:
+    prefix = [
+        "bwrap",
+        "--unshare-all",
+        "--die-with-parent",
+        "--new-session",
+        "--proc", "/proc",
+        "--dev", "/dev",
+        "--tmpfs", "/tmp",
+        "--ro-bind", "/usr", "/usr",
+        "--ro-bind-try", "/lib", "/lib",
+        "--ro-bind-try", "/lib64", "/lib64",
+        "--ro-bind-try", "/bin", "/bin",
+        "--ro-bind-try", "/sbin", "/sbin",
+        "--ro-bind-try", "/etc/ld.so.cache", "/etc/ld.so.cache",
+        "--ro-bind-try", "/etc/localtime", "/etc/localtime",
+        "--ro-bind", str(qemu.resolve()), str(qemu.resolve()),
+        "--ro-bind", str(plugin.resolve()), str(plugin.resolve()),
+    ]
+    for f in _backing_chain(base):
+        prefix += ["--ro-bind", str(f), str(f)]
+    seen = set()
+    for d in rw_dirs:
+        rd = str(Path(d).resolve())
+        if rd in seen:
+            continue
+        seen.add(rd)
+        prefix += ["--bind", rd, rd]
+    prefix.append("--")
+    return prefix
+
+
 def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("base", type=Path)
@@ -162,6 +216,14 @@ def main() -> int:
         default=None,
         help="opt-in: run the QEMU process as this unprivileged user (-runas). Off "
         "by default. Use for malware runs so an escape does not run as the caller.",
+    )
+    parser.add_argument(
+        "--confine",
+        action="store_true",
+        help="opt-in: wrap QEMU in a bubblewrap sandbox (FS + network + user "
+        "namespace isolation) for untrusted (malware) samples. Exposes only the "
+        "run dir, the base image, qemu, and the plugin; hides the repo/.env/home; "
+        "no network. Off by default; does not touch the certified qemu binary.",
     )
     args = parser.parse_args()
 
@@ -261,6 +323,10 @@ def main() -> int:
         "-plugin",
         f"{plugin.resolve()},out={args.trace.resolve()}",
     ]
+    if args.confine:
+        rw_dirs = [p.parent for p in (args.work, args.trace, args.meta, args.log,
+                                      args.monitor) if p is not None]
+        command = _bwrap_prefix(qemu, plugin, args.base, rw_dirs) + command
     started = time.monotonic()
     with log.open("wb") as log_handle:
         process = subprocess.Popen(command, stdout=log_handle, stderr=log_handle)
