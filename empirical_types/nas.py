@@ -142,7 +142,6 @@ def plan_matrix(
             "packer_version": str(case["version"]),
             "test_case_id": case_id,
             "configuration_id": condition_id(case),
-            "type_hypothesis": case.get("type_hypothesis"),
             "source": "yaml_test_case",
             "status": "missing_on_nas",
             "available_samples": 0,
@@ -170,7 +169,6 @@ def plan_matrix(
             "packer_version": identity_key[1],
             "test_case_id": None,
             "configuration_id": configuration,
-            "type_hypothesis": definition.get("type_hypothesis"),
             "source": "gui_family_version",
             "nas_packer_directory": None,
             "mapping_score": None,
@@ -302,7 +300,6 @@ def stage_matrix(plan_path: Path, destination: Path, inventory_path: Path) -> in
                     "packer_family": condition["packer_family"],
                     "packer_version": condition["packer_version"],
                     "condition_source": condition["source"],
-                    "type_hypothesis": condition["type_hypothesis"],
                     "nas_remote_path": sample["remote_path"],
                 }
                 inventory_handle.write(json.dumps(record) + "\n")
@@ -500,7 +497,6 @@ def stage_retry_matrix(
                     "packer_family": condition["packer_family"],
                     "packer_version": condition["packer_version"],
                     "condition_source": condition["source"],
-                    "type_hypothesis": condition["type_hypothesis"],
                     "nas_remote_path": sample["remote_path"],
                     "retry_for_dynamic_gate": True,
                     "retry_mode": "alternate_payload",

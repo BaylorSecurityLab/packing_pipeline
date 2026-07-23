@@ -8,8 +8,6 @@ from pathlib import Path
 
 import yaml
 
-from .provisional import _normalize_type
-
 
 LABEL_PATTERN = re.compile(
     r"^(?:TYPE_(?:I|II|III|IV)|TYPE_(?:V|VI)-[PFBG]|"
@@ -188,17 +186,6 @@ def verify_artifacts(
                 errors.append(
                     f"{configuration_id}: {label_field} differs in CSV"
                 )
-        if "type_hypothesis" in planned:
-            expected_hypothesis = _normalize_type(planned.get("type_hypothesis"))
-            for source, observed in (
-                ("JSON", label.get("taxonomy_hypothesis")),
-                ("YAML", yaml_label.get("taxonomy_hypothesis")),
-                ("CSV", csv_label.get("taxonomy_hypothesis")),
-            ):
-                if observed != expected_hypothesis:
-                    errors.append(
-                        f"{configuration_id}: taxonomy hypothesis differs in {source}"
-                    )
         status = label.get("label_status")
         if (
             yaml_label.get("label_status") != status
@@ -251,14 +238,11 @@ def verify_artifacts(
                     f"{configuration_id}: target_event_totals differs in CSV"
                 )
         if status == "empirical_exact_trace_consensus":
-            if value.startswith(("PROVISIONAL_", "HYPOTHESIS_ONLY_")):
-                errors.append(f"{configuration_id}: exact status has prefixed label")
-        elif status == "provisional_stack_cross_check":
-            if not value.startswith("PROVISIONAL_"):
-                errors.append(f"{configuration_id}: provisional status lacks prefix")
-        elif status == "pending_dynamic_evidence":
-            if not value.startswith("HYPOTHESIS_ONLY_"):
-                errors.append(f"{configuration_id}: pending status lacks hypothesis prefix")
+            if value is None:
+                errors.append(f"{configuration_id}: exact status lacks a label")
+        elif status is None:
+            if value is not None:
+                errors.append(f"{configuration_id}: unresolved condition has a label")
         else:
             errors.append(f"{configuration_id}: unknown label status {status!r}")
         if planned.get("status") == "planned" and not audited.get("dynamic_gate_met"):

@@ -47,48 +47,9 @@ uv run packer-types inventory /data/packer-samples \
 Each record includes hashes, family, version, architecture, test case, CLI template,
 and a stable configuration ID.
 
-## 3. Run broad DRAKVUF collection
-
-Start with one sample and inspect it before scaling:
-
-```bash
-uv run packer-types collect empirical_results/inventory.jsonl --limit 1 --timeout 300
-uv run packer-types collect empirical_results/inventory.jsonl --timeout 300
-```
-
-drakrun requires root on the analysis host. If the current account is not permitted
-to manage Xen, run the installed `.venv/bin/packer-types collect ...` entry point
-through the site's approved privilege mechanism.
-
-For unattended hosts with a narrowly scoped sudoers rule allowing only the installed
-`drakrun analyze` command, set `PACKER_DRAKRUN_SUDO=1`. The collector then prefixes
-that command with `sudo -n`; it never enables privilege escalation by default.
-An optional root-owned, no-argument VM cleanup helper can be set through
-`PACKER_DRAKRUN_RECOVERY`. On a recognized Xen restore/device-model failure the
-collector invokes it once and retries the same repetition once. Other sample or
-analysis failures do not trigger host cleanup.
-
-Runs are resumable. The stock DRAKVUF plugins collect process/API/exception/write
-and dump evidence, but do not provide the paper's exact basic-block writer relation.
-Consequently these runs remain `UNRESOLVED_TRACE_LOSS` until fused with a deep trace.
-This is intentional and prevents qualitative labels from being reintroduced.
-
-The installed DRAKVUF build also contains `codemon` and Intel PT support. `codemon`
-alternates 4 KiB page execute and write traps and can emit `pagefault`, `execframe`,
-and `writefault` events; Intel PT supplies control-flow branches but no memory-write
-stream. The pair is useful for a separate page-granularity approximation, but it
-still does not identify every byte written by each instruction and must not be
-reported as the paper's exact byte-level layer/frame measurement.
-
-Paired original binaries are valuable for a separate validation/extension, but they
-are not used to assign the paper-faithful taxonomy. The paper itself identifies
-candidate application code from runtime writes and spatial separation. Requiring an
-original binary to decide Type I–VI would change the published method.
-
 ## 4. Upstream-QEMU paper-faithful tracing
 
-DRAKVUF remains a behavioral cross-check layer. It is not the exact Type backend.
-The installed PANDA/QEMU build is also not used because it crashes with the
+The installed PANDA/QEMU build is not used because it crashes with the
 paper's two-vCPU topology. The exact backend is the pinned upstream-QEMU TCG
 plugin under `ops/qemu/`. It records one globally ordered stream of executed
 basic blocks and every successful store from both guest CPUs. The Windows guest
@@ -134,25 +95,6 @@ uv run packer-types report empirical_results/runs
 ```
 
 Only traces with every paper-required observation channel can yield Type I–VI.
-
-## DRAKVUF-only results are not accepted labels
-
-The historical workflow can cross-check a hypothesis against multiple successful
-DRAKVUF executions, but those `PROVISIONAL_` records are diagnostics only. They
-must not populate the paper-faithful Type I–VI deliverable:
-
-```bash
-uv run packer-types auto-label empirical_results/runs -n 3 \
-  --minimum-distinct-samples 2 \
-  --output empirical_results/auto_labels.json
-```
-
-A run validates only when drakrun returns zero, injection succeeds, required artifacts
-exist, and events associated with the injected process family are present. The family
-includes non-auxiliary descendants and explicit inter-process write targets, while
-standard console/crash-reporting helpers are excluded. Here `-n 3` requires
-three validated repetitions for each of at least two distinct payloads. The output
-records the event counts, repetitions, sample count, hypothesis, and labeling method.
 
 ## Full matrix, audit, and retries
 
@@ -212,9 +154,7 @@ uv run packer-types verify empirical_results/full_matrix/plan.json \
 ```
 
 An `empirical_exact_trace_consensus` label requires eligible exact traces from both
-payloads. A `provisional_stack_cross_check` record must remain unresolved for the
-paper-faithful output because the stock DRAKVUF plugins do not provide the complete
-write→execute trace. Empty NAS conditions and exhausted failures remain explicitly
+payloads. Empty NAS conditions and exhausted failures remain explicitly
 unresolved rather than being silently presented as empirical measurements.
 Every condition row also reports `original_mapped_distinct_samples` and
 `exact_trace_resolved_runs`, making the missing exact-trace prerequisites visible

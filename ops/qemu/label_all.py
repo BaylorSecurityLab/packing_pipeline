@@ -28,6 +28,7 @@ MIN_MEANINGFUL_EXEC = 50_000
 CONDITIONS = max(1, int(os.environ.get("LABEL_CONDITIONS", "1")))
 STAGE_LOCK = threading.Lock()
 GIT_LOCK = threading.Lock()
+SMB_LOCK = threading.Lock()
 
 
 def sh(cmd, **kw):
@@ -71,12 +72,27 @@ def candidate_samples(w: dict, limit: int = 8):
 
 
 def fetch(remote: str, dest: Path) -> str:
-    smb = _session()
-    with smb.open_file(remote, mode="rb") as sf:
-        data = sf.read()
-    dest.parent.mkdir(parents=True, exist_ok=True)
-    dest.write_bytes(data)
-    return hashlib.sha256(data).hexdigest()
+    last = None
+    for attempt in range(4):
+        try:
+            with SMB_LOCK:
+                smb = _session()
+                with smb.open_file(remote, mode="rb") as sf:
+                    data = sf.read()
+            dest.parent.mkdir(parents=True, exist_ok=True)
+            dest.write_bytes(data)
+            return hashlib.sha256(data).hexdigest()
+        except Exception as e:
+            last = e
+            print(f"[smb] fetch retry {attempt+1}/4 for {Path(remote).name}: {e}",
+                  flush=True)
+            time.sleep(5 * (attempt + 1))
+            try:
+                import smbclient
+                smbclient.reset_connection_cache()
+            except Exception:
+                pass
+    raise RuntimeError(f"SMB fetch failed after retries: {last}")
 
 
 def stage(sample: Path, image: Path) -> bool:

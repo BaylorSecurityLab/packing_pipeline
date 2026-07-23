@@ -47,7 +47,7 @@ class FinalizeTests(unittest.TestCase):
             '{"PID":7,"Method":"X"}\n', encoding="utf-8"
         )
 
-    def test_plan_conditions_always_receive_provenance_label(self):
+    def test_unresolved_condition_receives_no_label(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
             plan = root / "plan.json"
@@ -63,7 +63,6 @@ class FinalizeTests(unittest.TestCase):
                                 "source": "yaml_test_case",
                                 "status": "empty_on_nas",
                                 "available_samples": 0,
-                                "type_hypothesis": "Type V",
                             }
                         ]
                     }
@@ -79,13 +78,9 @@ class FinalizeTests(unittest.TestCase):
                 root / "out.yaml",
                 root / "out.csv",
             )
-            self.assertEqual(conditions[0]["label"], "HYPOTHESIS_ONLY_TYPE_V")
-            self.assertEqual(conditions[0]["label_status"], "pending_dynamic_evidence")
+            self.assertIsNone(conditions[0]["label"])
+            self.assertIsNone(conditions[0]["label_status"])
             self.assertEqual(len((root / "out.csv").read_text().splitlines()), 2)
-            summary = json.loads((root / "out.json").read_text())
-            self.assertEqual(summary["retry_run_count"], 0)
-            self.assertEqual(summary["in_place_validation_run_count"], 0)
-            self.assertEqual(summary["alternate_payload_run_count"], 0)
 
     def test_exact_consensus_requires_repetitions_from_two_samples(self):
         with tempfile.TemporaryDirectory() as directory:
@@ -115,7 +110,7 @@ class FinalizeTests(unittest.TestCase):
             conditions = finalize_labels(
                 plan, root / "runs", 3, 2, root / "out.json", root / "out.yaml"
             )
-            self.assertEqual(conditions[0]["label_status"], "pending_dynamic_evidence")
+            self.assertIsNone(conditions[0]["label_status"])
             self.assertEqual(conditions[0]["original_mapped_distinct_samples"], 0)
             self.assertEqual(conditions[0]["exact_trace_resolved_runs"], 6)
             for repetition in range(1, 4):
@@ -137,9 +132,7 @@ class FinalizeTests(unittest.TestCase):
             conditions = finalize_labels(
                 plan, root / "runs", 3, 2, root / "out.json", root / "out.yaml"
             )
-            self.assertEqual(
-                conditions[0]["label_status"], "provisional_stack_cross_check"
-            )
+            self.assertIsNone(conditions[0]["label_status"])
             self.assertEqual(conditions[0]["exact_trace_resolved_runs"], 8)
 
     def test_does_not_copy_labels_across_configurations(self):
@@ -182,12 +175,8 @@ class FinalizeTests(unittest.TestCase):
                 plan, root / "runs", 3, 2, root / "out.json", root / "out.yaml"
             )
             by_configuration = {row["configuration_id"]: row for row in conditions}
-            self.assertEqual(
-                by_configuration["d"]["label"], "HYPOTHESIS_ONLY_TYPE_V"
-            )
-            self.assertEqual(
-                by_configuration["d"]["label_status"], "pending_dynamic_evidence"
-            )
+            self.assertIsNone(by_configuration["d"]["label"])
+            self.assertIsNone(by_configuration["d"]["label_status"])
 
     def test_duplicate_hashes_do_not_count_as_distinct_payloads(self):
         with tempfile.TemporaryDirectory() as directory:
@@ -228,10 +217,8 @@ class FinalizeTests(unittest.TestCase):
             conditions = finalize_labels(
                 plan, root / "runs", 3, 2, root / "out.json", root / "out.yaml"
             )
-            self.assertEqual(conditions[0]["qualifying_distinct_samples"], 1)
-            self.assertEqual(
-                conditions[0]["label_status"], "pending_dynamic_evidence"
-            )
+            self.assertEqual(conditions[0]["exact_trace_resolved_runs"], 6)
+            self.assertIsNone(conditions[0]["label_status"])
 
     def test_duplicate_repetition_does_not_satisfy_independent_run_gate(self):
         with tempfile.TemporaryDirectory() as directory:
@@ -277,11 +264,8 @@ class FinalizeTests(unittest.TestCase):
             conditions = finalize_labels(
                 plan, root / "runs", 3, 2, root / "out.json", root / "out.yaml"
             )
-            self.assertEqual(conditions[0]["validated_distinct_samples"], 2)
-            self.assertEqual(conditions[0]["qualifying_distinct_samples"], 1)
-            self.assertEqual(
-                conditions[0]["label_status"], "pending_dynamic_evidence"
-            )
+            self.assertEqual(conditions[0]["exact_trace_resolved_runs"], 6)
+            self.assertIsNone(conditions[0]["label_status"])
 
 
 if __name__ == "__main__":

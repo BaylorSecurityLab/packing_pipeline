@@ -10,15 +10,13 @@ import yaml
 
 from .audit import audit_matrix
 from .classifier import classify
-from .collector import collect_drakrun, find_drakrun
 from .finalize import finalize_labels
 from .manifest import inventory
 from .nas import plan_matrix, stage_matrix, stage_retry_matrix, stage_tree
 from .paper import analyze_paper_jsonl
-from .provisional import auto_label, sample_identity
+from .provisional import sample_identity
 from .trace import analyze_jsonl
 from .verify import verify_artifacts
-from .workflow import finish_matrix
 
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -92,19 +90,6 @@ def main(argv: list[str] | None = None) -> int:
         default=ROOT / "empirical_results" / "retry_inventory.jsonl",
     )
     retry_plan.add_argument("--report", type=Path)
-    col = sub.add_parser("collect", help="run resumable DRAKVUF collection")
-    col.add_argument("inventory", type=Path)
-    col.add_argument("--output", type=Path, default=ROOT / "empirical_results" / "runs")
-    col.add_argument("--timeout", type=int, default=300)
-    col.add_argument("--limit", type=int)
-    col.add_argument("--drakrun")
-    col.add_argument("--dry-run", action="store_true")
-    col.add_argument("--repetitions", type=int, default=1)
-    col.add_argument(
-        "--runs-per-condition",
-        type=int,
-        help="round-robin total runs per configuration (overrides --repetitions)",
-    )
     ana = sub.add_parser("classify-trace", help="classify a normalized deep trace")
     ana.add_argument("trace", type=Path)
     ana.add_argument("--sample-id", required=True)
@@ -125,18 +110,6 @@ def main(argv: list[str] | None = None) -> int:
     )
     rep.add_argument("-n", "--minimum-repetitions", type=int, default=3)
     rep.add_argument("--minimum-distinct-samples", type=int, default=2)
-    label = sub.add_parser(
-        "auto-label",
-        help="assign explicitly provisional labels after stack cross-check",
-    )
-    label.add_argument("runs", type=Path)
-    label.add_argument("--manifest", type=Path, default=DEFAULT_MANIFEST)
-    label.add_argument("-n", "--minimum-repetitions", type=int, default=3)
-    label.add_argument("--minimum-distinct-samples", type=int, default=2)
-    label.add_argument(
-        "--output", type=Path, default=ROOT / "empirical_results" / "auto_labels.json"
-    )
-    label.add_argument("--yaml-output", type=Path)
     final = sub.add_parser(
         "finalize", help="produce complete tiered labels for every planned condition"
     )
@@ -181,28 +154,6 @@ def main(argv: list[str] | None = None) -> int:
         type=Path,
         default=ROOT / "empirical_results" / "verification.json",
     )
-    finish = sub.add_parser(
-        "finish-matrix",
-        help="run iterative retries, finalize every label format, and verify them",
-    )
-    finish.add_argument("plan", type=Path)
-    finish.add_argument("runs", type=Path)
-    finish.add_argument("--retry-destination", type=Path, required=True)
-    finish.add_argument(
-        "--output-directory",
-        type=Path,
-        default=ROOT / "empirical_results" / "full_matrix",
-    )
-    finish.add_argument(
-        "--manifest-output",
-        type=Path,
-        default=ROOT / "manifest" / "empirical_types.yaml",
-    )
-    finish.add_argument("-n", "--minimum-repetitions", type=int, default=3)
-    finish.add_argument("--minimum-distinct-samples", type=int, default=2)
-    finish.add_argument("--timeout", type=int, default=10)
-    finish.add_argument("--max-retry-batches", type=int, default=7)
-    finish.add_argument("--drakrun")
     args = parser.parse_args(argv)
     if args.command == "inventory":
         count = write_jsonl(
@@ -254,48 +205,6 @@ def main(argv: list[str] | None = None) -> int:
             f"{result['conditions_below_gate']} conditions; inventory written to "
             f"{args.inventory}"
         )
-    elif args.command == "collect":
-        drakrun = find_drakrun(args.drakrun)
-        rows = [
-            json.loads(line)
-            for line in args.inventory.read_text(encoding="utf-8").splitlines()
-            if line.strip()
-        ]
-        selected = rows[: args.limit]
-        jobs = []
-        if args.runs_per_condition:
-            grouped_records = defaultdict(list)
-            for record in selected:
-                grouped_records[record["configuration_id"]].append(record)
-            for records in grouped_records.values():
-                repetitions_by_sample = Counter()
-                for index in range(args.runs_per_condition):
-                    record = records[index % len(records)]
-                    repetitions_by_sample[record["sample_id"]] += 1
-                    jobs.append((record, repetitions_by_sample[record["sample_id"]]))
-        else:
-            jobs = [
-                (record, repetition)
-                for record in selected
-                for repetition in range(1, args.repetitions + 1)
-            ]
-        total_jobs = len(jobs)
-        for job_number, (record, repetition) in enumerate(jobs, 1):
-            repeated_layout = bool(args.runs_per_condition) or args.repetitions > 1
-            result = collect_drakrun(
-                record,
-                args.output,
-                args.timeout,
-                drakrun,
-                args.dry_run,
-                repetition if repeated_layout else None,
-            )
-            print(
-                record["sample_id"],
-                f"job={job_number}/{total_jobs}",
-                f"rep={repetition}",
-                result.complexity_type,
-            )
     elif args.command == "classify-trace":
         result = classify(
             analyze_jsonl(args.trace, args.sample_id, args.original_code_bytes)
@@ -426,53 +335,6 @@ def main(argv: list[str] | None = None) -> int:
             json.dumps(conditions, indent=2) + "\n", encoding="utf-8"
         )
         print(f"wrote {len(conditions)} conditions to {condition_output}")
-    elif args.command == "auto-label":
-        conditions = auto_label(
-            args.runs,
-            args.manifest,
-            args.minimum_repetitions,
-            args.output,
-            args.minimum_distinct_samples,
-        )
-        eligible = sum(condition["eligible"] for condition in conditions)
-        if args.yaml_output:
-            compact_conditions = []
-            for condition in conditions:
-                compact = {
-                    key: value for key, value in condition.items() if key != "samples"
-                }
-                compact["samples"] = [
-                    {
-                        "sample_id": sample["sample_id"],
-                        "packed_sha256": sample["packed_sha256"],
-                        "dynamically_validated": sample["dynamically_validated"],
-                        "target_events": sample["target_events"],
-                        "auto_label": sample["auto_label"],
-                        "label_status": sample["label_status"],
-                    }
-                    for sample in condition["samples"]
-                ]
-                compact_conditions.append(compact)
-            args.yaml_output.parent.mkdir(parents=True, exist_ok=True)
-            args.yaml_output.write_text(
-                yaml.safe_dump(
-                    {
-                        "schema_version": 1,
-                        "label_scope": "provisional",
-                        "warning": (
-                            "These labels cross-check qualitative hypotheses against "
-                            "dynamic runs; they are not exact layer/frame measurements."
-                        ),
-                        "conditions": compact_conditions,
-                    },
-                    sort_keys=False,
-                ),
-                encoding="utf-8",
-            )
-            print(f"wrote provisional YAML to {args.yaml_output}")
-        print(
-            f"wrote {len(conditions)} conditions ({eligible} eligible) to {args.output}"
-        )
     elif args.command == "finalize":
         conditions = finalize_labels(
             args.plan,
@@ -520,18 +382,4 @@ def main(argv: list[str] | None = None) -> int:
         )
         if not result["valid"]:
             return 1
-    elif args.command == "finish-matrix":
-        result = finish_matrix(
-            args.plan,
-            args.runs,
-            args.retry_destination,
-            args.output_directory,
-            args.manifest_output,
-            args.minimum_repetitions,
-            args.minimum_distinct_samples,
-            args.timeout,
-            args.max_retry_batches,
-            args.drakrun,
-        )
-        print(json.dumps(result, indent=2))
     return 0
