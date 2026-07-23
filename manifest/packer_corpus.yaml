@@ -602,41 +602,18 @@ definitions:
     supported_input_arch: "PE32"
     supported_output_arch: "PE32"
     dependencies: []
-    tags: ["GUI", "Protector", "Virtualizer", "Anti-Debug", "Commercial"]
+    tags: ["CLI", "Protector", "Virtualizer", "Anti-Debug", "Commercial"]
     binary_path: "./packers/obsidium/Obsidium 1.5/Obsidium.exe"
     binary_sha256: "f0996e3241119da930ba2c45555b77f465f479143b126384b5eb63ed0d1a227e"
     source_url: "https://www.obsidium.de"
     license: "Commercial"
-    notes: "Obsidium v1.5.2 build 11 by Obsidium Software. Older version with a valid license (Obsidium_License.txt). GUI-only; automated via obsidium_v152_gui.py wrapper."
+    notes: "Obsidium v1.5.2 build 11 by Obsidium Software. Older version with a valid license (Obsidium_License.txt). Automated via CLI: Obsidium.exe drives protection headless when given a project file (.opf)."
     size_kb: "7810"
     output_behavior: "explicit"
     type: "Type IV"
     type_ex: "Obsidium uses code virtualization and runtime integrity checks throughout program execution, consistent with full interleaved execution."
     known_issues:
-      - "GUI-only; automated via Python wrapper (obsidium_v152_gui.py)."
-      - "CLI tool (obsi_cmd.exe) in this version produces no console output — unusable for automation."
-
-  - &obsidium_v1880
-    packer_family: "obsidium"
-    packer_name: "obsidium_v1.8.8"
-    version: "1.8.8.10"
-    arch_origin: "x86"
-    supported_input_arch: "PE32"
-    supported_output_arch: "PE32"
-    dependencies: []
-    tags: ["GUI", "Protector", "Virtualizer", "Anti-Debug", "Commercial"]
-    binary_path: "./packers/obsidium/Obsidium.exe"
-    binary_sha256: "88c92e679b416267ce7fcdd72886a6bfaedc9f7fb56ba98d741cdacf8e51faff"
-    source_url: "https://www.obsidium.de"
-    license: "Commercial"
-    notes: "Obsidium v1.8.8 build 10 by Obsidium Software. A professional PE protection system with code virtualization, anti-debug, anti-dump, and software licensing. GUI-only; automated via obsidium_v1880_gui.py wrapper."
-    size_kb: "11792"
-    output_behavior: "explicit"
-    type: "Type IV"
-    type_ex: "Obsidium uses code virtualization and runtime integrity checks throughout program execution, consistent with full interleaved execution."
-    known_issues:
-      - "GUI-only; automated via Python wrapper (obsidium_v1880_gui.py)."
-      - "CLI tool (obsi_cmd.exe) requires a paid license — demo locks it out."
+      - "Requires a project file (.opf); loading input/output alone no-ops to a pass-through. Different .opf profiles give different protection levels."
 
   - &packman_v10
     packer_family: "packman"
@@ -679,29 +656,6 @@ definitions:
     type_ex: "Described as a simple executable packer that uses aPLib compression. This suggests a single-layer modification."
     known_issues:
       - ""
-
-  - &pecompact_v184
-    packer_family: "pecompact"
-    packer_name: "pecompact_v1.84"
-    version: "1.84"
-    arch_origin: "x86"
-    supported_input_arch: "PE32"
-    supported_output_arch: "PE32"
-    dependencies: []
-    tags: ["GUI", "Compressor", "Plugin-Based", "Shareware"]
-    binary_path: "./packers/pecompact/PECompact/pecompact.exe"
-    binary_sha256: "84c09b85971d41b84dbb2238c75c8a340afce6da2a16921ae3b7596aad57ac2d"
-    source_url: "https://www.collakesoftware.com/pecompact/"
-    license: "Shareware"
-    notes: "PECompact v1.84 by Jeremy Collake (Collake Software). A plugin-based PE compressor for Win32 EXEs, DLLs, and screen savers. GUI-only; no CLI interface. Compresses code, data, resources, and import/export tables with a runtime decompression stub."
-    size_kb: "34"
-    output_behavior: "in_place"
-    type: "Type II"
-    type_ex: "PECompact uses a plugin architecture allowing custom decompression stubs. The symbiote decompressor runs before OEP transfer, consistent with a two-stage unpacking model."
-    known_issues:
-      - "Automation: GUI-only; cannot be scripted via CLI."
-      - "Shareware: 14-day evaluation; registration required for continued use."
-      - "Compatibility: Older tool; may fail on modern executables with large imports or manifest sections."
 
   - &pelock_v240
     packer_family: "pelock"
@@ -2199,27 +2153,6 @@ definitions:
       - "Stability: Susceptible to Access Violation crashes (Exit Code 0xC0000005) on complex, modern installers (e.g., Adobe Acrobat Reader)."
       - "Legacy Constraints: As a 2007 tool, it may fail on executables with extensive Overlay data or non-standard Section alignments."
 
-  - &xpa_v143
-    packer_family: "xpa"
-    packer_name: "xpa_v1.43"
-    version: "1.43"
-    arch_origin: "x86"
-    supported_input_arch: "PE32"
-    supported_output_arch: "PE32"
-    dependencies: []
-    tags: ["GUI", "Compressor"]
-    binary_path: "./packers/xpa/XPA.EXE"
-    binary_sha256: "5b1bb60ca1898c6bd303d6e9605a54b33063ff37664cf309dee6d1dcae291593"
-    source_url: "https://defacto2.net"
-    license: "Freeware"
-    notes: "XPA (eXecutable Packer for Applications) v1.43 by Jauming Tseng. A Win32 PE compressor from the demoscene archive. GUI-only; cannot be scripted via CLI."
-    size_kb: "60"
-    output_behavior: "explicit"
-    type: "Type I"
-    type_ex: "XPA is a single-layer PE compressor that prepends a decompression stub, consistent with Type I."
-    known_issues:
-      - "GUI-only; cannot be scripted via CLI."
-
   - &yoda_crypter_v12
     packer_family: "yoda_crypter"
     packer_name: "yoda_crypter_v1.2"
@@ -2394,6 +2327,20 @@ test_cases:
   # SECTION 2: TEST CASES (The Execution Plan)
   # Reference the anchors above using '<<: *anchor_name'
   # ==========================================
+
+  # --- Obsidium Test Group (v1.5.2 only; CLI via project files) ---
+  # v1.8.8 stays GUI-only: its demo build hangs in CLI mode (no license).
+  - id: "OBSIDIUM_V152_001_SHORT"
+    <<: *obsidium_v152
+    command_label: "Short protection profile"
+    cli_template: "{bin} {project} {in} {out}"
+    project_file: "./packers/obsidium/Obsidium 1.5/Examples/Sample Projects/sample_short.opf"
+
+  - id: "OBSIDIUM_V152_002_LONG"
+    <<: *obsidium_v152
+    command_label: "Long protection profile"
+    cli_template: "{bin} {project} {in} {out}"
+    project_file: "./packers/obsidium/Obsidium 1.5/Examples/Sample Projects/sample_long.opf"
 
   # --- XComp Test Group ---
   - id: "XCOMP_001_DEFAULT"

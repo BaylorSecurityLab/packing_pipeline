@@ -12,6 +12,11 @@ from tqdm import tqdm
 import hashlib
 import re
 
+try:
+    from .sha_gate import ShaGate
+except ImportError:  # direct-script launch (e.g. `python utils/packer_runner.py`)
+    from sha_gate import ShaGate
+
 # Inputs include non-ASCII filenames (e.g. CJK installer names). When stdout is
 # redirected to a file on Windows it defaults to cp1252, so printing a failure
 # line for such a file raises UnicodeEncodeError -- and because that fires inside
@@ -341,6 +346,28 @@ def _move_into_place(produced, dst_path):
         shutil.move(produced, dst_path)
 
 
+def _apply_sha_gate(sha_gate, *, input_path, output_path, packer_dir, app):
+    """Verify one packed artifact against the shared SHA gate.
+
+    Returns ``(True, None)`` when the gate is disabled or accepts the
+    artifact. Returns ``(False, message)`` and best-effort deletes
+    ``output_path`` when the gate rejects it (defense in depth -- callers
+    should also delete on rejection to keep their accounting honest).
+    """
+    if sha_gate is None:
+        return True, None
+    result = sha_gate.verify_pack(
+        input_path=input_path,
+        output_path=output_path,
+        packer_dir=packer_dir,
+        app=app,
+    )
+    if result.accepted:
+        return True, None
+    _silent_remove(output_path)
+    return False, result.message
+
+
 def sanitize_filename(filename):
     """
     Convert filename to ASCII-safe version, replacing spaces with underscores.
@@ -537,6 +564,10 @@ def pack_single_file(args):
     if _cancel_event.is_set():
         return False, "Cancelled"
 
+    # Unpack defensively. The first 11 fields are required; sha_gate and
+    # packer_dir_name are optional trailing fields so external callers that
+    # build a shorter tuple (e.g. wrapper/upx_scrambler.py's internal UPX
+    # pre-pack) degrade to "no gate" instead of raising ValueError.
     (
         src_path,
         output_dir,
@@ -549,7 +580,12 @@ def pack_single_file(args):
         config,
         project_file,
         packer_name,
+        *rest,
     ) = args
+    sha_gate = rest[0] if len(rest) > 0 else None
+    packer_dir_name = rest[1] if len(rest) > 1 else os.path.basename(
+        os.path.normpath(output_dir)
+    )
 
     filename = os.path.basename(src_path)
     safe_filename = sanitize_filename(filename)
@@ -879,6 +915,15 @@ def pack_single_file(args):
             _move_into_place(produced, dst_path)
 
         if os.path.exists(dst_path):
+            accepted, gate_msg = _apply_sha_gate(
+                sha_gate,
+                input_path=safe_input_path,
+                output_path=dst_path,
+                packer_dir=packer_dir_name,
+                app=safe_filename,
+            )
+            if not accepted:
+                return False, gate_msg
             return True, "Packed"
 
         combined_output = (
@@ -899,6 +944,15 @@ def pack_single_file(args):
             pk_settings, packer_bin, staged_pre_hash, staging_out, dst_path,
             output_behavior,
         ):
+            accepted, gate_msg = _apply_sha_gate(
+                sha_gate,
+                input_path=safe_input_path,
+                output_path=dst_path,
+                packer_dir=packer_dir_name,
+                app=safe_filename,
+            )
+            if not accepted:
+                return False, gate_msg
             return True, "Packed (detected via hash change after timeout)"
         return False, "Timeout (possible stuck dialog)"
 
@@ -909,6 +963,15 @@ def pack_single_file(args):
             pk_settings, packer_bin, staged_pre_hash, staging_out, dst_path,
             output_behavior,
         ):
+            accepted, gate_msg = _apply_sha_gate(
+                sha_gate,
+                input_path=safe_input_path,
+                output_path=dst_path,
+                packer_dir=packer_dir_name,
+                app=safe_filename,
+            )
+            if not accepted:
+                return False, gate_msg
             return True, "Packed (detected via hash change after non-zero exit)"
         return False, f"Exit Code {e.returncode} - STDOUT: {out} | STDERR: {err}"
 
@@ -917,6 +980,15 @@ def pack_single_file(args):
             pk_settings, packer_bin, staged_pre_hash, staging_out, dst_path,
             output_behavior,
         ):
+            accepted, gate_msg = _apply_sha_gate(
+                sha_gate,
+                input_path=safe_input_path,
+                output_path=dst_path,
+                packer_dir=packer_dir_name,
+                app=safe_filename,
+            )
+            if not accepted:
+                return False, gate_msg
             return True, "Packed (detected via hash change after exception)"
         return False, f"Exception: {str(e)}"
 
@@ -930,7 +1002,14 @@ def pack_single_file(args):
             _silent_remove(leftover)
 
 
-def run_packing(packer_name_input, max_size_kb=0, config=None, workers=1, wsl_workers=None):
+def run_packing(
+    packer_name_input,
+    max_size_kb=0,
+    config=None,
+    workers=1,
+    wsl_workers=None,
+    sha_gate=None,
+):
     _cancel_event.clear()
     if config is None:
         config = load_yaml(YAML_CONFIG_FILE)
@@ -1092,12 +1171,21 @@ def run_packing(packer_name_input, max_size_kb=0, config=None, workers=1, wsl_wo
                 )
                 continue
 
+            # Prime the SHA gate with the input batch BEFORE submitting any
+            # jobs so an output cannot equal an input that hasn't been
+            # packed yet. Repeated calls are no-ops on duplicates.
+            if sha_gate is not None:
+                sha_gate.prime_inputs(targets)
+
             # Get the behavior from the definition (defaults to explicit)
             output_behavior = packer_def.get("output_behavior", "explicit")
             dependencies = packer_def.get("dependencies", [])
 
-            # Resolve project_file if present
-            raw_project = packer_def.get("project_file", "")
+            # Resolve project_file if present. Prefer the test case's own
+            # project_file (lets different test cases drive different project
+            # profiles, e.g. Obsidium short vs long .opf), falling back to the
+            # packer definition's default.
+            raw_project = test_case.get("project_file") or packer_def.get("project_file", "")
             if raw_project:
                 if raw_project.startswith("./"):
                     raw_project = raw_project[2:]
@@ -1122,6 +1210,8 @@ def run_packing(packer_name_input, max_size_kb=0, config=None, workers=1, wsl_wo
                         config,
                         project_file_path,
                         packer_name_input,
+                        sha_gate,
+                        packer_dir_name,
                     )
                 )
 
@@ -1323,6 +1413,13 @@ if __name__ == "__main__":
         help="Run pack verification in dry-run mode (report only, no deletes).",
     )
     parser.add_argument(
+        "--sha-gate",
+        action=argparse.BooleanOptionalAction,
+        default=True,
+        help="Reject SHA pass-throughs and cross-packer duplicate outputs "
+             "(default: enabled; use --no-sha-gate for legacy/debug runs).",
+    )
+    parser.add_argument(
         "-v",
         "--verbose",
         action="store_true",
@@ -1370,6 +1467,19 @@ if __name__ == "__main__":
         position=0,
         leave=True,
     )
+    # Instantiate the SHA gate once per top-level process so state (input
+    # SHAs, published output SHAs) is shared across every packer in an
+    # 'all' run. The constructor reconciles the on-disk cache so re-runs
+    # do not re-hash the existing ~30k corpus.
+    sha_gate = (
+        ShaGate(PACKED_OUTPUT_DIR, pipeline="cli") if args.sha_gate else None
+    )
+    if sha_gate is not None:
+        print("[*] SHA gate: ENABLED  (use --no-sha-gate to disable)")
+    else:
+        print("[!] SHA gate: DISABLED  (pass-throughs and cross-packer "
+              "duplicates will be accepted)")
+
     all_results = []
     for p in packer_bar:
         packer_bar.set_postfix_str(p)
@@ -1379,6 +1489,7 @@ if __name__ == "__main__":
             main_config,
             args.workers,
             wsl_workers=args.wsl_workers,
+            sha_gate=sha_gate,
         )
         all_results.extend(rows or [])
         tqdm.write("=" * 40)
