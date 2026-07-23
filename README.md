@@ -179,6 +179,15 @@ Output goes to `packed_sources/<packer>_<version>/` (e.g. `packed_sources/fsg_v1
 
 > ℹ️ FSG specifically needs a **PE32 / x86** input with an **ASCII-only path**, ideally **< 80 KB** — incompatible files trip a TLS dialog and are skipped automatically.
 
+## Phase 4: Empirical Type I–VI collection
+
+Type I–VI labels are assigned empirically from real dynamic traces. A label is
+emitted only on exact consensus across ≥2 distinct payloads × 3 repetitions,
+using the two-vCPU upstream-QEMU tracer with complete ordered
+basic-block/write/IPC evidence and a passing eligibility gate. Backend details and validation status are in
+[`ops/qemu/README.md`](ops/qemu/README.md); the collection workflow is in
+[`doc/empirical_type_collection.md`](doc/empirical_type_collection.md).
+
 ---
 
 # 🔒 SHA Quality Gate
@@ -263,6 +272,31 @@ The `packed_sources/` directory will contain obfuscated binaries that will trigg
 ## Git Submodules:
 
 If you need to update the tools or inputs, go into their respective folders (`packers/` or `benign_sources/`), pull changes, and then commit the new reference in the main repo.
+
+---
+
+# 🏷️ Automatic Empirical Type Labeling (Deep Packer Inspection)
+
+Beyond *generating* the packed corpus, this repository now includes a subsystem
+that assigns each packed sample its exact **Ugarte et al. Type I–VI** label
+("SoK: Deep Packer Inspection") **empirically, from a real dynamic trace** — not
+from static heuristics. A packed sample is executed inside an instrumented
+Windows 10 guest under an upstream **QEMU 11 TCG plugin** that records every
+executed basic block and memory store; the write→execute **layer-production
+topology** is reconstructed and the Type is read off it. A label is emitted only
+when a purpose-built certification fixture passes and, per condition, only on
+**exact consensus** across `n = 3 executions × ≥2 distinct payloads`.
+
+- **How to install & run it (all prerequisites, step by step):**
+  [`doc/AUTOMATIC_LABELING.md`](doc/AUTOMATIC_LABELING.md)
+- **The final packer → empirical Type document (generated):**
+  [`doc/EMPIRICAL_TYPE_LABELS.md`](doc/EMPIRICAL_TYPE_LABELS.md)
+
+Key components: `ops/qemu/` (QEMU build, `paper_trace.c` plugin, staging,
+`run_trace.py`, `run_condition_matrix.py`, `cert_retry_loop.sh`),
+`empirical_types/` (the paper's Section III-E classifier + `finalize`), and
+`ops/qemu/backend_validation.json` (the certification stamp). Regenerate the
+label document with `python3 ops/qemu/build_label_document.py`.
 
 ---
 

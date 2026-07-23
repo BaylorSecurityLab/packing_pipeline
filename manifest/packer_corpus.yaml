@@ -1,6 +1,6 @@
 version: "0.1.0"
-maintainer: "AKOrojo, Abanisenioluwa Kolawole Orojo, Abanisenioluwa_Oroj1, Banny Orojo, GitLab CI Bot"
-last_updated: "2026-07-18"
+maintainer: "AKOrojo, Abanisenioluwa Kolawole Orojo, Abanisenioluwa_Oroj1, Banny Orojo, GitLab CI Bot, resbears"
+last_updated: "2026-07-23"
 
 # ==========================================
 # SECTION 1: PACKER DEFINITIONS (The Source of Truth)
@@ -23,8 +23,7 @@ definitions:
     notes: "ACProtect Standard by risco. A GUI-based PE protector using RSA public-key cryptography for registration key generation, with anti-dump and anti-debug features. Installer (acpr_std.exe) also retained at ./packers/acprotect/acpr_std.exe."
     size_kb: "998"
     output_behavior: "explicit"
-    type: "Type IV"
-    type_ex: "ACProtect employs RSA-based key verification, code encryption, CRC checks, and anti-dump — full interleaved execution where the protection stub remains active at runtime."
+    type: ""
     known_issues:
       - "Automation: GUI-only; cannot be scripted via CLI."
       - "Trial: Limited features in trial/standard edition."
@@ -49,8 +48,7 @@ definitions:
     notes: "GUI-based protector with Anti-Debugger, Anti-VM, and Integrity Checks."
     size_kb: "128"
     output_behavior: "explicit"
-    type: "Type IV"
-    type_ex: "Features like Anti-Debugger, Anti-VM, and Integrity Checks suggest that the packer's code is interleaved with the original application to perform these checks during runtime."
+    type: ""
     known_issues:
       - ""
 
@@ -70,8 +68,7 @@ definitions:
     notes: "Open-source reflective PE packer written in C. Features manual loading, LZAV compression, XTEA encryption, and full TLS/SEH support."
     size_kb: "52.50"
     output_behavior: "input_dir_suffix"
-    type: "Type V"
-    type_ex: "It manually maps, decrypts, and decompresses the payload directly into memory at runtime, fitting the Type V incremental/staged execution definition."
+    type: ""
     known_issues:
       - "Heuristics: High entropy in the newly created '.packed' section can trigger static AV/EDR detections (though this can be mitigated by moving the packed data into a header payload)."
       - "Usability: The project currently requires you to compile the CLI builder from source before use."
@@ -93,8 +90,7 @@ definitions:
     notes: "Reflective PE Packer v2.0. First version with x64 support. Modifies the input file in place (no _packed.exe sidecar like v3.x)."
     size_kb: "4458"
     output_behavior: "in_place"
-    type: "Type V"
-    type_ex: "Reflective loading is a form of incremental unpacking where the program loads itself in stages, fitting the Type V definition."
+    type: ""
     known_issues:
       - "Heuristics: High detection rate by AV due to reflective loading techniques."
       - "Legacy: Older version with fewer features compared to v3.x."
@@ -115,8 +111,7 @@ definitions:
     notes: "Reflective PE Packer v3.0. First v3.x release with IAT resolver, encoding, and custom stub support."
     size_kb: "3271"
     output_behavior: "input_dir_suffix"
-    type: "Type V"
-    type_ex: "Reflective loading is a form of incremental unpacking where the program loads itself in stages, fitting the Type V definition."
+    type: ""
     known_issues:
       - "Heuristics: High detection rate by AV due to reflective loading techniques."
       - "Stability: Custom stubs are marked as experimental."
@@ -137,8 +132,7 @@ definitions:
     notes: "Reflective PE Packer. Generates reflective payloads and EXE stubs."
     size_kb: "2590"
     output_behavior: "input_dir_suffix"
-    type: "Type V"
-    type_ex: "Reflective loading is a form of incremental unpacking where the program loads itself in stages, fitting the Type V definition."
+    type: ""
     known_issues:
       - "Heuristics: High detection rate by AV due to reflective loading techniques."
       - "Stability: Custom stubs are marked as experimental."
@@ -159,8 +153,7 @@ definitions:
     notes: "Armadillo by Silicon Realms Toolworks (predecessor to Software Passport). A widely studied PE protector from the 2000s with nanomite protection, code splitting, and debugger detection. Discontinued. BINARY NOT ACQUIRED — locate from RE community archives."
     size_kb: ""
     output_behavior: "explicit"
-    type: "Type IV"
-    type_ex: "Armadillo uses nanomite protection (exception-driven code execution), IAT encryption, and persistent runtime integrity checks."
+    type: ""
     known_issues:
 
   - &asm_guard_v294
@@ -179,8 +172,7 @@ definitions:
     notes: "Packer utility for compressing and complicating reversing compiled native code (native files). Features resource protection, DRM, and an optimized loader. The tool itself is a .NET assembly."
     size_kb: "3953"
     output_behavior: "explicit"
-    type: "Type IV"
-    type_ex: "DRM and resource protection features suggest an interleaved execution model to enforce checks and manage protected resources."
+    type: ""
     known_issues:
       - ""
 
@@ -200,8 +192,7 @@ definitions:
     notes: "Advanced utility for mutation (shallow obfuscation) of PE headers and Entry Points. Distinct from compression; focuses on signature evasion."
     size_kb: "2193"
     output_behavior: "explicit"
-    type: "Type I"
-    type_ex: "Shallow obfuscation of PE headers is a single-layer modification, so it fits the Type I classification."
+    type: ""
     known_issues:
       - ""
 
@@ -221,8 +212,7 @@ definitions:
     notes: "(C) 2006-2017 Benjamin 'BeRo' Rosseaux. Excellent for very small executables and demoscene intros."
     size_kb: "72 KB"
     output_behavior: "explicit"
-    type: "Type I"
-    type_ex: "A highly sophisticated but single-layer compressor, focused on size reduction for the demoscene."
+    type: ""
     known_issues:
       - "Compatibility: Focuses on extreme size reduction which can sometimes break standard PE headers unless +SPH is managed carefully."
       -
@@ -246,8 +236,7 @@ definitions:
     cli_template: "{bin} {project} -input {in} -output {out}"
     project_file: "./packers/enigma/The Enigma Protector/default.enigma"
     output_behavior: "explicit"
-    type: "Type IV"
-    type_ex: "Enigma Protector uses code virtualization (VM-based obfuscation) and full runtime integrity checks, consistent with interleaved execution throughout the program lifecycle."
+    type: ""
     known_issues:
       - "Demo version may add limitations (watermark, size cap, or expiry) to protected output."
       - "All DLLs must be co-located with enigma32.exe."
@@ -268,8 +257,7 @@ definitions:
     notes: "Simple Win32 EXE packer. Uses a custom compression algorithm with tunable lazy matching and hash chaining. Output files usually append '.packed.exe'."
     size_kb: "43"
     output_behavior: "suffix_packed"
-    type: "Type I"
-    type_ex: "A simple packer with a custom compression algorithm, indicative of a single-layer packing scheme."
+    type: ""
     known_issues:
       - "Output Naming: Does not appear to support custom output filenames via CLI; auto-generates 'filename.packed.exe'."
 
@@ -289,8 +277,7 @@ definitions:
     notes: "File command output: MS-DOS executable PE32 executable (console) Intel 80386. EVALUATION VERSION LIMIT: Input files must be under 80KB."
     size_kb: "49"
     output_behavior: "explicit"
-    type: "Type I"
-    type_ex: "A standard executable packer with no mention of advanced protection mechanisms."
+    type: ""
     known_issues:
       - "Unicode Support: Fails to open files with non-ASCII characters in the path (e.g., Chinese, Arabic)."
       - "Large Files: Fails on files with large overlays (like installers/SFX) or files > 80KB due to trial limit."
@@ -312,8 +299,7 @@ definitions:
     notes: "FSG (Fast Small Good) v1.33 by dulek/xtreeme (2002-11-15). Final public release. CLI supports `FSG.exe <input>` and drag&drop; GUI is still available but unnecessary. Packs in place — output filename is the input path with no sidecar."
     size_kb: "65"
     output_behavior: "in_place"
-    type: "Type I"
-    type_ex: "FSG is a single-pass compressor focused on minimal output size. No anti-debug mechanisms; pure compression."
+    type: ""
     known_issues:
       - "Packs in place — input file is overwritten. Run a copy if you need the original."
 
@@ -333,8 +319,7 @@ definitions:
     notes: "UPX Mutator by ROSE SWE (2001). Scrambles the headers/signatures of UPX-compressed executables to prevent automatic unpacking."
     size_kb: "35"
     output_behavior: "in_place"
-    type: "Type II"
-    type_ex: "Similar to UPX_Scrambler, it adds a layer of obfuscation on top of UPX, creating a multi-layer packer."
+    type: ""
     known_issues:
       - ""
 
@@ -354,8 +339,7 @@ definitions:
     notes: "hXOR Packer by Afif (2012). Features basic compression and XOR-based encryption requiring a numeric key."
     size_kb: "193"
     output_behavior: "explicit_absolute"
-    type: "Type I"
-    type_ex: "Basic compression and XOR encryption point to a simple, single-layer packer."
+    type: ""
     known_issues:
       - "Pathing: The help menu explicitly requests 'Absolute Path' for inputs and outputs"
 
@@ -375,8 +359,7 @@ definitions:
     notes: "Runtime Encrypter for 32-bit PE. Older v1.2 compiled release."
     size_kb: "134"
     output_behavior: "explicit"
-    type: "Type I"
-    type_ex: "A runtime encrypter that decrypts itself upon execution in a single stage, with no indication of advanced anti-analysis features."
+    type: ""
     known_issues:
       - "File Size Limit: Fails on large files 'error: out of memory' or 'illegal instruction' because FASM cannot compile the massive source file generated."
 
@@ -396,8 +379,7 @@ definitions:
     notes: "Runtime Encrypter for 32-bit PE."
     size_kb: "111"
     output_behavior: "explicit"
-    type: "Type I"
-    type_ex: "A runtime encrypter that decrypts itself upon execution in a single stage, with no indication of advanced anti-analysis features."
+    type: ""
     known_issues:
       - "File Size Limit: Fails on large files 'error: out of memory' or 'illegal instruction' because FASM cannot compile the massive source file generated."
 
@@ -417,8 +399,7 @@ definitions:
     notes: "JDPack v1.00. A Win32 PE executable compressor from the demoscene archive (ftp.elf.stuba.sk). GUI-only; cannot be scripted via CLI."
     size_kb: "95"
     output_behavior: "in_place"
-    type: "Type I"
-    type_ex: "JDPack is a single-layer PE compressor that prepends a decompression stub, consistent with Type I."
+    type: ""
     known_issues:
       - "Automation: GUI-only; cannot be scripted via CLI."
 
@@ -438,8 +419,7 @@ definitions:
     notes: "A radical EXE packer designed for 64k and 4k intros."
     size_kb: "40"
     output_behavior: "explicit"
-    type: "Type I"
-    type_ex: "A highly specialized packer for demoscene intros. Despite using advanced compression, it's fundamentally a single-layer compressor."
+    type: ""
     known_issues:
       - "Stability: Frequent Access Violation crashes (Exit Code 0xC0000005) when parsing modern complex PE structures."
       - "Compatibility: Produces non-standard PE structures that often crash modern debuggers or static analysis tools."
@@ -460,8 +440,7 @@ definitions:
     notes: "A radical EXE packer designed for 64k and 4k intros. Alpha 2 version (2006) with K7-optimized depacker."
     size_kb: "32"
     output_behavior: "explicit"
-    type: "Type I"
-    type_ex: "A highly specialized packer for demoscene intros. Despite using advanced compression, it's fundamentally a single-layer compressor."
+    type: ""
     known_issues:
       - "Stability: Frequent Access Violation crashes (Exit Code 0xC0000005) when parsing modern complex PE structures."
       - "Compatibility: Produces non-standard PE structures that often crash modern debuggers or static analysis tools."
@@ -482,8 +461,7 @@ definitions:
     notes: "MEW 11 SE by Northfox. A high-ratio compressor designed for very small executables (demoscene). Primarily a GUI tool."
     size_kb: "261"
     output_behavior: "in_place"
-    type: "Type I"
-    type_ex: "A high-ratio compressor with no mention of advanced protection mechanisms."
+    type: ""
     known_issues:
       - ""
 
@@ -503,8 +481,7 @@ definitions:
     notes: "MoleBox Virtualization Solution 4.6 by sudachen. A PE virtualizer/protector that wraps executables in a virtual filesystem environment. Uses MxbPack.exe as its CLI packing tool."
     size_kb: ""
     output_behavior: "explicit"
-    type: "Type II"
-    type_ex: "MoleBox wraps the target PE in a virtual environment with its own VFS layer, classifying it as a multi-layer virtualizer/protector."
+    type: ""
     known_issues:
       - ""
 
@@ -525,8 +502,7 @@ definitions:
     notes: "MATCODE comPRESSor v1.27 (2008). Early version with basic in-place compression. Lacks LZMA/LZMAT options of later versions."
     size_kb: "67"
     output_behavior: "in_place"
-    type: "Type I"
-    type_ex: "A high-performance compressor that is likely a single-layer packer, similar to UPX."
+    type: ""
     known_issues:
       - "In-Place Only: Tool strictly modifies the target file. Does not support an output file argument."
       - "Limited Options: Fewer compression tuning flags compared to v2.19."
@@ -547,8 +523,7 @@ definitions:
     notes: "MATCODE comPRESSor. High-performance in-place compressor. Excellent support for .NET executables and x64 (PE32+)."
     size_kb: "101"
     output_behavior: "in_place"
-    type: "Type I"
-    type_ex: "A high-performance compressor that is likely a single-layer packer, similar to UPX."
+    type: ""
     known_issues:
       - "In-Place Only: Tool strictly modifies the target file. Does not support an output file argument."
 
@@ -568,8 +543,7 @@ definitions:
     notes: "nPack v1.1.300.2006 by NEOx. A GUI PE compressor for Win32 EXEs and DLLs. Requires RebPE32.dll in the same directory. GUI-only; cannot be scripted via CLI."
     size_kb: "83"
     output_behavior: "in_place"
-    type: "Type I"
-    type_ex: "nPack is a standard single-layer compressor that prepends a decompression stub before the original OEP."
+    type: ""
     known_issues:
       - "GUI-only; no CLI interface available."
 
@@ -589,8 +563,7 @@ definitions:
     notes: "NsPack v3.7 by North Star (Liu Xingping). A lightweight CLI PE compressor supporting EXE, DLL, OCX, SCR for both 32-bit and 64-bit PE files. CLI: NSPack.exe <input_file>. BINARY NOT YET ACQUIRED — download from source_url, extract to ./packers/nspack/, then run binary_info.py to populate sha256 and size_kb."
     size_kb: ""
     output_behavior: "in_place"
-    type: "Type I"
-    type_ex: "NsPack is a single-pass compressor that embeds a decompression stub and transfers control to OEP after unpacking."
+    type: ""
     known_issues:
       - "Binary not yet downloaded. See notes for source_url."
 
@@ -610,8 +583,7 @@ definitions:
     notes: "Obsidium v1.5.2 build 11 by Obsidium Software. Older version with a valid license (Obsidium_License.txt). Automated via CLI: Obsidium.exe drives protection headless when given a project file (.opf)."
     size_kb: "7810"
     output_behavior: "explicit"
-    type: "Type IV"
-    type_ex: "Obsidium uses code virtualization and runtime integrity checks throughout program execution, consistent with full interleaved execution."
+    type: ""
     known_issues:
       - "Requires a project file (.opf); loading input/output alone no-ops to a pass-through. Different .opf profiles give different protection levels."
 
@@ -631,8 +603,7 @@ definitions:
     notes: "Packman 1.0. A legacy executable compressor. Primarily GUI-based."
     size_kb: "32"
     output_behavior: "in_place"
-    type: "Type I"
-    type_ex: "Described as a standard executable compressor, suggesting a simple single-layer packing mechanism."
+    type: ""
     known_issues:
       - ""
 
@@ -652,8 +623,7 @@ definitions:
     notes: "PE Diminisher (PED). A legacy GUI tool designed to reduce executable size by stripping DOS headers and optimizing PE structures."
     size_kb: "14"
     output_behavior: "explicit"
-    type: "Type I"
-    type_ex: "Described as a simple executable packer that uses aPLib compression. This suggests a single-layer modification."
+    type: ""
     known_issues:
       - ""
 
@@ -673,8 +643,7 @@ definitions:
     notes: "PELock by Bartosz Wójcik. A PE protector featuring code encryption, anti-debugging, anti-dump, and license key management. Free for personal/non-commercial use. GUI-only; cannot be scripted via CLI."
     size_kb: "2073"
     output_behavior: "explicit"
-    type: "Type IV"
-    type_ex: "PELock implements code encryption and runtime anti-debug checks, consistent with interleaved execution."
+    type: ""
     known_issues:
       - "GUI-only; cannot be scripted via CLI."
 
@@ -694,8 +663,7 @@ definitions:
     notes: "Simple PE file packer which encrypts the .text section and adds a decryption stub to the end of the last section. The encryption is a simple XOR encryption."
     size_kb: "207"
     output_behavior: "in_place"
-    type: "Type II"
-    type_ex: "Simple XOR encryption of the .text section followed by a decryption stub appended to the end of the last section. Does not maintain persistent hooks."
+    type: ""
 
   - &petite_v22
     packer_family: "petite"
@@ -713,8 +681,7 @@ definitions:
     notes: "Classic Win32 executable compressor v2.2 (1999) by Ian Luck. Shareware version with registration prompt."
     size_kb: "46"
     output_behavior: "explicit"
-    type: "Type III"
-    type_ex: "Features a self-checking virus detection mechanism, which suggests a cyclic integrity check, fitting the Type III model."
+    type: ""
     known_issues:
       - "Shareware: Displays registration nag screen."
       - "Compatibility: Older packer (1999); aggressive import mangling (-m1) may break modern executables."
@@ -735,8 +702,7 @@ definitions:
     notes: "Classic Win32 executable compressor v2.3 (2005) by Ian Luck. Features resource compression and import table mangling."
     size_kb: "47"
     output_behavior: "explicit"
-    type: "Type III"
-    type_ex: "Features a self-checking virus detection mechanism, which suggests a cyclic integrity check, fitting the Type III model."
+    type: ""
     known_issues:
       - "Compatibility: Older packer (2005); aggressive import mangling (-m1) may break modern executables."
 
@@ -756,8 +722,7 @@ definitions:
     notes: "Classic Win32 executable compressor by Un4seen Developments. Features configurable resource compression and import table mangling."
     size_kb: "30"
     output_behavior: "explicit"
-    type: "Type III"
-    type_ex: "Features a self-checking virus detection mechanism, which suggests a cyclic integrity check, fitting the Type III model."
+    type: ""
     known_issues:
       - "Compatibility: Older packer (2015); aggressive import mangling (-m1) may break modern Windows 10/11 executables."
 
@@ -777,8 +742,7 @@ definitions:
     notes: "Open-source PE packer that converts executables to shellcode via Donut, then repackages them with anti-debug, unhooking, syscalls, SGN encoding, and fluctuation support. Runs via WSL on Windows."
     size_kb: "28"
     output_behavior: "explicit"
-    type: "Type V"
-    type_ex: "Uses Donut to convert PE to position-independent shellcode, then wraps it in a new loader with optional encryption, encoding, and evasion techniques. Multi-stage: shellcode generation -> encoding -> loader compilation."
+    type: ""
     known_issues:
       - "WSL Required: Must run inside WSL (Ubuntu). Cannot run natively on Windows."
       - "32-bit Limitations: -syscalls flag is 64-bit only. -self with -sgn is incompatible."
@@ -799,8 +763,7 @@ definitions:
     notes: "RLPack Basic Edition (by ap0x). A compressing executable protector"
     size_kb: "58"
     output_behavior: "explicit"
-    type: "Type IV"
-    type_ex: "RLPack includes anti-debugging, integrity checks, and code splicing, indicating an interleaved execution model where the packer's code is active during runtime."
+    type: ""
     known_issues:
       - ""
 
@@ -820,8 +783,7 @@ definitions:
     notes: "Shrinker 3.4 Demo by Blink Inc. A Win32 PE compressor/packer. Demo release from the defacto2 scene archive. GUI-only; cannot be scripted via CLI."
     size_kb: "361"
     output_behavior: "explicit"
-    type: "Type I"
-    type_ex: "Shrinker is a single-layer compressor that prepends a decompression stub to the original PE, consistent with Type I."
+    type: ""
     known_issues:
       - "Demo version may restrict packing of large files or add a watermark."
       - "GUI-only; cannot be scripted via CLI."
@@ -842,8 +804,7 @@ definitions:
     notes: "SimpleDpack v0.5.3 by devseed. A lightweight Win32 PE executable compressor designed for learning and investigating PE structure. Supports both CLI drag-and-drop and command-line execution."
     size_kb: "28"
     output_behavior: "explicit"
-    type: "Type I"
-    type_ex: "SimpleDpack is a single-layer PE compressor that prepends a decompression stub, consistent with Type I."
+    type: ""
     known_issues:
       - ""
 
@@ -863,8 +824,7 @@ definitions:
     notes: "tElock v0.98 (2000-2001) by tE! A PE compressor and protector with anti-debugging and encryption features. Widely used in malware. GUI-only; launches a window even when given a file path argument."
     size_kb: "54"
     output_behavior: "in_place"
-    type: "Type III"
-    type_ex: "tElock features anti-debugging and code encryption on top of compression, creating a cyclic integrity model where the stub actively checks for analysis tools."
+    type: ""
     known_issues:
       - "Automation: GUI-only; cannot be scripted via CLI."
 
@@ -885,8 +845,7 @@ definitions:
     notes: "Themida by Oreans Technologies (Demo package). A professional-grade PE protector with code virtualization (multiple VM architectures), anti-debug, anti-dump, anti-VM, and software licensing. PE32 GUI: Themida.exe (32836 KB, x86). PE64 GUI: Themida64.exe (SHA256: 2b16a01042022b782b3f3e79fc62fae97b528332d0c7b5bd67da84e4cbc227e1, 31591 KB, x86 launcher). The two corpus variants are: (1) unpacking routine virtualization — full VM execution of unpacker; (2) partial code revealing — hybrid VM/native execution. GUI-only; cannot be scripted via CLI."
     size_kb: "32836"
     output_behavior: "explicit"
-    type: "Type IV"
-    type_ex: "Themida is a Type IV protector with VM-based code virtualization. The packer stub (and parts of the original code) execute inside a proprietary virtual machine with multiple selectable architectures (TIGER32, FISH64, etc.), making it one of the most complex protectors in this corpus."
+    type: ""
     known_issues:
       - "GUI-only; no CLI interface available."
       - "Demo version may add watermark or restrict protected file execution."
@@ -911,8 +870,7 @@ definitions:
     notes: "(c) 2005 dwing. A legendary packer often associated with malware due to its unique PE header manipulation (e.g., merging sections)."
     size_kb: "21"
     output_behavior: "in_place"
-    type: "Type III"
-    type_ex: "Upack is known for its focus on anti-unpacking techniques and unique PE header manipulation, suggesting a complexity beyond a simple compressor, likely with cyclic checks."
+    type: ""
     known_issues:
       - ""
 
@@ -932,8 +890,7 @@ definitions:
     notes: "A tool designed to obfuscate or 'scramble' the headers of UPX-packed executables to prevent easy unpacking. It is a GUI-based utility."
     size_kb: "17"
     output_behavior: "explicit"
-    type: "Type II"
-    type_ex: "This tool adds a layer of obfuscation on top of an already packed file (UPX), creating a multi-layer packer scenario."
+    type: ""
     known_issues:
       - ""
 
@@ -953,8 +910,7 @@ definitions:
     notes: "UPX Scrambler v3.06 by control. GUI tool that obfuscates UPX-packed PE headers to prevent automatic unpacking."
     size_kb: "17"
     output_behavior: "explicit"
-    type: "Type II"
-    type_ex: "Adds obfuscation on top of UPX, creating a multi-layer packer scenario."
+    type: ""
     known_issues:
       - "Automation: GUI-only; cannot be scripted via CLI."
 
@@ -974,8 +930,7 @@ definitions:
     notes: "UPX Scrambler vRC1 by control. GUI tool that obfuscates UPX-packed PE headers to prevent automatic unpacking."
     size_kb: "18"
     output_behavior: "explicit"
-    type: "Type II"
-    type_ex: "Adds obfuscation on top of UPX, creating a multi-layer packer scenario."
+    type: ""
     known_issues:
       - "Automation: GUI-only; cannot be scripted via CLI."
 
@@ -995,8 +950,7 @@ definitions:
     notes: "UPX Scrambler vRC1.03 by control. GUI tool that obfuscates UPX-packed PE headers to prevent automatic unpacking."
     size_kb: "18"
     output_behavior: "explicit"
-    type: "Type II"
-    type_ex: "Adds obfuscation on top of UPX, creating a multi-layer packer scenario."
+    type: ""
     known_issues:
       - "Automation: GUI-only; cannot be scripted via CLI."
 
@@ -1016,8 +970,7 @@ definitions:
     notes: "UPX Scrambler vRC1.05 by control. GUI tool that obfuscates UPX-packed PE headers to prevent automatic unpacking."
     size_kb: "18"
     output_behavior: "explicit"
-    type: "Type II"
-    type_ex: "Adds obfuscation on top of UPX, creating a multi-layer packer scenario."
+    type: ""
     known_issues:
       - "Automation: GUI-only; cannot be scripted via CLI."
 
@@ -1037,8 +990,7 @@ definitions:
     notes: "UPX Scrambler vRC1b10 by control. GUI tool that obfuscates UPX-packed PE headers to prevent automatic unpacking."
     size_kb: "18"
     output_behavior: "explicit"
-    type: "Type II"
-    type_ex: "Adds obfuscation on top of UPX, creating a multi-layer packer scenario."
+    type: ""
     known_issues:
       - "Automation: GUI-only; cannot be scripted via CLI."
 
@@ -1058,8 +1010,7 @@ definitions:
     notes: "The Ultimate Packer for eXecutables v0.60 (1996-1999). Early release from the Downloads/packers collection."
     size_kb: "48"
     output_behavior: "explicit"
-    type: "Type I"
-    type_ex: "The paper explicitly mentions UPX as a notable example of a Type-I packer, which uses a single unpacking routine."
+    type: ""
     known_issues:
       - "Antivirus: Files packed with UPX are frequently flagged as false positives by AV engines."
 
@@ -1079,8 +1030,7 @@ definitions:
     notes: "The Ultimate Packer for eXecutables v0.61 (1999). Early release from the Downloads/packers collection."
     size_kb: "49"
     output_behavior: "explicit"
-    type: "Type I"
-    type_ex: "The paper explicitly mentions UPX as a notable example of a Type-I packer, which uses a single unpacking routine."
+    type: ""
     known_issues:
       - "Antivirus: Files packed with UPX are frequently flagged as false positives by AV engines."
 
@@ -1100,8 +1050,7 @@ definitions:
     notes: "The Ultimate Packer for eXecutables v0.62 (1999). Early release from the Downloads/packers collection."
     size_kb: "49"
     output_behavior: "explicit"
-    type: "Type I"
-    type_ex: "The paper explicitly mentions UPX as a notable example of a Type-I packer, which uses a single unpacking routine."
+    type: ""
     known_issues:
       - "Antivirus: Files packed with UPX are frequently flagged as false positives by AV engines."
 
@@ -1121,8 +1070,7 @@ definitions:
     notes: "The Ultimate Packer for eXecutables v0.70 (1999). Early release from the Downloads/packers collection."
     size_kb: "52"
     output_behavior: "explicit"
-    type: "Type I"
-    type_ex: "The paper explicitly mentions UPX as a notable example of a Type-I packer, which uses a single unpacking routine."
+    type: ""
     known_issues:
       - "Antivirus: Files packed with UPX are frequently flagged as false positives by AV engines."
 
@@ -1142,8 +1090,7 @@ definitions:
     notes: "The Ultimate Packer for eXecutables v0.71 (1999). Early release from the Downloads/packers collection."
     size_kb: "53"
     output_behavior: "explicit"
-    type: "Type I"
-    type_ex: "The paper explicitly mentions UPX as a notable example of a Type-I packer, which uses a single unpacking routine."
+    type: ""
     known_issues:
       - "Antivirus: Files packed with UPX are frequently flagged as false positives by AV engines."
 
@@ -1163,8 +1110,7 @@ definitions:
     notes: "The Ultimate Packer for eXecutables v0.72 (1999). Early release from the Downloads/packers collection."
     size_kb: "53"
     output_behavior: "explicit"
-    type: "Type I"
-    type_ex: "The paper explicitly mentions UPX as a notable example of a Type-I packer, which uses a single unpacking routine."
+    type: ""
     known_issues:
       - "Antivirus: Files packed with UPX are frequently flagged as false positives by AV engines."
 
@@ -1184,8 +1130,7 @@ definitions:
     notes: "The Ultimate Packer for eXecutables v0.762b (1999 beta). Beta release. Early release from the Downloads/packers collection."
     size_kb: "61"
     output_behavior: "explicit"
-    type: "Type I"
-    type_ex: "The paper explicitly mentions UPX as a notable example of a Type-I packer, which uses a single unpacking routine."
+    type: ""
     known_issues:
       - "Antivirus: Files packed with UPX are frequently flagged as false positives by AV engines."
 
@@ -1205,8 +1150,7 @@ definitions:
     notes: "The Ultimate Packer for eXecutables v0.763b (1999 beta). Beta release. Early release from the Downloads/packers collection."
     size_kb: "63"
     output_behavior: "explicit"
-    type: "Type I"
-    type_ex: "The paper explicitly mentions UPX as a notable example of a Type-I packer, which uses a single unpacking routine."
+    type: ""
     known_issues:
       - "Antivirus: Files packed with UPX are frequently flagged as false positives by AV engines."
 
@@ -1226,8 +1170,7 @@ definitions:
     notes: "The Ultimate Packer for eXecutables v0.80 (1999). Early release from the Downloads/packers collection."
     size_kb: "64"
     output_behavior: "explicit"
-    type: "Type I"
-    type_ex: "The paper explicitly mentions UPX as a notable example of a Type-I packer, which uses a single unpacking routine."
+    type: ""
     known_issues:
       - "Antivirus: Files packed with UPX are frequently flagged as false positives by AV engines."
 
@@ -1247,8 +1190,7 @@ definitions:
     notes: "The Ultimate Packer for eXecutables v0.81 (1999). Early release from the Downloads/packers collection."
     size_kb: "64"
     output_behavior: "explicit"
-    type: "Type I"
-    type_ex: "The paper explicitly mentions UPX as a notable example of a Type-I packer, which uses a single unpacking routine."
+    type: ""
     known_issues:
       - "Antivirus: Files packed with UPX are frequently flagged as false positives by AV engines."
 
@@ -1268,8 +1210,7 @@ definitions:
     notes: "The Ultimate Packer for eXecutables v0.82 (1999-2000). Early release from the Downloads/packers collection."
     size_kb: "64"
     output_behavior: "explicit"
-    type: "Type I"
-    type_ex: "The paper explicitly mentions UPX as a notable example of a Type-I packer, which uses a single unpacking routine."
+    type: ""
     known_issues:
       - "Antivirus: Files packed with UPX are frequently flagged as false positives by AV engines."
 
@@ -1289,8 +1230,7 @@ definitions:
     notes: "The Ultimate Packer for eXecutables v0.83 (2000). Early release from the Downloads/packers collection."
     size_kb: "64"
     output_behavior: "explicit"
-    type: "Type I"
-    type_ex: "The paper explicitly mentions UPX as a notable example of a Type-I packer, which uses a single unpacking routine."
+    type: ""
     known_issues:
       - "Antivirus: Files packed with UPX are frequently flagged as false positives by AV engines."
 
@@ -1310,8 +1250,7 @@ definitions:
     notes: "The Ultimate Packer for eXecutables v0.84 (2000). Early release from the Downloads/packers collection."
     size_kb: "64"
     output_behavior: "explicit"
-    type: "Type I"
-    type_ex: "The paper explicitly mentions UPX as a notable example of a Type-I packer, which uses a single unpacking routine."
+    type: ""
     known_issues:
       - "Antivirus: Files packed with UPX are frequently flagged as false positives by AV engines."
 
@@ -1331,8 +1270,7 @@ definitions:
     notes: "The Ultimate Packer for eXecutables v0.896b (2000 beta). Beta release. Early release from the Downloads/packers collection."
     size_kb: "71"
     output_behavior: "explicit"
-    type: "Type I"
-    type_ex: "The paper explicitly mentions UPX as a notable example of a Type-I packer, which uses a single unpacking routine."
+    type: ""
     known_issues:
       - "Antivirus: Files packed with UPX are frequently flagged as false positives by AV engines."
 
@@ -1352,8 +1290,7 @@ definitions:
     notes: "The Ultimate Packer for eXecutables v0.90 (2000). Early release from the Downloads/packers collection."
     size_kb: "71"
     output_behavior: "explicit"
-    type: "Type I"
-    type_ex: "The paper explicitly mentions UPX as a notable example of a Type-I packer, which uses a single unpacking routine."
+    type: ""
     known_issues:
       - "Antivirus: Files packed with UPX are frequently flagged as false positives by AV engines."
 
@@ -1373,8 +1310,7 @@ definitions:
     notes: "The Ultimate Packer for eXecutables v0.92 (2000). Early release from the Downloads/packers collection."
     size_kb: "72"
     output_behavior: "explicit"
-    type: "Type I"
-    type_ex: "The paper explicitly mentions UPX as a notable example of a Type-I packer, which uses a single unpacking routine."
+    type: ""
     known_issues:
       - "Antivirus: Files packed with UPX are frequently flagged as false positives by AV engines."
 
@@ -1394,8 +1330,7 @@ definitions:
     notes: "The Ultimate Packer for eXecutables v0.93 (2000). Early release from the Downloads/packers collection."
     size_kb: "72"
     output_behavior: "explicit"
-    type: "Type I"
-    type_ex: "The paper explicitly mentions UPX as a notable example of a Type-I packer, which uses a single unpacking routine."
+    type: ""
     known_issues:
       - "Antivirus: Files packed with UPX are frequently flagged as false positives by AV engines."
 
@@ -1415,8 +1350,7 @@ definitions:
     notes: "The Ultimate Packer for eXecutables v0.94 (2000). Early release from the Downloads/packers collection."
     size_kb: "73"
     output_behavior: "explicit"
-    type: "Type I"
-    type_ex: "The paper explicitly mentions UPX as a notable example of a Type-I packer, which uses a single unpacking routine."
+    type: ""
     known_issues:
       - "Antivirus: Files packed with UPX are frequently flagged as false positives by AV engines."
 
@@ -1436,8 +1370,7 @@ definitions:
     notes: "The Ultimate Packer for eXecutables v0.99 (2000). Early release from the Downloads/packers collection."
     size_kb: "83"
     output_behavior: "explicit"
-    type: "Type I"
-    type_ex: "The paper explicitly mentions UPX as a notable example of a Type-I packer, which uses a single unpacking routine."
+    type: ""
     known_issues:
       - "Antivirus: Files packed with UPX are frequently flagged as false positives by AV engines."
 
@@ -1457,8 +1390,7 @@ definitions:
     notes: "The Ultimate Packer for eXecutables v0.991 (2000). Early release from the Downloads/packers collection."
     size_kb: "83"
     output_behavior: "explicit"
-    type: "Type I"
-    type_ex: "The paper explicitly mentions UPX as a notable example of a Type-I packer, which uses a single unpacking routine."
+    type: ""
     known_issues:
       - "Antivirus: Files packed with UPX are frequently flagged as false positives by AV engines."
 
@@ -1478,8 +1410,7 @@ definitions:
     notes: "The Ultimate Packer for eXecutables v0.992 (2000). Early release from the Downloads/packers collection."
     size_kb: "83"
     output_behavior: "explicit"
-    type: "Type I"
-    type_ex: "The paper explicitly mentions UPX as a notable example of a Type-I packer, which uses a single unpacking routine."
+    type: ""
     known_issues:
       - "Antivirus: Files packed with UPX are frequently flagged as false positives by AV engines."
 
@@ -1499,8 +1430,7 @@ definitions:
     notes: "The Ultimate Packer for eXecutables v0.993 (2000). Early release from the Downloads/packers collection."
     size_kb: "84"
     output_behavior: "explicit"
-    type: "Type I"
-    type_ex: "The paper explicitly mentions UPX as a notable example of a Type-I packer, which uses a single unpacking routine."
+    type: ""
     known_issues:
       - "Antivirus: Files packed with UPX are frequently flagged as false positives by AV engines."
 
@@ -1520,8 +1450,7 @@ definitions:
     notes: "The Ultimate Packer for eXecutables v1.00 (2000). Early release from the Downloads/packers collection."
     size_kb: "84"
     output_behavior: "explicit"
-    type: "Type I"
-    type_ex: "The paper explicitly mentions UPX as a notable example of a Type-I packer, which uses a single unpacking routine."
+    type: ""
     known_issues:
       - "Antivirus: Files packed with UPX are frequently flagged as false positives by AV engines."
 
@@ -1541,8 +1470,7 @@ definitions:
     notes: "The Ultimate Packer for eXecutables v1.01 (2001). Early release from the Downloads/packers collection."
     size_kb: "84"
     output_behavior: "explicit"
-    type: "Type I"
-    type_ex: "The paper explicitly mentions UPX as a notable example of a Type-I packer, which uses a single unpacking routine."
+    type: ""
     known_issues:
       - "Antivirus: Files packed with UPX are frequently flagged as false positives by AV engines."
 
@@ -1562,8 +1490,7 @@ definitions:
     notes: "The Ultimate Packer for eXecutables v1.02 (2001). Early release from the Downloads/packers collection."
     size_kb: "86"
     output_behavior: "explicit"
-    type: "Type I"
-    type_ex: "The paper explicitly mentions UPX as a notable example of a Type-I packer, which uses a single unpacking routine."
+    type: ""
     known_issues:
       - "Antivirus: Files packed with UPX are frequently flagged as false positives by AV engines."
 
@@ -1583,8 +1510,7 @@ definitions:
     notes: "The Ultimate Packer for eXecutables v1.03 (2001). Early release from the Downloads/packers collection."
     size_kb: "87"
     output_behavior: "explicit"
-    type: "Type I"
-    type_ex: "The paper explicitly mentions UPX as a notable example of a Type-I packer, which uses a single unpacking routine."
+    type: ""
     known_issues:
       - "Antivirus: Files packed with UPX are frequently flagged as false positives by AV engines."
 
@@ -1604,8 +1530,7 @@ definitions:
     notes: "The Ultimate Packer for eXecutables v1.04 (2001). Early release from the Downloads/packers collection."
     size_kb: "87"
     output_behavior: "explicit"
-    type: "Type I"
-    type_ex: "The paper explicitly mentions UPX as a notable example of a Type-I packer, which uses a single unpacking routine."
+    type: ""
     known_issues:
       - "Antivirus: Files packed with UPX are frequently flagged as false positives by AV engines."
 
@@ -1625,8 +1550,7 @@ definitions:
     notes: "The Ultimate Packer for eXecutables v1.05 (2001). Early release from the Downloads/packers collection."
     size_kb: "87"
     output_behavior: "explicit"
-    type: "Type I"
-    type_ex: "The paper explicitly mentions UPX as a notable example of a Type-I packer, which uses a single unpacking routine."
+    type: ""
     known_issues:
       - "Antivirus: Files packed with UPX are frequently flagged as false positives by AV engines."
 
@@ -1646,8 +1570,7 @@ definitions:
     notes: "The Ultimate Packer for eXecutables v1.06 (2001). Early release from the Downloads/packers collection."
     size_kb: "87"
     output_behavior: "explicit"
-    type: "Type I"
-    type_ex: "The paper explicitly mentions UPX as a notable example of a Type-I packer, which uses a single unpacking routine."
+    type: ""
     known_issues:
       - "Antivirus: Files packed with UPX are frequently flagged as false positives by AV engines."
 
@@ -1667,8 +1590,7 @@ definitions:
     notes: "The Ultimate Packer for eXecutables v1.07 (2001). Early release from the Downloads/packers collection."
     size_kb: "88"
     output_behavior: "explicit"
-    type: "Type I"
-    type_ex: "The paper explicitly mentions UPX as a notable example of a Type-I packer, which uses a single unpacking routine."
+    type: ""
     known_issues:
       - "Antivirus: Files packed with UPX are frequently flagged as false positives by AV engines."
 
@@ -1688,8 +1610,7 @@ definitions:
     notes: "The Ultimate Packer for eXecutables v1.08 (2002). Early release from the Downloads/packers collection."
     size_kb: "87"
     output_behavior: "explicit"
-    type: "Type I"
-    type_ex: "The paper explicitly mentions UPX as a notable example of a Type-I packer, which uses a single unpacking routine."
+    type: ""
     known_issues:
       - "Antivirus: Files packed with UPX are frequently flagged as false positives by AV engines."
 
@@ -1709,8 +1630,7 @@ definitions:
     notes: "The Ultimate Packer for eXecutables v1.20 (2002). Early release from the Downloads/packers collection."
     size_kb: "88"
     output_behavior: "explicit"
-    type: "Type I"
-    type_ex: "The paper explicitly mentions UPX as a notable example of a Type-I packer, which uses a single unpacking routine."
+    type: ""
     known_issues:
       - "Antivirus: Files packed with UPX are frequently flagged as false positives by AV engines."
 
@@ -1730,8 +1650,7 @@ definitions:
     notes: "The Ultimate Packer for eXecutables v1.21 (2002). Early release from the Downloads/packers collection."
     size_kb: "89"
     output_behavior: "explicit"
-    type: "Type I"
-    type_ex: "The paper explicitly mentions UPX as a notable example of a Type-I packer, which uses a single unpacking routine."
+    type: ""
     known_issues:
       - "Antivirus: Files packed with UPX are frequently flagged as false positives by AV engines."
 
@@ -1751,8 +1670,7 @@ definitions:
     notes: "The Ultimate Packer for eXecutables v1.22 (2002). Early release from the Downloads/packers collection."
     size_kb: "89"
     output_behavior: "explicit"
-    type: "Type I"
-    type_ex: "The paper explicitly mentions UPX as a notable example of a Type-I packer, which uses a single unpacking routine."
+    type: ""
     known_issues:
       - "Antivirus: Files packed with UPX are frequently flagged as false positives by AV engines."
 
@@ -1774,8 +1692,7 @@ definitions:
     notes: "The Ultimate Packer for eXecutables v3.95 (2018). Stable v3.x release."
     size_kb: "397"
     output_behavior: "explicit"
-    type: "Type I"
-    type_ex: "The paper explicitly mentions UPX as a notable example of a Type-I packer, which uses a single unpacking routine."
+    type: ""
     known_issues:
       - "Antivirus: Files packed with UPX are frequently flagged as false positives by AV engines."
       - "Overlays: Default behavior copies overlays, but --overlay=strip might be needed for some specific targets."
@@ -1796,8 +1713,7 @@ definitions:
     notes: "The Ultimate Packer for eXecutables v3.96 (2020). Last v3.x release. Handles PE, ELF, Mach-O."
     size_kb: "403"
     output_behavior: "explicit"
-    type: "Type I"
-    type_ex: "The paper explicitly mentions UPX as a notable example of a Type-I packer, which uses a single unpacking routine."
+    type: ""
     known_issues:
       - "Antivirus: Files packed with UPX are frequently flagged as false positives by AV engines."
       - "Overlays: Default behavior copies overlays, but --overlay=strip might be needed for some specific targets."
@@ -1818,8 +1734,7 @@ definitions:
     notes: "The Ultimate Packer for eXecutables v4.0.0 (2023). First v4.x release with major rewrite."
     size_kb: "468"
     output_behavior: "explicit"
-    type: "Type I"
-    type_ex: "The paper explicitly mentions UPX as a notable example of a Type-I packer, which uses a single unpacking routine."
+    type: ""
     known_issues:
       - "Antivirus: Files packed with UPX are frequently flagged as false positives by AV engines."
       - "Overlays: Default behavior copies overlays, but --overlay=strip might be needed for some specific targets."
@@ -1840,8 +1755,7 @@ definitions:
     notes: "The Ultimate Packer for eXecutables v4.0.1 (2023). Bug-fix release for v4.0.x."
     size_kb: "527"
     output_behavior: "explicit"
-    type: "Type I"
-    type_ex: "The paper explicitly mentions UPX as a notable example of a Type-I packer, which uses a single unpacking routine."
+    type: ""
     known_issues:
       - "Antivirus: Files packed with UPX are frequently flagged as false positives by AV engines."
       - "Overlays: Default behavior copies overlays, but --overlay=strip might be needed for some specific targets."
@@ -1862,8 +1776,7 @@ definitions:
     notes: "The Ultimate Packer for eXecutables v4.0.2 (2023). Bug-fix release for v4.0.x."
     size_kb: "525"
     output_behavior: "explicit"
-    type: "Type I"
-    type_ex: "The paper explicitly mentions UPX as a notable example of a Type-I packer, which uses a single unpacking routine."
+    type: ""
     known_issues:
       - "Antivirus: Files packed with UPX are frequently flagged as false positives by AV engines."
       - "Overlays: Default behavior copies overlays, but --overlay=strip might be needed for some specific targets."
@@ -1884,8 +1797,7 @@ definitions:
     notes: "The Ultimate Packer for eXecutables v4.1.0 (2023). Feature release in v4.x series."
     size_kb: "545"
     output_behavior: "explicit"
-    type: "Type I"
-    type_ex: "The paper explicitly mentions UPX as a notable example of a Type-I packer, which uses a single unpacking routine."
+    type: ""
     known_issues:
       - "Antivirus: Files packed with UPX are frequently flagged as false positives by AV engines."
       - "Overlays: Default behavior copies overlays, but --overlay=strip might be needed for some specific targets."
@@ -1906,8 +1818,7 @@ definitions:
     notes: "The Ultimate Packer for eXecutables v4.2.0 (2024). Improved PE support in v4.2.x."
     size_kb: "550"
     output_behavior: "explicit"
-    type: "Type I"
-    type_ex: "The paper explicitly mentions UPX as a notable example of a Type-I packer, which uses a single unpacking routine."
+    type: ""
     known_issues:
       - "Antivirus: Files packed with UPX are frequently flagged as false positives by AV engines."
       - "Overlays: Default behavior copies overlays, but --overlay=strip might be needed for some specific targets."
@@ -1928,8 +1839,7 @@ definitions:
     notes: "The Ultimate Packer for eXecutables v4.2.1 (2024). Bug-fix release for v4.2.x."
     size_kb: "550"
     output_behavior: "explicit"
-    type: "Type I"
-    type_ex: "The paper explicitly mentions UPX as a notable example of a Type-I packer, which uses a single unpacking routine."
+    type: ""
     known_issues:
       - "Antivirus: Files packed with UPX are frequently flagged as false positives by AV engines."
       - "Overlays: Default behavior copies overlays, but --overlay=strip might be needed for some specific targets."
@@ -1950,8 +1860,7 @@ definitions:
     notes: "The Ultimate Packer for eXecutables v4.2.2 (2024). Bug-fix release for v4.2.x."
     size_kb: "550"
     output_behavior: "explicit"
-    type: "Type I"
-    type_ex: "The paper explicitly mentions UPX as a notable example of a Type-I packer, which uses a single unpacking routine."
+    type: ""
     known_issues:
       - "Antivirus: Files packed with UPX are frequently flagged as false positives by AV engines."
       - "Overlays: Default behavior copies overlays, but --overlay=strip might be needed for some specific targets."
@@ -1972,8 +1881,7 @@ definitions:
     notes: "The Ultimate Packer for eXecutables v4.2.3 (2024). Bug-fix release for v4.2.x."
     size_kb: "551"
     output_behavior: "explicit"
-    type: "Type I"
-    type_ex: "The paper explicitly mentions UPX as a notable example of a Type-I packer, which uses a single unpacking routine."
+    type: ""
     known_issues:
       - "Antivirus: Files packed with UPX are frequently flagged as false positives by AV engines."
       - "Overlays: Default behavior copies overlays, but --overlay=strip might be needed for some specific targets."
@@ -1994,8 +1902,7 @@ definitions:
     notes: "The Ultimate Packer for eXecutables v4.2.4 (2024). Major v4 rewrite with improved PE support."
     size_kb: "552"
     output_behavior: "explicit"
-    type: "Type I"
-    type_ex: "The paper explicitly mentions UPX as a notable example of a Type-I packer, which uses a single unpacking routine."
+    type: ""
     known_issues:
       - "Antivirus: Files packed with UPX are frequently flagged as false positives by AV engines."
       - "Overlays: Default behavior copies overlays, but --overlay=strip might be needed for some specific targets."
@@ -2016,8 +1923,7 @@ definitions:
     notes: "The Ultimate Packer for eXecutables v5.0.0 (2025). First v5.x release with new features."
     size_kb: "584"
     output_behavior: "explicit"
-    type: "Type I"
-    type_ex: "The paper explicitly mentions UPX as a notable example of a Type-I packer, which uses a single unpacking routine."
+    type: ""
     known_issues:
       - "Antivirus: Files packed with UPX are frequently flagged as false positives by AV engines."
       - "Overlays: Default behavior copies overlays, but --overlay=strip might be needed for some specific targets."
@@ -2038,8 +1944,7 @@ definitions:
     notes: "The Ultimate Packer for eXecutables v5.0.1 (2025). Bug-fix release for v5.0.x."
     size_kb: "585"
     output_behavior: "explicit"
-    type: "Type I"
-    type_ex: "The paper explicitly mentions UPX as a notable example of a Type-I packer, which uses a single unpacking routine."
+    type: ""
     known_issues:
       - "Antivirus: Files packed with UPX are frequently flagged as false positives by AV engines."
       - "Overlays: Default behavior copies overlays, but --overlay=strip might be needed for some specific targets."
@@ -2060,8 +1965,7 @@ definitions:
     notes: "The Ultimate Packer for eXecutables v5.0.2 (2025). Bug-fix release for v5.0.x."
     size_kb: "585"
     output_behavior: "explicit"
-    type: "Type I"
-    type_ex: "The paper explicitly mentions UPX as a notable example of a Type-I packer, which uses a single unpacking routine."
+    type: ""
     known_issues:
       - "Antivirus: Files packed with UPX are frequently flagged as false positives by AV engines."
       - "Overlays: Default behavior copies overlays, but --overlay=strip might be needed for some specific targets."
@@ -2082,8 +1986,7 @@ definitions:
     notes: "The Ultimate Packer for eXecutables. Handles varied formats (PE, ELF, Mach-O). Supports in-place decompression."
     size_kb: "652"
     output_behavior: "explicit"
-    type: "Type I"
-    type_ex: "The paper explicitly mentions UPX as a notable example of a Type-I packer, which uses a single unpacking routine."
+    type: ""
     known_issues:
       - "Antivirus: Files packed with UPX are frequently flagged as false positives by AV engines."
       - "Overlays: Default behavior copies overlays, but --overlay=strip might be needed for some specific targets."
@@ -2104,8 +2007,7 @@ definitions:
     notes: "The Ultimate Packer for eXecutables v5.1.1 (2026). Latest stable release."
     size_kb: "609"
     output_behavior: "explicit"
-    type: "Type I"
-    type_ex: "The paper explicitly mentions UPX as a notable example of a Type-I packer, which uses a single unpacking routine."
+    type: ""
     known_issues:
       - "Antivirus: Files packed with UPX are frequently flagged as false positives by AV engines."
       - "Overlays: Default behavior copies overlays, but --overlay=strip might be needed for some specific targets."
@@ -2126,8 +2028,7 @@ definitions:
     notes: "Graphical User Interface (GUI) frontend for the Upack CLI compressor. Useful for manual testing but not suitable for automation."
     size_kb: "27"
     output_behavior: "explicit"
-    type: "Type III"
-    type_ex: "As a frontend for Upack, it produces a packed file with the same characteristics. Upack is classified as Type III due to its focus on anti-unpacking techniques."
+    type: ""
     known_issues:
       - ""
 
@@ -2147,8 +2048,7 @@ definitions:
     notes: "(c) 2007 JoKo. A 32-bit PE packer supporting LZRW and LZSS compression. Modifies files in-place."
     size_kb: "25"
     output_behavior: "in_place"
-    type: "Type I"
-    type_ex: "A standard PE packer with compression and rebuilding features. No indication of advanced protection mechanisms."
+    type: ""
     known_issues:
       - "Stability: Susceptible to Access Violation crashes (Exit Code 0xC0000005) on complex, modern installers (e.g., Adobe Acrobat Reader)."
       - "Legacy Constraints: As a 2007 tool, it may fail on executables with extensive Overlay data or non-standard Section alignments."
@@ -2169,8 +2069,7 @@ definitions:
     notes: "Yoda's Crypter v1.2 (2005). A polymorphic encryptor designed for signature evasion. Distinct from Yoda's Protector."
     size_kb: "10"
     output_behavior: "explicit"
-    type: "Type IV"
-    type_ex: "Crypters with anti-debugging features like Yoda's often use interleaved execution to check for analysis tools at runtime."
+    type: ""
     known_issues:
       - ""
 
@@ -2190,8 +2089,7 @@ definitions:
     notes: "Yoda's Crypter (yC). A polymorphic encryptor designed for signature evasion. Distinct from Yoda's Protector."
     size_kb: "108"
     output_behavior: "explicit"
-    type: "Type IV"
-    type_ex: "Crypters with anti-debugging features like Yoda's often use interleaved execution to check for analysis tools at runtime."
+    type: ""
     known_issues:
       - ""
 
@@ -2211,8 +2109,7 @@ definitions:
     notes: "Yoda's Protector v1.0 (2005). GUI-based PE protector with anti-debugging features."
     size_kb: "120"
     output_behavior: "explicit"
-    type: "Type IV"
-    type_ex: "As a 'protector' with anti-debugging features (inferred from its sibling 'crypter'), it likely uses interleaved execution."
+    type: ""
     known_issues:
       - ""
 
@@ -2232,8 +2129,7 @@ definitions:
     notes: "Yoda's Protector v1.01.2 (2005). GUI-based PE protector with anti-debugging features."
     size_kb: "82"
     output_behavior: "explicit"
-    type: "Type IV"
-    type_ex: "As a 'protector' with anti-debugging features (inferred from its sibling 'crypter'), it likely uses interleaved execution."
+    type: ""
     known_issues:
       - ""
 
@@ -2253,8 +2149,7 @@ definitions:
     notes: "Yoda's Protector v1.02 (2005). GUI-based PE protector with anti-debugging features."
     size_kb: "98"
     output_behavior: "explicit"
-    type: "Type IV"
-    type_ex: "As a 'protector' with anti-debugging features (inferred from its sibling 'crypter'), it likely uses interleaved execution."
+    type: ""
     known_issues:
       - ""
 
@@ -2274,8 +2169,7 @@ definitions:
     notes: "Yoda's Protector v1.03.2 (2005). GUI-based PE protector with anti-debugging features."
     size_kb: "120"
     output_behavior: "explicit"
-    type: "Type IV"
-    type_ex: "As a 'protector' with anti-debugging features (inferred from its sibling 'crypter'), it likely uses interleaved execution."
+    type: ""
     known_issues:
       - ""
 
@@ -2295,8 +2189,7 @@ definitions:
     notes: "Yoda's Protector v1.03.3 (2005). GUI-based PE protector with anti-debugging features. Latest SourceForge release."
     size_kb: "112"
     output_behavior: "explicit"
-    type: "Type IV"
-    type_ex: "As a 'protector' with anti-debugging features (inferred from its sibling 'crypter'), it likely uses interleaved execution."
+    type: ""
     known_issues:
       - ""
 
@@ -2316,8 +2209,7 @@ definitions:
     notes: "ZProtect by Licho. A commercial PE protector with code encryption and anti-debugging. Now discontinued. BINARY NOT ACQUIRED — no official download; may be found in RE community archives."
     size_kb: ""
     output_behavior: "explicit"
-    type: "Type IV"
-    type_ex: "ZProtect implements code encryption and anti-debugging at runtime, consistent with interleaved execution."
+    type: ""
     known_issues:
       - "Binary not acquired. Software is discontinued; no official download."
       - "Automation: GUI-only."

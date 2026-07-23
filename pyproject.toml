@@ -16,6 +16,7 @@ dependencies = [
     "requests>=2.32.5",
     "ruff>=0.14.13",
     "screeninfo>=0.8.1",
+    "smbprotocol>=1.15.0",
     "tqdm>=4.67.1",
     "yara-python>=4.5.4",
 ]
@@ -23,6 +24,9 @@ dependencies = [
 authors = [
   {name = "codingb3ar", email = "your.email@example.com"}
 ]
+
+[project.scripts]
+packer-types = "empirical_types.cli:main"
 
 [project.urls]
 Repository = "https://github.com/codingb3ar/packer-corpus"
@@ -32,9 +36,20 @@ dev = [
     "pytest>=8",
 ]
 
+[build-system]
+requires = ["setuptools>=77"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools]
+packages = ["empirical_types"]
+
+[tool.uv]
+package = true
+
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 pythonpath = ["."]
+norecursedirs = ["empirical_results"]
 
 [tool.bumpversion]
 current_version = "0.1.0"
