@@ -150,7 +150,7 @@ def _bwrap_prefix(qemu: Path, plugin: Path, base: Path, rw_dirs) -> list[str]:
         "--ro-bind-try", "/sbin", "/sbin",
         "--ro-bind-try", "/etc/ld.so.cache", "/etc/ld.so.cache",
         "--ro-bind-try", "/etc/localtime", "/etc/localtime",
-        "--ro-bind", str(qemu.resolve()), str(qemu.resolve()),
+        "--ro-bind", str(qemu.resolve().parent), str(qemu.resolve().parent),
         "--ro-bind", str(plugin.resolve()), str(plugin.resolve()),
     ]
     for f in _backing_chain(base):
