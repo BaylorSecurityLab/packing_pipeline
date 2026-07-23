@@ -1,30 +1,30 @@
 {
   "metadata": {
     "version": "0.1.0",
-    "maintainer": "AKOrojo, Abanisenioluwa Kolawole Orojo, Abanisenioluwa_Oroj1, Banny Orojo, GitLab CI Bot",
-    "last_updated": "2026-07-22"
+    "maintainer": "AKOrojo, Abanisenioluwa Kolawole Orojo, Abanisenioluwa_Oroj1, Banny Orojo, GitLab CI Bot, resbears",
+    "last_updated": "2026-07-23"
   },
   "basic_counts": {
-    "total_packers": 111,
-    "total_test_cases": 220
+    "total_packers": 108,
+    "total_test_cases": 222
   },
   "interface_types": {
     "gui": {
-      "packers": 34,
+      "packers": 30,
       "tests": 0
     },
     "cli": {
-      "packers": 77,
-      "tests": 220
+      "packers": 78,
+      "tests": 222
     }
   },
   "tag_distribution": {
-    "GUI": 34,
-    "Protector": 10,
-    "Anti-Debug": 9,
+    "GUI": 30,
+    "Protector": 9,
+    "Anti-Debug": 8,
     "Crypter": 4,
-    "Commercial": 8,
-    "CLI": 77,
+    "Commercial": 7,
+    "CLI": 78,
     "Reflective": 4,
     "Open Source": 2,
     "Security": 4,
@@ -34,14 +34,12 @@
     "Mutator": 2,
     "Tiny-EXE": 1,
     "Demoscene": 1,
-    "Virtualizer": 5,
+    "Virtualizer": 4,
     "Demo": 3,
-    "Compressor": 14,
+    "Compressor": 12,
     "Multi-Stage": 1,
     "Header-Stripper": 1,
     "Encrypter": 1,
-    "Plugin-Based": 1,
-    "Shareware": 1,
     "Open-Source": 1,
     "WSL": 1,
     "Shellcode": 1,
@@ -55,38 +53,39 @@
     "Polymorphism": 2
   },
   "architecture_distribution": {
-    "x86": 54,
+    "x86": 51,
     "x86/x64": 2,
     "x64": 54,
     "x32": 1
   },
   "supported_input_architectures": {
-    "PE32": 111,
+    "PE32": 108,
     "PE64": 1,
     "PE32+": 56,
     ".NET": 1
   },
   "output_behavior_distribution": {
-    "explicit": 91,
+    "explicit": 89,
     "input_dir_suffix": 3,
-    "in_place": 15,
+    "in_place": 14,
     "suffix_packed": 1,
     "explicit_absolute": 1
   },
   "license_distribution": {
     "Commercial (Trial, preserved via archive.org/Tucows)": 1,
-    "Commercial": 3,
+    "Commercial": 2,
     "MIT": 10,
     "Commercial (discontinued)": 2,
-    "Freeware": 36,
+    "Freeware": 35,
     "Commercial (Demo)": 2,
-    "Shareware": 4,
+    "Shareware": 3,
     "Commercial (free for personal use)": 1,
     "Freeware (Basic)": 1,
     "Shareware (Demo)": 1,
     "GPL": 50
   },
   "tests_per_packer": {
+    "obsidium_v1.5.2": 2,
     "xcomp": 4,
     "upack": 5,
     "kkrunchy_v0.23a2": 1,
@@ -304,15 +303,7 @@
     },
     {
       "packer": "obsidium_v1.5.2",
-      "issue_count": 2
-    },
-    {
-      "packer": "obsidium_v1.8.8",
-      "issue_count": 2
-    },
-    {
-      "packer": "pecompact_v1.84",
-      "issue_count": 3
+      "issue_count": 1
     },
     {
       "packer": "pelock_v2.40",
@@ -569,10 +560,6 @@
     {
       "packer": "xcomp",
       "issue_count": 2
-    },
-    {
-      "packer": "xpa_v1.43",
-      "issue_count": 1
     },
     {
       "packer": "zprotect",
