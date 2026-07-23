@@ -145,7 +145,10 @@ class UpxScramblerBase(BaseGUI):
         except OSError as e:
             print(f"[WARNING] Could not remove stale UPX output {upx_packed}: {e}")
 
-        # Build args tuple for pack_single_file
+        # Build args tuple for pack_single_file. This is a throwaway
+        # intermediate (the scrambler runs on top of it), so it must NOT go
+        # through the SHA gate -- pass sha_gate=None. The 11th field
+        # (packer_name) drives PACKER_SETTINGS; "upx" gets sensible defaults.
         args = (
             str(input_file),
             str(temp_dir),
@@ -157,6 +160,9 @@ class UpxScramblerBase(BaseGUI):
             [],
             config,
             "",
+            "upx",       # packer_name (required 11th field)
+            None,        # sha_gate: never gate the intermediate
+            "upx",       # packer_dir_name (unused when gate is None)
         )
 
         success, msg = pack_single_file(args)

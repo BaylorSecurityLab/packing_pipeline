@@ -27,6 +27,15 @@ authors = [
 [project.urls]
 Repository = "https://github.com/codingb3ar/packer-corpus"
 
+[dependency-groups]
+dev = [
+    "pytest>=8",
+]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["."]
+
 [tool.bumpversion]
 current_version = "0.1.0"
 parse = "(?P<major>\\d+)\\.(?P<minor>\\d+)\\.(?P<patch>\\d+)"

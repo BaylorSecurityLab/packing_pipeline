@@ -45,6 +45,33 @@ _ACTIVE_WRAPPERS = set()
 _ACTIVE_WRAPPERS_LOCK = threading.Lock()
 
 
+# --- THREAD-LOCAL MOVE RESULT BRIDGE ---
+# The SHA gate (utils/sha_gate.ShaGate) needs to know the *final* on-disk path
+# of every produced GUI artifact so it can verify and, on rejection, delete
+# it. Each wrapper's ``run()`` returns only ``bool`` and discards the path
+# ``move_protected_file_to_output()`` returns. Thread-local storage lets the
+# wrapper publish the path and ``GUIWrapperRunner.run_packer()`` consume it
+# without touching ~28 individual wrapper classes.
+_LAST_MOVED_OUTPUT = threading.local()
+
+
+def clear_last_moved_output() -> None:
+    """Drop any stale value from the current thread before a wrapper call."""
+    _LAST_MOVED_OUTPUT.path = None
+
+
+def consume_last_moved_output():
+    """Return and clear the path the most recent wrapper published."""
+    path = getattr(_LAST_MOVED_OUTPUT, "path", None)
+    _LAST_MOVED_OUTPUT.path = None
+    return path
+
+
+def _publish_last_moved_output(path) -> None:
+    """Called by ``move_protected_file_to_output`` after a successful move."""
+    _LAST_MOVED_OUTPUT.path = str(path) if path is not None else None
+
+
 def close_all_windows():
     """Terminate every packer process/window currently registered as active.
 
@@ -818,6 +845,7 @@ class BaseGUI(ABC):
         # If no output directory specified, leave file in place
         if output_dir is None:
             print(f"\n[INFO] No output directory specified, file remains at: {source}")
+            _publish_last_moved_output(source.resolve())
             return str(source)
 
         output_dir = Path(output_dir)
@@ -838,6 +866,7 @@ class BaseGUI(ABC):
                     continue
                 shutil.move(str(source), str(destination))
                 print(f"[SUCCESS] File moved to: {destination}")
+                _publish_last_moved_output(destination.resolve())
                 return str(destination)
             except PermissionError as e:
                 print(
