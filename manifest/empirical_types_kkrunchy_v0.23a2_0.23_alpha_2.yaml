@@ -43,3 +43,7 @@ conditions:
   label_status: null
   confidence: 0.0
   paper_evidence_level: null
+  unresolved_category: crash_incompatible
+  unresolved_reason: LZMA-class depacker (W->X) but crashes (AV 0xC0000005) on modern
+    PE per corpus known_issues
+  unresolved_confidence: high

@@ -1,6 +1,6 @@
 # Empirical Packer Type Labels
 
-Runtime-packer complexity labels on the **Ugarte et al. Type I–VI** scale (*SoK: Deep Packer Inspection*, IEEE S&P 2015), measured on the certified QEMU-TCG write→execute backend. A Type is assigned when the oracle observes layered unpacking; per Ugarte Sec V-C the label is the **highest complexity observed** across runs (no-observation runs abstain — an observed Type is a lower bound on complexity). Conditions where **no** run observed unpacking remain UNRESOLVED (candidates for VMHunt virtualization detection).
+Runtime-packer complexity labels on the **Ugarte et al. Type I–VI** scale (*SoK: Deep Packer Inspection*, IEEE S&P 2015), measured on the certified QEMU-TCG write→execute backend. Per Ugarte Sec V-C a Type is the **highest complexity observed** across runs (no-observation runs abstain; an observed Type is a lower bound). Conditions where no run observed unpacking are listed with a **source-grounded reason** — several are correctly not-unpacking (header mutators, pass-through) or tool/compat failures, consistent with the SoK's own exclusion of non-unpacking samples.
 
 **102 conditions** · 91 typed (82 exact-consensus, 9 max-observed) · 11 unresolved. 2026-07-24.
 
@@ -111,20 +111,18 @@ Runtime-packer complexity labels on the **Ugarte et al. Type I–VI** scale (*So
 | pelock | 2.40 | . | **TYPE_VI-F** | exact |
 | zprotect | 1.4.2.0 | . | **TYPE_VI-F** | max-obs |
 
-## Unresolved (11)
+## Unresolved — source-grounded (11)
 
-No run observed unpacking (W→X-blind: virtualization / section-mapped / pre-entry) or the sample did not execute. `protection_class` records the mechanism; these are the VMHunt targets.
-
-| Packer family | Version | Test case | protection_class |
+| Packer family | Version | Category | Why (empirical) |
 |---|---|---|---|
-| armadillo | 252b2 | . | inconclusive |
-| astral_pe | 1.6.0.0 | ASTRAL_001_DEFAULT_MUTATION | inconclusive |
-| kkrunchy | 0.23_alpha_2 | KKRUNCHY_V023A2_001_DEFAULT | mapped_execution |
-| obsidium | 1.5.2.11 | . | inconclusive |
-| pezor | 3.3.0 | PEZOR_002_SELF_INJECT_32 | inconclusive |
-| simpledpack | 0.5.3 | SIMPLEDPACK_V053_001_DEFAULT | no_execution |
-| telock | 0.98 | . | inconclusive |
-| themida | 3.2.4.34 | . | inconclusive |
-| yoda_protector | 1.01.2 | . | mapped_execution |
-| yoda_protector | 1.03.2 | . | no_execution |
-| yoda_protector | 1.03.3 | . | mapped_execution |
+| pezor | 3.3.0 | `anti_analysis_evasion` | Donut reflective-load + SGN decode (W->X) with fluctuate sleep-obfuscation + anti-debug (github.com/phra/PEzor); bailed at ~7K blocks before unpacking |
+| telock | 0.98 | `anti_debug_no_wx` | compressor+protector w/ anti-debug (tE!); 1.29M exec but no W->X observed - anti-debug bail or mapped load |
+| yoda_protector | 1.01.2 | `anti_debug_no_wx` | encrypt/decrypt protector w/ anti-debug (sourceforge.net/projects/yodap); no W->X observed |
+| yoda_protector | 1.03.2 | `anti_debug_no_wx` | encrypt/decrypt protector w/ anti-debug (sourceforge.net/projects/yodap); reps hit trace-loss/no-unpack |
+| yoda_protector | 1.03.3 | `anti_debug_no_wx` | encrypt/decrypt protector w/ anti-debug (sourceforge.net/projects/yodap); no W->X observed |
+| kkrunchy | 0.23_alpha_2 | `crash_incompatible` | LZMA-class depacker (W->X) but crashes (AV 0xC0000005) on modern PE per corpus known_issues |
+| astral_pe | 1.6.0.0 | `not_a_packer` | PE-header mutator (github.com/DosX-dev/Astral-PE); no runtime unpacking by design; SoK excludes non-unpacking samples |
+| armadillo | 252b2 | `on_demand_remote_unpacking` | nanomites + CopyMem-II page-fault/remote on-demand decryption; W->X oracle under-observes remote writes |
+| simpledpack | 0.5.3 | `output_nonfunctional` | LZMA-decompress+jmp-OEP W->X by design but only tested on hello-world (github.com/YuriSizuku/win-SimpleDpack); packed sample gets 0 exec on Win10 |
+| obsidium | 1.5.2.11 | `pass_through_or_virtualized` | needs .opf profile or no-ops to pass-through per known_issues; sample likely unprotected, else virtualizer |
+| themida | 3.2.4.34 | `virtualized` | code virtualization (Oreans Themida, multiple VM archs); observed TYPE_I outer layer; anti-VM defeats live per-instruction tracing |

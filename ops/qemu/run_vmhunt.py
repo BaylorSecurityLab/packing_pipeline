@@ -124,29 +124,18 @@ def main() -> int:
     if not stage(sample, staged):
         print(f"[vmhunt] {tag}: staging failed"); return 3
 
-    # Pass 1: paper_trace -> CR3
-    p1_work = work_dir / "p1.qcow2"; p1_trace = work_dir / "p1.trace.jsonl"
-    mon1 = Path("/tmp/qm") / f"vmh1_{tag[:8]}.sock"
-    print(f"[vmhunt] {tag}: pass 1 (CR3 discovery)", flush=True)
-    sh(["uv", "run", "python", "ops/qemu/run_trace.py", str(staged), str(p1_work),
-        str(p1_trace), "--monitor", str(mon1), "--host-timeout", str(PAPER_TIMEOUT),
-        "--guest-memory", "4G", "--qemu", str(QEMU), "--plugin", str(PAPER)],
-       stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-    cr3 = extract_cr3(p1_trace)
-    if not cr3:
-        print(f"[vmhunt] {tag}: CR3 not found (sample may not have executed)"); return 4
-    print(f"[vmhunt] {tag}: sample CR3 = {hex(cr3)}", flush=True)
-
-    # Pass 2: vmhunt_trace, asid-scoped, bounded
-    p2_work = work_dir / "p2.qcow2"
-    sh(["cp", "--reflink=auto", str(staged), str(p2_work)])
+    # Single pass: vmhunt_trace self-scopes via the guest_launcher PACK marker,
+    # capturing the sample's live CR3 in this run (CR3 isn't reproducible across runs).
+    run_work = work_dir / "run.qcow2"
+    sh(["cp", "--reflink=auto", str(staged), str(run_work)])
     outbase = work_dir / "vm.trace"
     for old in glob.glob(str(outbase) + ".*"):
         os.remove(old)
-    mon2 = Path("/tmp/qm") / f"vmh2_{tag[:8]}.sock"
-    plugin_arg = f"{VMHUNT.resolve()},asid={hex(cr3)},outfile={outbase.resolve()}"
-    print(f"[vmhunt] {tag}: pass 2 (vmhunt trace, bounded {VM_TIMEOUT}s/{CAP_BYTES//1024**3}GB)", flush=True)
-    run_bounded(qemu_command(p2_work, plugin_arg, mon2), str(outbase) + ".*", VM_TIMEOUT)
+    mon2 = Path("/tmp/qm") / f"vmh_{tag[:8]}.sock"
+    plugin_arg = f"{VMHUNT.resolve()},outfile={outbase.resolve()}"
+    print(f"[vmhunt] {tag}: vmhunt trace (marker self-scoped, bounded "
+          f"{VM_TIMEOUT}s/{CAP_BYTES//1024**3}GB)", flush=True)
+    run_bounded(qemu_command(run_work, plugin_arg, mon2), str(outbase) + ".*", VM_TIMEOUT)
 
     # vmextract per vcpu
     vfiles = sorted(glob.glob(str(outbase) + ".*"))
@@ -164,7 +153,7 @@ def main() -> int:
         if vms:
             detected = True
     verdict = "virtualized" if detected else "no_vm_detected"
-    result = {"tag": tag, "cr3": hex(cr3), "verdict": verdict, "vcpus": detail}
+    result = {"tag": tag, "scoping": "marker_self", "verdict": verdict, "vcpus": detail}
     (work_dir / "vmhunt_result.json").write_text(json.dumps(result, indent=2))
     print(f"[vmhunt] {tag}: VERDICT = {verdict}")
     print(json.dumps(detail, indent=2))

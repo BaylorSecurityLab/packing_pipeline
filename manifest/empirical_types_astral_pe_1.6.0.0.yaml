@@ -43,3 +43,7 @@ conditions:
   label_status: null
   confidence: 0.0
   paper_evidence_level: null
+  unresolved_category: not_a_packer
+  unresolved_reason: PE-header mutator (github.com/DosX-dev/Astral-PE); no runtime
+    unpacking by design; SoK excludes non-unpacking samples
+  unresolved_confidence: high

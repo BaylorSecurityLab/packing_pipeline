@@ -43,3 +43,7 @@ conditions:
   label_status: null
   confidence: 0.0
   paper_evidence_level: null
+  unresolved_category: pass_through_or_virtualized
+  unresolved_reason: needs .opf profile or no-ops to pass-through per known_issues;
+    sample likely unprotected, else virtualizer
+  unresolved_confidence: medium
