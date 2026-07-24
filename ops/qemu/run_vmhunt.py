@@ -1,0 +1,175 @@
+#!/usr/bin/env python3
+"""Two-pass VMHunt virtualization detection for one condition.
+
+Pass 1 runs the certified paper_trace plugin to recover the sample's CR3 (asid)
+from its root_image event.  Pass 2 re-stages the same base (icount determinism ->
+same CR3) and runs the vmhunt_trace plugin asid-scoped, producing a per-vcpu
+per-instruction trace in VMHunt's format, bounded by size + wall-clock so a
+runaway VM does not fill the disk.  Then s3team's vmextract is run on each vcpu
+trace; a written vmN.txt (a paired 7-push/7-pop context switch) => virtualized.
+
+Usage: run_vmhunt.py <nas_dir>
+"""
+from __future__ import annotations
+
+import json
+import os
+import subprocess
+import sys
+import time
+from pathlib import Path
+
+REPO = Path(__file__).resolve().parents[2]
+RT = REPO / "empirical_results/qemu_runtime"
+QEMU = RT / "qemu-build/qemu-system-x86_64"
+PAPER = REPO / "ops/qemu/paper_trace.so"
+VMHUNT = REPO / "ops/qemu/vmhunt_trace.so"
+VMEXTRACT = Path("/tmp/claude-1000/-home-resbears-projects-corpus/"
+                 "a1c0d35d-dead-4224-bbd5-f2de5454f550/scratchpad/VMHunt/vmextract")
+SUDO_PW = "resbears"
+CAP_BYTES = 2 * 1024 ** 3           # per-vcpu file cap
+VM_TIMEOUT = 360                    # wall-clock cap on the vmhunt pass
+PAPER_TIMEOUT = 600                 # cap on the CR3-discovery pass
+
+
+def sh(cmd, **kw):
+    return subprocess.run(cmd, cwd=str(REPO), **kw)
+
+
+def stage(sample: Path, image: Path) -> bool:
+    p = sh(["sudo", "-S", "ops/qemu/stage_sample.sh", str(sample), str(image), "300"],
+           input=SUDO_PW + "\n", text=True,
+           stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    return p.returncode == 0
+
+
+def qemu_command(work: Path, plugin_arg: str, monitor: Path) -> list[str]:
+    return [
+        str(QEMU), "-name", "vmhunt",
+        "-machine", "pc-i440fx-5.2", "-accel", "tcg,thread=single",
+        "-cpu", "qemu64", "-m", "4G", "-smp", "2",
+        "-icount", "shift=2,sleep=on", "-rtc", "base=localtime,clock=vm",
+        "-display", "none", "-monitor", f"unix:{monitor.resolve()},server=on,wait=off",
+        "-serial", "none", "-parallel", "none", "-net", "none", "-no-reboot",
+        "-drive", f"file={work},format=qcow2,if=ide,cache=writeback",
+        "-plugin", plugin_arg,
+    ]
+
+
+def extract_cr3(trace: Path) -> int | None:
+    """Sample CR3 = current_asid at the root_image event."""
+    last = None
+    with open(trace) as fh:
+        for line in fh:
+            try:
+                e = json.loads(line)
+            except ValueError:
+                continue
+            if e.get("event") == "root_debug" and e.get("current_asid"):
+                last = e["current_asid"]
+            if e.get("event") == "root_image":
+                return last
+    return last
+
+
+def run_bounded(command: list[str], outfiles_glob: str, timeout: int) -> None:
+    """Run qemu, killing it on timeout or when any output file exceeds CAP_BYTES."""
+    import glob
+    mon_dir = Path("/tmp/qm")
+    mon_dir.mkdir(parents=True, exist_ok=True)
+    proc = subprocess.Popen(command, stdout=subprocess.DEVNULL,
+                            stderr=subprocess.DEVNULL, cwd=str(REPO))
+    start = time.monotonic()
+    while proc.poll() is None:
+        time.sleep(5)
+        if time.monotonic() - start >= timeout:
+            break
+        if any(os.path.getsize(f) >= CAP_BYTES for f in glob.glob(outfiles_glob)):
+            break
+    if proc.poll() is None:
+        proc.terminate()
+        try:
+            proc.wait(timeout=30)
+        except subprocess.TimeoutExpired:
+            proc.kill()
+            proc.wait()
+
+
+def main() -> int:
+    import glob
+    tag = sys.argv[1]
+    work_dir = RT / "vmhunt" / tag
+    work_dir.mkdir(parents=True, exist_ok=True)
+    wl = {w["nas_dir"]: w for w in json.loads((RT / "worklist.json").read_text())}
+    entry = wl.get(tag)
+    if not entry or not entry.get("samples"):
+        print(f"[vmhunt] {tag}: no sample in worklist"); return 2
+    sample = REPO / "empirical_results/qemu_runtime" / "vmhunt" / tag / "sample.exe"
+    # fetch the sample bytes from the NAS via the same remote path
+    remote = entry["samples"][0]["remote"]
+    base = RT / "windows10-qemu-repair.qcow2"
+    staged = work_dir / "staged.qcow2"
+
+    print(f"[vmhunt] {tag}: fetching + staging {entry['samples'][0]['name']}", flush=True)
+    # reuse the SMB fetch used elsewhere
+    import smbclient
+    for line in (REPO / ".env").read_text().splitlines():
+        if line.startswith("PACKER_NAS_"):
+            k, _, v = line.partition("="); os.environ.setdefault(k.strip(), v.strip())
+    smbclient.register_session("10.100.99.29",
+                               username=os.environ["PACKER_NAS_USERNAME"],
+                               password=os.environ["PACKER_NAS_PASSWORD"])
+    with smbclient.open_file(remote, mode="rb") as rf, open(sample, "wb") as wf:
+        wf.write(rf.read())
+    if not stage(sample, staged):
+        print(f"[vmhunt] {tag}: staging failed"); return 3
+
+    # Pass 1: paper_trace -> CR3
+    p1_work = work_dir / "p1.qcow2"; p1_trace = work_dir / "p1.trace.jsonl"
+    mon1 = Path("/tmp/qm") / f"vmh1_{tag[:8]}.sock"
+    print(f"[vmhunt] {tag}: pass 1 (CR3 discovery)", flush=True)
+    sh(["uv", "run", "python", "ops/qemu/run_trace.py", str(staged), str(p1_work),
+        str(p1_trace), "--monitor", str(mon1), "--host-timeout", str(PAPER_TIMEOUT),
+        "--guest-memory", "4G", "--qemu", str(QEMU), "--plugin", str(PAPER)],
+       stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    cr3 = extract_cr3(p1_trace)
+    if not cr3:
+        print(f"[vmhunt] {tag}: CR3 not found (sample may not have executed)"); return 4
+    print(f"[vmhunt] {tag}: sample CR3 = {hex(cr3)}", flush=True)
+
+    # Pass 2: vmhunt_trace, asid-scoped, bounded
+    p2_work = work_dir / "p2.qcow2"
+    sh(["cp", "--reflink=auto", str(staged), str(p2_work)])
+    outbase = work_dir / "vm.trace"
+    for old in glob.glob(str(outbase) + ".*"):
+        os.remove(old)
+    mon2 = Path("/tmp/qm") / f"vmh2_{tag[:8]}.sock"
+    plugin_arg = f"{VMHUNT.resolve()},asid={hex(cr3)},outfile={outbase.resolve()}"
+    print(f"[vmhunt] {tag}: pass 2 (vmhunt trace, bounded {VM_TIMEOUT}s/{CAP_BYTES//1024**3}GB)", flush=True)
+    run_bounded(qemu_command(p2_work, plugin_arg, mon2), str(outbase) + ".*", VM_TIMEOUT)
+
+    # vmextract per vcpu
+    vfiles = sorted(glob.glob(str(outbase) + ".*"))
+    detected = False; detail = []
+    for vf in vfiles:
+        lines = sum(1 for _ in open(vf))
+        # vmextract writes vmN.txt into CWD on detection
+        for stale in glob.glob("vm*.txt"):
+            os.remove(stale)
+        r = subprocess.run([str(VMEXTRACT), vf], cwd=str(work_dir),
+                           capture_output=True, text=True, timeout=1800)
+        vms = glob.glob(str(work_dir / "vm*.txt"))
+        detail.append({"vcpu_file": os.path.basename(vf), "insns": lines,
+                       "vmextract_stdout": r.stdout.strip()[:200], "vm_regions": len(vms)})
+        if vms:
+            detected = True
+    verdict = "virtualized" if detected else "no_vm_detected"
+    result = {"tag": tag, "cr3": hex(cr3), "verdict": verdict, "vcpus": detail}
+    (work_dir / "vmhunt_result.json").write_text(json.dumps(result, indent=2))
+    print(f"[vmhunt] {tag}: VERDICT = {verdict}")
+    print(json.dumps(detail, indent=2))
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())
