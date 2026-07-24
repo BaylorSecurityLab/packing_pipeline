@@ -43,7 +43,5 @@ conditions:
   label_status: null
   confidence: 0.0
   paper_evidence_level: null
-  unresolved_category: anti_debug_no_wx
-  unresolved_reason: compressor+protector w/ anti-debug (tE!); 1.29M exec but no W->X
-    observed - anti-debug bail or mapped load
-  unresolved_confidence: medium
+  pipeline_verdict: no_unpacking_observed
+  needs_pipeline: true

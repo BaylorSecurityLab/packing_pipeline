@@ -10,7 +10,5 @@ conditions:
   label_status: null
   confidence: 0.0
   note: continuous-writer VM protector; W->X oracle cannot type; VMHunt target (virtualized)
-  unresolved_category: virtualized
-  unresolved_reason: code virtualization (Oreans Themida, multiple VM archs); observed
-    TYPE_I outer layer; anti-VM defeats live per-instruction tracing
-  unresolved_confidence: high
+  pipeline_verdict: no_runs
+  needs_pipeline: true

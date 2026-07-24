@@ -45,7 +45,5 @@ conditions:
   label_status: null
   confidence: 0.0
   paper_evidence_level: null
-  unresolved_category: anti_debug_no_wx
-  unresolved_reason: encrypt/decrypt protector w/ anti-debug (sourceforge.net/projects/yodap);
-    reps hit trace-loss/no-unpack
-  unresolved_confidence: medium
+  pipeline_verdict: trace_loss
+  needs_pipeline: true

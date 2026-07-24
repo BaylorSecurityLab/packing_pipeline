@@ -43,7 +43,5 @@ conditions:
   label_status: null
   confidence: 0.0
   paper_evidence_level: null
-  unresolved_category: output_nonfunctional
-  unresolved_reason: LZMA-decompress+jmp-OEP W->X by design but only tested on hello-world
-    (github.com/YuriSizuku/win-SimpleDpack); packed sample gets 0 exec on Win10
-  unresolved_confidence: high
+  pipeline_verdict: no_execution
+  needs_pipeline: true

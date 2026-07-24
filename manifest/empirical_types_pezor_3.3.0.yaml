@@ -43,7 +43,5 @@ conditions:
   label_status: null
   confidence: 0.0
   paper_evidence_level: null
-  unresolved_category: anti_analysis_evasion
-  unresolved_reason: Donut reflective-load + SGN decode (W->X) with fluctuate sleep-obfuscation
-    + anti-debug (github.com/phra/PEzor); bailed at ~7K blocks before unpacking
-  unresolved_confidence: high
+  pipeline_verdict: no_unpacking_observed
+  needs_pipeline: true

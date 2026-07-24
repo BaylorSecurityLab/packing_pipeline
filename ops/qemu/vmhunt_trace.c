@@ -10,10 +10,18 @@
 #include <capstone/capstone.h>
 #include <qemu-plugin.h>
 
+#include "win10_profile.h"
+
 QEMU_PLUGIN_EXPORT int qemu_plugin_version = QEMU_PLUGIN_VERSION;
 
 #define MAX_VCPU 64
 #define MAX_INSN_BYTES 16
+
+#define PACKER_MARKER_MAGIC UINT32_C(0x5041434b)
+#define MARK_ROOT_PID UINT32_C(1)
+#define MARK_TRACE_START UINT32_C(2)
+#define MARK_TRACE_STOP UINT32_C(3)
+#define USER_LIMIT_64 UINT64_C(0x0000800000000000)
 
 enum {
     R_EAX = 0,
@@ -31,15 +39,24 @@ typedef struct {
     struct qemu_plugin_register *gp[R_COUNT];
     bool has_gp[R_COUNT];
     struct qemu_plugin_register *cr3;
+    struct qemu_plugin_register *gs_base;
+    struct qemu_plugin_register *k_gs_base;
     bool has_cr3;
+    bool has_gs_base;
+    bool has_k_gs_base;
 } RegisterSet;
 
 typedef struct {
     uint64_t vaddr;
     uint32_t size;
     uint8_t bytes[MAX_INSN_BYTES];
+    bool is_marker;
     char *disas;
 } InsnData;
+
+typedef struct {
+    uint64_t vaddr;
+} BlockData;
 
 typedef struct {
     bool valid;
@@ -63,10 +80,16 @@ static FILE *file_by_vcpu[MAX_VCPU];
 
 static char *output_base;
 static uint64_t monitored_asid;
+static bool asid_known;
+static uint64_t root_pid;
+static bool armed;
+static bool marker_seen;
 static csh capstone_handle;
 static bool capstone_ready;
 static GMutex disas_lock;
+static GMutex scope_lock;
 static GHashTable *insn_cache;
+static GHashTable *block_cache;
 
 static uint64_t read_register_value(struct qemu_plugin_register *handle,
                                     bool *ok)
@@ -84,6 +107,33 @@ static uint64_t read_register_value(struct qemu_plugin_register *handle,
     return value;
 }
 
+static bool read_memory(uint64_t address, void *destination, size_t size)
+{
+    g_autoptr(GByteArray) bytes = g_byte_array_new();
+
+    if (!qemu_plugin_read_memory_vaddr(address, bytes, size) ||
+        bytes->len != size) {
+        return false;
+    }
+    memcpy(destination, bytes->data, size);
+    return true;
+}
+
+static bool read_u64(uint64_t address, uint64_t *value)
+{
+    return read_memory(address, value, sizeof(*value));
+}
+
+static bool canonical_kernel_pointer(uint64_t value)
+{
+    return value >= UINT64_C(0xffff800000000000);
+}
+
+static bool user_address(uint64_t address)
+{
+    return address < USER_LIMIT_64;
+}
+
 static bool current_asid(unsigned int vcpu_index, uint64_t *asid)
 {
     RegisterSet *regs;
@@ -98,6 +148,100 @@ static bool current_asid(unsigned int vcpu_index, uint64_t *asid)
     }
     *asid = read_register_value(regs->cr3, &ok) & ~UINT64_C(0xfff);
     return ok;
+}
+
+static bool current_ethread(unsigned int vcpu_index, uint64_t *ethread)
+{
+    RegisterSet *regs = &registers_by_vcpu[vcpu_index];
+    uint64_t candidates[2] = {0, 0};
+    bool ok;
+
+    if (regs->has_gs_base) {
+        candidates[0] = read_register_value(regs->gs_base, &ok);
+        if (!ok) {
+            candidates[0] = 0;
+        }
+    }
+    if (regs->has_k_gs_base) {
+        candidates[1] = read_register_value(regs->k_gs_base, &ok);
+        if (!ok) {
+            candidates[1] = 0;
+        }
+    }
+    for (int index = 0; index < 2; index++) {
+        uint64_t kpcr = candidates[index];
+        if (!canonical_kernel_pointer(kpcr) ||
+            !read_u64(kpcr + KPCR_PRCB + KPRCB_CURRENT_THREAD, ethread)) {
+            continue;
+        }
+        if (canonical_kernel_pointer(*ethread)) {
+            return true;
+        }
+    }
+    return false;
+}
+
+static bool resolve_source(unsigned int vcpu_index, uint64_t *source_pid,
+                           uint64_t *attached_pid)
+{
+    uint64_t ethread;
+    uint64_t source_eprocess;
+    uint64_t verify_pid;
+    uint64_t attached_eprocess;
+
+    if (!current_ethread(vcpu_index, &ethread) ||
+        !read_u64(ethread + ETHREAD_CID + CLIENT_ID_PID, source_pid) ||
+        !read_u64(ethread + KTHREAD_PROCESS, &source_eprocess) ||
+        !canonical_kernel_pointer(source_eprocess) ||
+        !read_u64(source_eprocess + EPROCESS_PID, &verify_pid) ||
+        verify_pid != *source_pid) {
+        return false;
+    }
+    if (!read_u64(ethread + KTHREAD_APC_STATE + KAPC_STATE_PROCESS,
+                  &attached_eprocess) ||
+        !canonical_kernel_pointer(attached_eprocess) ||
+        !read_u64(attached_eprocess + EPROCESS_PID, attached_pid)) {
+        return false;
+    }
+    return true;
+}
+
+static void handle_marker(unsigned int vcpu_index)
+{
+    RegisterSet *regs = &registers_by_vcpu[vcpu_index];
+    uint64_t magic;
+    uint64_t pid;
+    uint64_t action;
+    bool ok;
+
+    if (!regs->has_gp[R_EAX] || !regs->has_gp[R_EBX] ||
+        !regs->has_gp[R_ECX]) {
+        return;
+    }
+    magic = read_register_value(regs->gp[R_EAX], &ok);
+    if (!ok || (uint32_t)magic != PACKER_MARKER_MAGIC) {
+        return;
+    }
+    pid = read_register_value(regs->gp[R_EBX], &ok);
+    if (!ok) {
+        return;
+    }
+    action = read_register_value(regs->gp[R_ECX], &ok);
+    if (!ok) {
+        return;
+    }
+
+    g_mutex_lock(&scope_lock);
+    marker_seen = true;
+    if ((uint32_t)action == MARK_ROOT_PID) {
+        root_pid = (uint32_t)pid;
+        armed = true;
+    } else if ((uint32_t)action == MARK_TRACE_START) {
+        armed = true;
+    } else if ((uint32_t)action == MARK_TRACE_STOP) {
+        /* boundary marker; scoping remains by asid */
+    }
+    g_mutex_unlock(&scope_lock);
 }
 
 static char *disassemble_insn(const uint8_t *bytes, size_t length,
@@ -118,6 +262,17 @@ static char *disassemble_insn(const uint8_t *bytes, size_t length,
     }
     cs_free(decoded, count);
     return result;
+}
+
+static bool marker_bytes(const uint8_t *bytes, size_t length)
+{
+    size_t offset = (length >= 9 && bytes[0] == 0x67) ? 1 : 0;
+
+    return length >= offset + 8 && bytes[offset] == 0x0f &&
+           bytes[offset + 1] == 0x1f && bytes[offset + 2] == 0x84 &&
+           bytes[offset + 3] == 0x00 && bytes[offset + 4] == 0x4b &&
+           bytes[offset + 5] == 0x43 && bytes[offset + 6] == 0x41 &&
+           bytes[offset + 7] == 0x50;
 }
 
 static InsnData *intern_insn(struct qemu_plugin_insn *insn)
@@ -149,7 +304,24 @@ static InsnData *intern_insn(struct qemu_plugin_insn *insn)
     }
     data->size = (uint32_t)copied;
     memcpy(data->bytes, bytes, copied);
+    data->is_marker = marker_bytes(bytes, copied);
     data->disas = disassemble_insn(bytes, copied, vaddr);
+    g_mutex_unlock(&disas_lock);
+    return data;
+}
+
+static BlockData *intern_block(struct qemu_plugin_tb *tb)
+{
+    uint64_t vaddr = qemu_plugin_tb_vaddr(tb);
+    BlockData *data;
+
+    g_mutex_lock(&disas_lock);
+    data = g_hash_table_lookup(block_cache, &vaddr);
+    if (!data) {
+        data = g_new0(BlockData, 1);
+        data->vaddr = vaddr;
+        g_hash_table_insert(block_cache, &data->vaddr, data);
+    }
     g_mutex_unlock(&disas_lock);
     return data;
 }
@@ -194,6 +366,36 @@ static void emit_pending(unsigned int vcpu_index)
             current_write_addr[vcpu_index]);
 }
 
+static void learn_scope(unsigned int vcpu_index, void *userdata)
+{
+    BlockData *block = userdata;
+    uint64_t source_pid;
+    uint64_t attached_pid;
+    uint64_t live;
+
+    if (vcpu_index >= MAX_VCPU || asid_known || !armed) {
+        return;
+    }
+    if (!user_address(block->vaddr)) {
+        return;
+    }
+    if (!resolve_source(vcpu_index, &source_pid, &attached_pid)) {
+        return;
+    }
+    if (source_pid != root_pid || source_pid != attached_pid) {
+        return;
+    }
+    if (!current_asid(vcpu_index, &live)) {
+        return;
+    }
+    g_mutex_lock(&scope_lock);
+    if (!asid_known) {
+        monitored_asid = live;
+        asid_known = true;
+    }
+    g_mutex_unlock(&scope_lock);
+}
+
 static void on_mem(unsigned int vcpu_index, qemu_plugin_meminfo_t info,
                    uint64_t vaddr, void *userdata)
 {
@@ -224,7 +426,12 @@ static void on_insn(unsigned int vcpu_index, void *userdata)
     current_read_addr[vcpu_index] = 0;
     current_write_addr[vcpu_index] = 0;
 
-    in_scope = current_asid(vcpu_index, &asid) && asid == monitored_asid;
+    if (insn->is_marker) {
+        handle_marker(vcpu_index);
+    }
+
+    in_scope = asid_known && current_asid(vcpu_index, &asid) &&
+               asid == monitored_asid;
     pending = &pending_by_vcpu[vcpu_index];
     if (!in_scope) {
         pending->valid = false;
@@ -250,8 +457,11 @@ static void on_insn(unsigned int vcpu_index, void *userdata)
 static void translate_block(struct qemu_plugin_tb *tb, void *userdata)
 {
     size_t count = qemu_plugin_tb_n_insns(tb);
+    BlockData *block = intern_block(tb);
 
     (void)userdata;
+    qemu_plugin_register_vcpu_tb_exec_cb(tb, learn_scope, QEMU_PLUGIN_CB_R_REGS,
+                                         block);
     for (size_t index = 0; index < count; index++) {
         struct qemu_plugin_insn *insn = qemu_plugin_tb_get_insn(tb, index);
         InsnData *data = intern_insn(insn);
@@ -289,6 +499,15 @@ static void initialize_vcpu(unsigned int vcpu_index, void *userdata)
             regs->cr3 = descriptor.handle;
             regs->has_cr3 = true;
         }
+        if (!regs->has_gs_base && g_strcmp0(descriptor.name, "gs_base") == 0) {
+            regs->gs_base = descriptor.handle;
+            regs->has_gs_base = true;
+        }
+        if (!regs->has_k_gs_base &&
+            g_strcmp0(descriptor.name, "k_gs_base") == 0) {
+            regs->k_gs_base = descriptor.handle;
+            regs->has_k_gs_base = true;
+        }
     }
     g_array_free(descriptors, true);
     vcpu_file(vcpu_index);
@@ -317,7 +536,6 @@ QEMU_PLUGIN_EXPORT int qemu_plugin_install(qemu_plugin_id_t id,
                                            char **argv)
 {
     const char *output = NULL;
-    bool asid_given = false;
 
     if (!info->system_emulation) {
         fprintf(stderr, "vmhunt_trace requires QEMU system emulation\n");
@@ -332,7 +550,7 @@ QEMU_PLUGIN_EXPORT int qemu_plugin_install(qemu_plugin_id_t id,
             monitored_asid =
                 g_ascii_strtoull(argv[index] + strlen("asid="), NULL, 16) &
                 ~UINT64_C(0xfff);
-            asid_given = true;
+            asid_known = true;
         } else {
             fprintf(stderr, "vmhunt_trace: unknown option %s\n", argv[index]);
             return -1;
@@ -341,12 +559,6 @@ QEMU_PLUGIN_EXPORT int qemu_plugin_install(qemu_plugin_id_t id,
     if (!output || !*output) {
         fprintf(stderr,
                 "vmhunt_trace: required plugin option outfile=PATH missing\n");
-        return -1;
-    }
-    if (!asid_given) {
-        fprintf(stderr,
-                "vmhunt_trace: required plugin option asid=HEX missing; "
-                "refusing to trace the whole system\n");
         return -1;
     }
     if (cs_open(CS_ARCH_X86, CS_MODE_32, &capstone_handle) != CS_ERR_OK) {
@@ -358,7 +570,10 @@ QEMU_PLUGIN_EXPORT int qemu_plugin_install(qemu_plugin_id_t id,
 
     output_base = g_strdup(output);
     g_mutex_init(&disas_lock);
+    g_mutex_init(&scope_lock);
     insn_cache =
+        g_hash_table_new_full(g_int64_hash, g_int64_equal, NULL, g_free);
+    block_cache =
         g_hash_table_new_full(g_int64_hash, g_int64_equal, NULL, g_free);
 
     qemu_plugin_register_vcpu_init_cb(id, initialize_vcpu, NULL);

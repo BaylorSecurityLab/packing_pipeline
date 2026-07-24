@@ -1,24 +1,26 @@
 # Empirical Packer Type Labels
 
-Runtime-packer complexity labels on the **Ugarte et al. Type I–VI** scale (*SoK: Deep Packer Inspection*, IEEE S&P 2015), measured on the certified QEMU-TCG write→execute backend. Per Ugarte Sec V-C a Type is the **highest complexity observed** across runs (no-observation runs abstain; an observed Type is a lower bound). Conditions where no run observed unpacking are listed with a **source-grounded reason** — several are correctly not-unpacking (header mutators, pass-through) or tool/compat failures, consistent with the SoK's own exclusion of non-unpacking samples.
+Runtime-packer complexity on the **Ugarte Type I–VI** scale (*SoK: Deep Packer Inspection*, IEEE S&P 2015) via the certified QEMU-TCG write→execute oracle. Per Ugarte Sec V-C a Type is the **highest complexity observed** across runs (no-observation runs abstain). **TYPE_0** = transformation without runtime unpacking (PE-header/EP mutators). Remaining conditions carry the pipeline's own verdict (no unpacking observed / no execution / trace loss) — the SoK excludes non-unpacking samples, so these are a valid empirical outcome, not a labeling failure.
 
-**102 conditions** · 91 typed (82 exact-consensus, 9 max-observed) · 11 unresolved. 2026-07-24.
+**102 conditions** · 92 typed · 10 pipeline-unresolved. 2026-07-24.
 
 ## Type distribution
 | Type | Count |
 |------|------:|
+| TYPE_0 | 1 |
 | TYPE_I | 69 |
 | TYPE_II | 5 |
 | TYPE_III | 5 |
 | TYPE_IV | 7 |
 | TYPE_V-F | 1 |
 | TYPE_VI-F | 4 |
-| **UNRESOLVED** | 11 |
+| unresolved | 10 |
 
-## Typed packers (91)
+## Typed packers (92)
 
-| Packer family | Version | Test case | Empirical Type | Rule |
+| Packer family | Version | Test case | Type | Rule |
 |---|---|---|---|---|
+| astral_pe | 1.6.0.0 | ASTRAL_001_DEFAULT_MUTATION | **TYPE_0** | mutator |
 | acprotect_std_Standard__installer | ? | . | **TYPE_I** | exact |
 | beroexepacker | 1.00.2017.01.27 | BEP_001_DEFAULT | **TYPE_I** | exact |
 | eronona | 1.0 | ERONONA_001_DEFAULT | **TYPE_I** | exact |
@@ -111,18 +113,19 @@ Runtime-packer complexity labels on the **Ugarte et al. Type I–VI** scale (*So
 | pelock | 2.40 | . | **TYPE_VI-F** | exact |
 | zprotect | 1.4.2.0 | . | **TYPE_VI-F** | max-obs |
 
-## Unresolved — source-grounded (11)
+## Pipeline-unresolved (10)
 
-| Packer family | Version | Category | Why (empirical) |
-|---|---|---|---|
-| pezor | 3.3.0 | `anti_analysis_evasion` | Donut reflective-load + SGN decode (W->X) with fluctuate sleep-obfuscation + anti-debug (github.com/phra/PEzor); bailed at ~7K blocks before unpacking |
-| telock | 0.98 | `anti_debug_no_wx` | compressor+protector w/ anti-debug (tE!); 1.29M exec but no W->X observed - anti-debug bail or mapped load |
-| yoda_protector | 1.01.2 | `anti_debug_no_wx` | encrypt/decrypt protector w/ anti-debug (sourceforge.net/projects/yodap); no W->X observed |
-| yoda_protector | 1.03.2 | `anti_debug_no_wx` | encrypt/decrypt protector w/ anti-debug (sourceforge.net/projects/yodap); reps hit trace-loss/no-unpack |
-| yoda_protector | 1.03.3 | `anti_debug_no_wx` | encrypt/decrypt protector w/ anti-debug (sourceforge.net/projects/yodap); no W->X observed |
-| kkrunchy | 0.23_alpha_2 | `crash_incompatible` | LZMA-class depacker (W->X) but crashes (AV 0xC0000005) on modern PE per corpus known_issues |
-| astral_pe | 1.6.0.0 | `not_a_packer` | PE-header mutator (github.com/DosX-dev/Astral-PE); no runtime unpacking by design; SoK excludes non-unpacking samples |
-| armadillo | 252b2 | `on_demand_remote_unpacking` | nanomites + CopyMem-II page-fault/remote on-demand decryption; W->X oracle under-observes remote writes |
-| simpledpack | 0.5.3 | `output_nonfunctional` | LZMA-decompress+jmp-OEP W->X by design but only tested on hello-world (github.com/YuriSizuku/win-SimpleDpack); packed sample gets 0 exec on Win10 |
-| obsidium | 1.5.2.11 | `pass_through_or_virtualized` | needs .opf profile or no-ops to pass-through per known_issues; sample likely unprotected, else virtualizer |
-| themida | 3.2.4.34 | `virtualized` | code virtualization (Oreans Themida, multiple VM archs); observed TYPE_I outer layer; anti-VM defeats live per-instruction tracing |
+Empirical pipeline verdict; W→X oracle observed no unpacking (see manifest `needs_pipeline`; obsidium pending SHA-gate re-sample for pass-through).
+
+| Packer family | Version | Pipeline verdict |
+|---|---|---|
+| simpledpack | 0.5.3 | `no_execution` |
+| themida | 3.2.4.34 | `no_runs` |
+| armadillo | 252b2 | `no_unpacking_observed` |
+| kkrunchy | 0.23_alpha_2 | `no_unpacking_observed` |
+| obsidium | 1.5.2.11 | `no_unpacking_observed` |
+| pezor | 3.3.0 | `no_unpacking_observed` |
+| telock | 0.98 | `no_unpacking_observed` |
+| yoda_protector | 1.01.2 | `no_unpacking_observed` |
+| yoda_protector | 1.03.3 | `no_unpacking_observed` |
+| yoda_protector | 1.03.2 | `trace_loss` |

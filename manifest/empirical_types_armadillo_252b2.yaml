@@ -43,7 +43,5 @@ conditions:
   label_status: null
   confidence: 0.0
   paper_evidence_level: null
-  unresolved_category: on_demand_remote_unpacking
-  unresolved_reason: nanomites + CopyMem-II page-fault/remote on-demand decryption;
-    W->X oracle under-observes remote writes
-  unresolved_confidence: medium
+  pipeline_verdict: no_unpacking_observed
+  needs_pipeline: true

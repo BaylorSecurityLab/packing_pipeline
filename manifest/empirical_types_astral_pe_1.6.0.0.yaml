@@ -39,11 +39,9 @@ conditions:
   exact_trace_resolved_runs: 0
   exact_trace_distribution: {}
   dynamic_failure_reasons: {}
-  label: null
-  label_status: null
-  confidence: 0.0
+  label: TYPE_0
+  label_status: empirical_mutator_no_unpacking
+  confidence: 1.0
   paper_evidence_level: null
-  unresolved_category: not_a_packer
-  unresolved_reason: PE-header mutator (github.com/DosX-dev/Astral-PE); no runtime
-    unpacking by design; SoK excludes non-unpacking samples
-  unresolved_confidence: high
+  label_rule: TYPE_0 = transformation without runtime unpacking (PE-header/EP mutator);
+    no W->X exists by design
