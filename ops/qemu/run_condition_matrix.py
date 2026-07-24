@@ -46,6 +46,8 @@ RUNS = REPO / _cfg.get("runs_dir", "empirical_results/qemu_runtime/matrix_runs")
 JOBS = max(1, int(_cfg.get("jobs") or os.environ.get("LABEL_JOBS", "1")))
 HOST_TIMEOUT = str(int(_cfg.get("host_timeout") or
                        os.environ.get("LABEL_HOST_TIMEOUT", "1200")))
+WRITE_SETTLED = str(int(_cfg.get("write_settled_seconds") or
+                        os.environ.get("LABEL_WRITE_SETTLED", "0")))
 CLASSIFY_SEM = threading.Semaphore(
     max(1, int(os.environ.get("LABEL_CLASSIFY_JOBS", "4"))))
 
@@ -69,6 +71,7 @@ def run_one(image: Path, sha: str, name: str, rep: int) -> str:
          str(image), str(d / "work.qcow2"), str(d / "trace.jsonl"),
          "--meta", str(d / "meta.json"), "--log", str(d / "qemu.log"),
          "--monitor", str(mon), "--host-timeout", HOST_TIMEOUT,
+         "--write-settled-seconds", WRITE_SETTLED,
          "--guest-memory", "4G", "--qemu", str(QEMU), "--plugin", str(PLUGIN)],
         stdout=(d / "runner.out").open("w"), stderr=subprocess.STDOUT, cwd=str(REPO),
     )

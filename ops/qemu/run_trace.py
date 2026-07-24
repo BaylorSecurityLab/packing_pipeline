@@ -49,15 +49,17 @@ _ACTIVITY_MARKERS = (b'"event":"exec"', b'"event":"write"')
 _READ_OVERLAP = 64
 
 
-def _activity_and_started(trace: Path, offset: int) -> tuple[int, int, bool]:
-    """Return (new_activity_events, new_offset, saw_sample_start_in_new_bytes).
+def _activity_and_started(trace: Path, offset: int) -> tuple[int, int, int, bool]:
+    """Return (new_activity_events, new_writes, new_offset, saw_sample_start).
 
     Reads from _READ_OVERLAP bytes before `offset` so a marker split across two
-    polls by a partial stdio flush is still matched; activity is counted only in
-    the strictly-new bytes to avoid double counting the overlap region.
+    polls by a partial stdio flush is still matched; counts are taken only in the
+    strictly-new bytes to avoid double counting the overlap region.  new_writes is
+    counted separately so a continuous VM that has finished unpacking (still
+    executing, no longer writing) can be recognised as settled.
     """
     if not trace.exists():
-        return 0, offset, False
+        return 0, 0, offset, False
     seek_to = max(0, offset - _READ_OVERLAP)
     with trace.open("rb") as handle:
         handle.seek(seek_to)
@@ -66,54 +68,60 @@ def _activity_and_started(trace: Path, offset: int) -> tuple[int, int, bool]:
     overlap = offset - seek_to
     fresh = chunk[overlap:]
     activity = sum(fresh.count(marker) for marker in _ACTIVITY_MARKERS)
+    writes = fresh.count(b'"event":"write"')
     started = b'"event":"sample_start"' in chunk
-    return activity, new_offset, started
+    return activity, writes, new_offset, started
 
 
 def wait_or_host_idle(
     process, trace: Path, host_timeout: int, host_idle_seconds: int = HOST_IDLE_SECONDS,
-    no_start_seconds: int = NO_START_SECONDS,
-) -> tuple[int | None, bool, bool, bool]:
+    no_start_seconds: int = NO_START_SECONDS, write_settled_seconds: int = 0,
+) -> tuple[int | None, bool, bool, bool, bool]:
     """Wait for qemu, terminating early on the host-observed idle boundary.
 
-    Returns (return_code, host_timed_out, host_observed_idle, never_started).
-    host_observed_idle is set only when sample_start was seen AND activity strictly
-    ceased for host_idle_seconds — the paper's completion boundary measured in host
-    time.  never_started is set when sample_start was NEVER seen within
-    no_start_seconds — the sample loaded but its entrypoint never executed, so the
-    idle boundary can never arm and the run would otherwise burn the full timeout.
+    Returns (return_code, host_timed_out, host_observed_idle, never_started,
+    write_settled).  host_observed_idle is set only when sample_start was seen AND
+    activity strictly ceased for host_idle_seconds — the paper's completion boundary
+    measured in host time.  never_started is set when sample_start was NEVER seen
+    within no_start_seconds.  write_settled is set when writes (but not necessarily
+    execution) ceased for write_settled_seconds after sample_start — a continuous VM
+    interpreter that has finished unpacking keeps executing forever yet stops
+    writing, so it never trips host_observed_idle and would otherwise burn the full
+    host timeout with a runaway trace.  write_settled_seconds <= 0 DISABLES this
+    boundary (the default), preserving the exact prior completion semantics.
 
-    host_idle_seconds <= 0 DISABLES both the host-idle boundary and the no-start
-    boundary: the run then ends only on the guest's own clean completion (e.g. the
-    certification fixture's ExitProcess -> launcher stop marker, which is
-    event-driven and clock-immune) or the host timeout.  Use that for the fixture
-    cert, whose completion IS the stop marker; the boundaries are for real samples
-    that either never exit or never start.
+    host_idle_seconds <= 0 DISABLES the host-idle, no-start, and write-settled
+    boundaries: the run then ends only on the guest's own clean completion (the
+    certification fixture's ExitProcess -> launcher stop marker) or the host
+    timeout.  Use that for the fixture cert.
     """
     started_at = time.monotonic()
     offset = 0
     sample_started = False
     last_activity_at = started_at
+    last_write_at = started_at
     poll = 5.0
     while True:
         try:
             return_code = process.wait(timeout=poll)
-            return return_code, False, False, False  # guest ended on its own
+            return return_code, False, False, False, False  # guest ended on its own
         except subprocess.TimeoutExpired:
             pass
         now = time.monotonic()
-        activity, offset, saw_start = _activity_and_started(trace, offset)
+        activity, writes, offset, saw_start = _activity_and_started(trace, offset)
         if saw_start:
             sample_started = True
         if activity > 0:
             last_activity_at = now
+        if writes > 0:
+            last_write_at = now
         if now - started_at >= host_timeout:
             process.terminate()
             try:
-                return process.wait(timeout=60), True, False, False
+                return process.wait(timeout=60), True, False, False, False
             except subprocess.TimeoutExpired:
                 process.kill()
-                return process.wait(), True, False, False
+                return process.wait(), True, False, False, False
         if (
             host_idle_seconds > 0
             and not sample_started
@@ -122,10 +130,10 @@ def wait_or_host_idle(
         ):
             process.terminate()
             try:
-                return process.wait(timeout=60), False, False, True
+                return process.wait(timeout=60), False, False, True, False
             except subprocess.TimeoutExpired:
                 process.kill()
-                return process.wait(), False, False, True
+                return process.wait(), False, False, True, False
         if (
             host_idle_seconds > 0
             and sample_started
@@ -133,10 +141,22 @@ def wait_or_host_idle(
         ):
             process.terminate()
             try:
-                return process.wait(timeout=60), False, True, False
+                return process.wait(timeout=60), False, True, False, False
             except subprocess.TimeoutExpired:
                 process.kill()
-                return process.wait(), False, True, False
+                return process.wait(), False, True, False, False
+        if (
+            host_idle_seconds > 0
+            and write_settled_seconds > 0
+            and sample_started
+            and now - last_write_at >= write_settled_seconds
+        ):
+            process.terminate()
+            try:
+                return process.wait(timeout=60), False, False, False, True
+            except subprocess.TimeoutExpired:
+                process.kill()
+                return process.wait(), False, False, False, True
 
 
 def _backing_chain(base: Path) -> list[Path]:
@@ -218,6 +238,16 @@ def main() -> int:
         "many host seconds, the sample loaded but never executed -- terminate "
         "instead of burning the full host timeout. <=0 disables it; ignored "
         "entirely when --host-idle-seconds<=0 (fixture cert).",
+    )
+    parser.add_argument(
+        "--write-settled-seconds",
+        type=int,
+        default=0,
+        help="opt-in completion boundary for continuous VM interpreters: if no "
+        "WRITE events occur for this many host seconds after sample_start (even "
+        "while execution continues), unpacking has settled -- terminate instead of "
+        "burning the full host timeout on a runaway trace. <=0 disables it "
+        "(default), preserving the exact prior completion semantics.",
     )
     parser.add_argument(
         "--icount-shift",
@@ -366,10 +396,10 @@ def main() -> int:
     started = time.monotonic()
     with log.open("wb") as log_handle:
         process = subprocess.Popen(command, stdout=log_handle, stderr=log_handle)
-        return_code, host_timed_out, host_observed_idle, never_started = (
+        return_code, host_timed_out, host_observed_idle, never_started, write_settled = (
             wait_or_host_idle(
                 process, args.trace, args.host_timeout, args.host_idle_seconds,
-                args.no_start_seconds,
+                args.no_start_seconds, args.write_settled_seconds,
             )
         )
     elapsed = time.monotonic() - started
@@ -462,7 +492,7 @@ def main() -> int:
     # NOT a maximum-timeout truncation.  It only stands in when the guest could not
     # emit its own boundary (timer starvation during the post-unpack crawl).
     completion_observed = bool(
-        (summary and summary.get("saw_stop")) or host_observed_idle
+        (summary and summary.get("saw_stop")) or host_observed_idle or write_settled
     )
     metadata = {
         "schema_version": 1,
@@ -482,6 +512,7 @@ def main() -> int:
         "host_timed_out": host_timed_out,
         "host_observed_idle": host_observed_idle,
         "never_started": never_started,
+        "write_settled": write_settled,
         "guest_timed_out": guest_timed_out,
         "guest_idle": guest_idle,
         "guest_query_failed": guest_query_failed,
@@ -502,6 +533,7 @@ def main() -> int:
             if guest_unrecovered_exception
             else "two_minutes_idle" if guest_idle
             else "two_minutes_idle_host_observed" if host_observed_idle
+            else "unpacking_settled_write_idle" if write_settled
             else "status_query_failure" if guest_query_failed
             else "all_monitored_processes_exited"
         ),
