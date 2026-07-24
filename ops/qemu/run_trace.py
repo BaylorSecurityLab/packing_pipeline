@@ -240,6 +240,18 @@ def main() -> int:
         "entirely when --host-idle-seconds<=0 (fixture cert).",
     )
     parser.add_argument(
+        "--transparent", action="store_true",
+        help="anti-VM transparency: use a realistic CPU model with -hypervisor to "
+        "hide QEMU's CPUID hypervisor bit/vendor leaf and brand string, so anti-VM "
+        "packers (telock/yoda/armadillo) do not bail to an evasion path. Off by "
+        "default; the certified 91 labels used the default qemu64.",
+    )
+    parser.add_argument(
+        "--cpu-model", dest="cpu_model", default="qemu64",
+        help="QEMU -cpu model (default qemu64 = certified). With --transparent a "
+        "realistic model like Nehalem/Haswell hides the QEMU brand string.",
+    )
+    parser.add_argument(
         "--write-settled-seconds",
         type=int,
         default=0,
@@ -356,7 +368,11 @@ def main() -> int:
         "-accel",
         "tcg,thread=single",
         "-cpu",
-        "qemu64",
+        # transparency: a realistic Intel model + -hypervisor clears the CPUID
+        # hypervisor-present bit (leaf 1 ECX[31]) and the 0x40000000 vendor leaf, and
+        # replaces the "QEMU Virtual CPU" brand string that anti-VM packers detect.
+        # Default keeps the certified qemu64 so labeled results are unaffected.
+        (args.cpu_model + ",-hypervisor" if args.transparent else args.cpu_model),
         "-m",
         args.guest_memory,
         "-smp",
