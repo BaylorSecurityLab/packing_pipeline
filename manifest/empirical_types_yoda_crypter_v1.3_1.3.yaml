@@ -41,7 +41,12 @@ conditions:
     TYPE_II: 5
     TYPE_I: 1
   dynamic_failure_reasons: {}
-  label: null
-  label_status: null
-  confidence: 0.0
+  label: TYPE_II
+  label_status: empirical_max_observed_complexity
+  confidence: 0.833
   paper_evidence_level: null
+  max_observed_evidence:
+    TYPE_II: 5
+    TYPE_I: 1
+  label_rule: 'Ugarte SoK Sec V-C: highest complexity observed; no-observation reps
+    abstain'

@@ -40,7 +40,12 @@ conditions:
   exact_trace_distribution:
     TYPE_VI-F: 1
   dynamic_failure_reasons: {}
-  label: null
-  label_status: null
-  confidence: 0.0
+  label: TYPE_VI-F
+  label_status: empirical_max_observed_complexity
+  confidence: 0.167
   paper_evidence_level: null
+  max_observed_evidence:
+    UNRESOLVED_NO_UNPACKING_OBSERVED: 5
+    TYPE_VI-F: 1
+  label_rule: 'Ugarte SoK Sec V-C: highest complexity observed; no-observation reps
+    abstain'

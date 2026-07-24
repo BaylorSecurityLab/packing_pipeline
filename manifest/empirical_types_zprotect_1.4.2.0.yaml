@@ -44,7 +44,13 @@ conditions:
   dynamic_failure_reasons:
     missing_metadata: 6
   taxonomy_hypothesis: null
-  label: null
-  label_status: null
-  confidence: 0.0
+  label: TYPE_VI-F
+  label_status: empirical_max_observed_complexity
+  confidence: 0.167
   paper_evidence_level: null
+  max_observed_evidence:
+    TYPE_IV: 4
+    TYPE_I: 1
+    TYPE_VI-F: 1
+  label_rule: 'Ugarte SoK Sec V-C: highest complexity observed; no-observation reps
+    abstain'

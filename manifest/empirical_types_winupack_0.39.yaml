@@ -42,7 +42,13 @@ conditions:
     TYPE_III: 3
     TYPE_V-F: 2
   dynamic_failure_reasons: {}
-  label: null
-  label_status: null
-  confidence: 0.0
+  label: TYPE_V-F
+  label_status: empirical_max_observed_complexity
+  confidence: 0.333
   paper_evidence_level: null
+  max_observed_evidence:
+    TYPE_IV: 1
+    TYPE_III: 3
+    TYPE_V-F: 2
+  label_rule: 'Ugarte SoK Sec V-C: highest complexity observed; no-observation reps
+    abstain'
