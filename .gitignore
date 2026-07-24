@@ -32,7 +32,7 @@ keystone/
 wclang/
 
 # local working notes / large refs — not tracked
-docs/
+documents/
 
 # --- Manual test / diagnostic scratch artifacts (not part of the pipeline) ---
 _fsg_test/
